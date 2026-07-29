@@ -5584,6 +5584,16 @@ textarea.systemic-form-field{overflow:hidden;resize:none}
   box-shadow: rgba(180, 180, 180, .2) 0 0 0 3px;
 }
 
+#careTreatmentManagerModal.is-detail .lira-treatment-application-days li.is-partial::before {
+  background: #f8ac59;
+  box-shadow: rgba(248, 172, 89, .22) 0 0 0 3px;
+}
+
+#careTreatmentManagerModal.is-detail .lira-treatment-application-days li.is-cancelled::before {
+  background: #ed5565;
+  box-shadow: rgba(237, 85, 101, .2) 0 0 0 3px;
+}
+
 .lira-treatment-day-content {
   min-height: 47.5px;
   padding: 0 0 20px;
@@ -5624,6 +5634,16 @@ textarea.systemic-form-field{overflow:hidden;resize:none}
   box-shadow: rgba(180, 180, 180, .3) 0 0 0 3px;
 }
 
+.lira-treatment-application-days .is-partial .lira-treatment-day-time {
+  background: #f8ac59;
+  box-shadow: rgba(248, 172, 89, .3) 0 0 0 3px;
+}
+
+.lira-treatment-application-days .is-cancelled .lira-treatment-day-time {
+  background: #ed5565;
+  box-shadow: rgba(237, 85, 101, .3) 0 0 0 3px;
+}
+
 #careTreatmentManagerModal.is-detail .lira-treatment-application-days h4 {
   margin: 0;
   border: 0;
@@ -5633,6 +5653,16 @@ textarea.systemic-form-field{overflow:hidden;resize:none}
   font-size: 14px;
   font-weight: 600;
   line-height: 16.8px;
+  white-space: nowrap;
+}
+
+#careTreatmentManagerModal.is-detail .lira-treatment-application-days .lira-treatment-day-time small {
+  display: block;
+  margin-top: 1px;
+  color: rgba(255, 255, 255, .9);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.1;
   white-space: nowrap;
 }
 
@@ -11989,6 +12019,27 @@ textarea.systemic-form-field::placeholder {
   box-shadow: #fff 0 0 0 3px inset;
 }
 
+#careTreatmentManagerModal.is-detail .lira-treatment-exact .care-treatment-cycle.is-pending {
+  border-color: #e5e7e9;
+  background: #f2f3f4;
+  box-shadow: #fff 0 0 0 3px inset;
+  color: #9da3a8;
+}
+
+#careTreatmentManagerModal.is-detail .lira-treatment-exact .care-treatment-cycle.is-partial {
+  border-color: #f8ac59;
+  background: #f8ac59;
+  box-shadow: #fff 0 0 0 3px inset;
+  color: #fff;
+}
+
+#careTreatmentManagerModal.is-detail .lira-treatment-exact .care-treatment-cycle.is-cancelled {
+  border-color: #ed5565;
+  background: #ed5565;
+  box-shadow: #fff 0 0 0 3px inset;
+  color: #fff;
+}
+
 #careTreatmentManagerModal.is-detail .lira-treatment-exact .care-treatment-cycle.is-selected {
   border-width: 2px;
   box-shadow: #fff 0 0 0 3px inset;
@@ -12002,6 +12053,40 @@ textarea.systemic-form-field::placeholder {
   color: #bbb;
   opacity: 1;
 }
+
+.care-treatment-cycle-legend {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  border-bottom: 1px solid #eef0f2;
+  padding: 0 12px 8px;
+  color: #8b9297;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.care-treatment-cycle-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.care-treatment-cycle-legend i {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #b4b4b4;
+}
+
+.care-treatment-cycle-legend .is-completed i { background: #5cb85c; }
+.care-treatment-cycle-legend .is-current i { background: #0e9aef; }
+.care-treatment-cycle-legend .is-pending i { background: #b4b4b4; }
+.care-treatment-cycle-legend .is-partial i { background: #f8ac59; }
+.care-treatment-cycle-legend .is-cancelled i { background: #ed5565; }
 
 #careTreatmentManagerModal.is-detail .lira-treatment-exact .care-treatment-detail-tabs {
   margin-top: 8px;

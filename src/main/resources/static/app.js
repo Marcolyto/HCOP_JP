@@ -5771,9 +5771,29 @@ function renderCareExactCycleStrip(detail) {
   return (detail.cycles || []).map((cycle) => {
     const number = Number(cycle.number);
     const active = number === Number(selected?.number);
-    const state = cycle.state === "completed" ? "is-completed" : cycle.disabled ? "is-pending" : "is-current";
-    return `<button class="care-treatment-cycle ${state}${active ? " is-selected" : ""}" type="button" data-care-manager-cycle="${number}" aria-pressed="${String(active)}"${cycle.disabled ? " disabled" : ""}><span>Ciclo ${number}</span></button>`;
+    const rawState = String(cycle.state || "pending").trim().toLowerCase();
+    const state = rawState === "completed" ? "is-completed"
+      : ["cancelled", "canceled", "suspended", "paused"].includes(rawState) ? "is-cancelled"
+      : rawState === "partial" ? "is-partial"
+      : rawState === "current" ? "is-current"
+      : "is-pending";
+    const stateLabel = state === "is-completed" ? "Realizado"
+      : state === "is-cancelled" ? "Suspendido"
+      : state === "is-partial" ? "Parcial"
+      : state === "is-current" ? "Actual"
+      : "Pendiente";
+    return `<button class="care-treatment-cycle ${state}${active ? " is-selected" : ""}" type="button" data-care-manager-cycle="${number}" aria-label="Ciclo ${number}: ${stateLabel}" title="Ciclo ${number} · ${stateLabel}" aria-pressed="${String(active)}"${cycle.disabled ? " disabled" : ""}><span>Ciclo ${number}</span></button>`;
   }).join("");
+}
+
+function renderCareExactCycleLegend() {
+  return `<div class="care-treatment-cycle-legend" aria-label="Referencia de estados de ciclo">
+    <span class="is-completed"><i></i>Realizado</span>
+    <span class="is-current"><i></i>Actual</span>
+    <span class="is-pending"><i></i>Pendiente</span>
+    <span class="is-partial"><i></i>Parcial</span>
+    <span class="is-cancelled"><i></i>Suspendido</span>
+  </div>`;
 }
 
 function careTreatmentValueWithUnit(value, unit) {
@@ -5813,24 +5833,39 @@ function careApplicationMedicationIcon(status) {
 function renderCareExactApplicationDays(cycle, observationLabel = "Signos vitales y Obs.") {
   const days = Array.isArray(cycle?.days) ? cycle.days : [];
   if (!days.length) return `<div class="care-treatment-detail-empty">Este ciclo aún no tiene aplicaciones registradas.</div>`;
-  const application = (cycle.applications || [])[0] || null;
   return `<ol class="lira-treatment-application-days">${days.map((day, index) => {
     const storedMedications = Array.isArray(day.medications) ? day.medications : [];
-    const usesPlannedDrugs = !storedMedications.length && !day.rest && Number(day.day) === 1;
-    const medications = usesPlannedDrugs ? (cycle.drugs || []).map((drug) => ({
+    const plannedDrugs = (cycle.drugs || []).filter((drug) =>
+      careTreatmentApplicationDayNumbers(drug.applicationDays).includes(Number(day.day)));
+    const usesPlannedDrugs = !storedMedications.length && !day.rest;
+    const medications = usesPlannedDrugs ? plannedDrugs.map((drug) => ({
       drugName: drug.drugName,
       actualDoseText: drug.prescribedDoseText,
       prescribedDoseText: "",
       status: "planned"
     })) : storedMedications;
-    const visualState = day.status === "completed" ? "is-completed" : medications.length ? "is-current" : "is-pending";
-    const observationButton = index === 0 && application?.applicationId
-      ? `<button class="lira-treatment-observation-trigger" type="button" data-care-manager-detail-action="observation" data-application-id="${escapeAttr(application.applicationId)}"><i data-lucide="calendar-check"></i><span>${escapeHtml(observationLabel)}</span></button>`
+    const rawState = String(day.status || "pending").trim().toLowerCase();
+    const visualState = rawState === "completed" ? "is-completed"
+      : ["cancelled", "canceled", "suspended", "paused"].includes(rawState) ? "is-cancelled"
+      : rawState === "partial" ? "is-partial"
+      : rawState === "current" ? "is-current"
+      : "is-pending";
+    const stateLabel = visualState === "is-completed" ? "Realizada"
+      : visualState === "is-cancelled" ? "Suspendida"
+      : visualState === "is-partial" ? "Parcial"
+      : visualState === "is-current" ? "Actual"
+      : "Pendiente";
+    const application = (cycle.applications || []).find((candidate) =>
+      Number(candidate.applicationDay) === Number(day.day)) ||
+      (index === 0 ? (cycle.applications || [])[0] : null);
+    const applicationId = day.applicationId || application?.applicationId;
+    const observationButton = applicationId
+      ? `<button class="lira-treatment-observation-trigger" type="button" data-care-manager-detail-action="observation" data-application-id="${escapeAttr(applicationId)}"><i data-lucide="calendar-check"></i><span>${escapeHtml(observationLabel)}</span></button>`
       : "";
     const content = day.rest
       ? `<strong class="lira-treatment-rest">DESCANSO</strong>`
       : `${observationButton}${medications.map((medication) => `<p class="is-${escapeAttr(medication.status || "planned")}">${usesPlannedDrugs || medication.status === "planned" ? "" : `<i data-lucide="${careApplicationMedicationIcon(medication.status)}"></i>`}<span>${escapeHtml(medication.drugName)}:</span> ${escapeHtml(medication.actualDoseText || medication.prescribedDoseText || "")}${medication.prescribedDoseText && medication.actualDoseText ? ` <small>(${escapeHtml(medication.prescribedDoseText)})</small>` : ""}</p>`).join("")}`;
-    return `<li class="${visualState}"><div class="lira-treatment-day-content">${content}</div><div class="lira-treatment-day-time"><h4>Día ${escapeHtml(day.day)}</h4></div></li>`;
+    return `<li class="${visualState}" aria-label="Día ${escapeAttr(day.day)}: ${escapeAttr(stateLabel)}"><div class="lira-treatment-day-content">${content}</div><div class="lira-treatment-day-time" title="${escapeAttr(stateLabel)}"><h4>Día ${escapeHtml(day.day)}</h4><small>${escapeHtml(stateLabel)}</small></div></li>`;
   }).join("")}</ol>`;
 }
 
@@ -5992,6 +6027,7 @@ function careTreatmentManagerDetailMarkup(item, pane, detail = careTreatmentMana
       </header>
       ${renderCareTreatmentLocalSummary(item, detail, cycle)}
       <div class="care-treatment-cycles" aria-label="Ciclos del tratamiento">${renderCareExactCycleStrip(detail)}</div>
+      ${renderCareExactCycleLegend()}
       <nav class="care-treatment-detail-tabs" aria-label="Detalle del tratamiento"><button type="button" data-care-manager-detail-pane="drugs" class="${activePane === "drugs" ? "active" : ""}">Drogas</button><button type="button" data-care-manager-detail-pane="applications" class="${activePane === "applications" ? "active" : ""}">Aplicaciones</button></nav>
       <section class="care-treatment-detail-pane" data-care-manager-detail-content="${escapeAttr(activePane)}">${paneMarkup}</section>
     </article>`;

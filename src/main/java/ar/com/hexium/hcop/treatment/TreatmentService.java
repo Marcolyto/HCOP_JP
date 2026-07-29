@@ -41,6 +41,7 @@ public class TreatmentService {
   private final Clock clock;
   private final InfusionService infusions;
   private final TreatmentProtocolCompatibility compatibility;
+  private final TreatmentCycleTimeline cycleTimeline;
 
   public TreatmentService(
       TreatmentRepository treatments,
@@ -50,7 +51,8 @@ public class TreatmentService {
       ObjectMapper mapper,
       Clock clock,
       InfusionService infusions,
-      TreatmentProtocolCompatibility compatibility) {
+      TreatmentProtocolCompatibility compatibility,
+      TreatmentCycleTimeline cycleTimeline) {
     this.treatments = treatments;
     this.catalog = catalog;
     this.patients = patients;
@@ -59,6 +61,7 @@ public class TreatmentService {
     this.clock = clock;
     this.infusions = infusions;
     this.compatibility = compatibility;
+    this.cycleTimeline = cycleTimeline;
   }
 
   public List<Map<String, Object>> list(long patientId) {
@@ -201,46 +204,14 @@ public class TreatmentService {
       List<Map<String, Object>> sessions = infusions.list(patientId, null).stream()
           .filter(item -> treatmentId.equals(String.valueOf(item.get("treatmentId"))))
           .toList();
-      int activeCycle = treatment.initialCycle();
-      boolean foundActive = false;
       for (JsonNode value : object.path("cycles")) {
         if (!(value instanceof ObjectNode cycle)) continue;
-        int number = cycle.path("number").asInt();
         if ((!cycle.path("drugs").isArray() || cycle.path("drugs").isEmpty()) && scheme != null) {
-          cycle.set("drugs", extractDrugs(scheme.definition(), number));
+          cycle.set("drugs", extractDrugs(scheme.definition(), cycle.path("number").asInt()));
           object.put("protocolSnapshotRecovered", true);
         }
-        List<Map<String, Object>> cycleSessions = sessions.stream()
-            .filter(item -> number == Integer.parseInt(String.valueOf(item.get("cycleNumber"))))
-            .toList();
-        ArrayNode applications = mapper.createArrayNode();
-        ArrayNode days = mapper.createArrayNode();
-        boolean completed = false;
-        for (Map<String, Object> session : cycleSessions) {
-          ObjectNode application = mapper.valueToTree(session);
-          application.put("date", String.valueOf(session.getOrDefault("scheduledAt", "")));
-          application.put("applicationId", String.valueOf(session.getOrDefault("id", "")));
-          application.set("vitals", mapper.createObjectNode());
-          application.set("observations", mapper.createArrayNode());
-          applications.add(application);
-          ObjectNode day = days.addObject();
-          day.put("day", 1);
-          String status = String.valueOf(session.getOrDefault("clinicalStatus", "planned"));
-          day.put("status", "completed".equals(status) ? "completed" : "planned");
-          day.put("rest", false);
-          day.set("medications", application.path("medications").deepCopy());
-          completed |= "completed".equals(status);
-        }
-        cycle.set("applications", applications);
-        cycle.set("days", days);
-        cycle.put("state", completed ? "completed" : "planned");
-        cycle.put("disabled", false);
-        if (!foundActive && !completed) {
-          activeCycle = number;
-          foundActive = true;
-        }
       }
-      object.put("activeCycle", activeCycle);
+      cycleTimeline.enrich(object, sessions);
     }
     return Map.of("ok", true, "patientId", Long.toString(patientId), "treatmentId", treatmentId, "detail", detail);
   }
@@ -409,6 +380,7 @@ public class TreatmentService {
     ObjectNode availability = detail.putObject("documentAvailability");
     availability.put("prescription", false);
     availability.set("treatmentSheetCycles", actionCycles.deepCopy());
+    cycleTimeline.enrich(detail, List.of());
     return detail;
   }
 

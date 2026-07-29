@@ -64,7 +64,11 @@ automáticas e inmutables.
 - **Tratamientos**: abre detalle longitudinal, ciclos, aplicaciones y
   documentos. Al seleccionar un ciclo, **Drogas** muestra la composición del
   protocolo prescripto: nombre, dosis, método de cálculo, días, vía y tiempo de
-  administración.
+  administración. Los ciclos usan el lenguaje visual de Lira: verde realizado,
+  celeste actual, gris pendiente, ámbar parcial y rojo suspendido. La pestaña
+  **Aplicaciones** conserva todos los días previstos por el protocolo en un
+  árbol vertical alternado y superpone los datos reales sin ocultar las ramas
+  que todavía están pendientes.
 - **Escanear QR**: identifica el ciclo a administrar y deja trazabilidad.
 
 ## Configuración clínica

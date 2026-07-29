@@ -68,8 +68,14 @@ automáticas e inmutables.
   celeste actual, gris pendiente, ámbar parcial y rojo suspendido. La pestaña
   **Aplicaciones** conserva todos los días previstos por el protocolo en un
   árbol vertical alternado y superpone los datos reales sin ocultar las ramas
-  que todavía están pendientes.
+  que todavía están pendientes. El turno y el estado de Farmacia aparecen como
+  indicadores de sólo lectura: para cambiar esos datos se usan exclusivamente
+  las pestañas **Farmacia** y **Sillones**.
 - **Escanear QR**: identifica el ciclo a administrar y deja trazabilidad.
+
+El recorrido operativo es único: **Nuevo tratamiento → Farmacia → Sillones →
+Tratamientos**. El detalle final permite comprobar el plan y lo administrado,
+pero no abre un segundo programador ni una segunda vista de Farmacia.
 
 ## Configuración clínica
 

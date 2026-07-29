@@ -1,5 +1,14 @@
 # Flujo de tratamiento y Hospital de Día
 
+El flujo avanza en una sola dirección:
+
+**Nuevo tratamiento → Farmacia → Sillones → Tratamientos**
+
+Farmacia y Sillones son las únicas superficies operativas. En el detalle de
+Tratamientos, el turno y el estado de Farmacia son indicadores de sólo lectura;
+no abren formularios o ventanas alternativas. Drogas, Aplicaciones y documentos
+sirven para consultar el plan indicado y comprobar su ejecución longitudinal.
+
 ## 1. Diagnóstico
 
 El paciente debe tener un diagnóstico guardado. Puede incluir SNOMED, CIE-10,

@@ -4991,8 +4991,7 @@ const CARE_TREATMENT_MANAGER_VIEWS = {
     ],
     actions: [
       { name: "new", label: "Nuevo tratamiento", icon: "plus", primary: true },
-      { name: "view", label: "Ver detalle", icon: "eye", selection: true },
-      { name: "schedule", label: "Turnos en Hospital de dia", icon: "calendar-plus", selection: true }
+      { name: "view", label: "Ver detalle", icon: "eye", selection: true }
     ]
   },
   "non-oncological": {
@@ -5334,7 +5333,6 @@ function handleCareTreatmentManagerAction(event) {
   const record = selectedCareTreatmentManagerRecord();
   if (!record) return;
   if (action === "view") openCareTreatmentManagerDetailFromSurface(record, "drugs");
-  else if (action === "schedule") openCareInfusionModal(careTreatmentManagerRecordId(record));
   else if (action === "edit-workflow") openCareTreatmentWorkflowModal(careTreatmentManagerState.tab, record);
   else if (action === "archive-workflow") archiveCareTreatmentWorkflow(record);
 }
@@ -5907,42 +5905,6 @@ function renderCareExactApplications(detail, cycle) {
   return `${renderCareExactApplicationDays(cycle, observationLabel)}${renderCareExactObservationModal(detail)}`;
 }
 
-function renderCareExactHospitalDay(item, cycle) {
-  const treatmentId = careTreatmentManagerRecordId(item);
-  const sessions = careTreatmentSessions(item);
-  const visible = sessions.filter((session) => !cycle || Number(careField(session, "cycleNumber", "cycle_number")) === Number(cycle.number));
-  const scheduledSession = visible.find((session) =>
-    careField(session, "clinicalStatus", "clinical_status") !== "cancelled" &&
-    Boolean(careField(session, "scheduledAt", "scheduled_at")));
-  const scheduleLabel = scheduledSession
-    ? "Ver turno en Sillones"
-    : cycle?.disabled ? "Gestionar ciclo en Sillones" : "Asignar en Sillones";
-  const scheduleIcon = scheduledSession ? "calendar-search" : cycle?.disabled ? "clipboard-clock" : "calendar-plus";
-  return `<section class="lira-hospital-day-branch"><header><div><small>Hospital de dia</small><h4>Ciclo ${escapeHtml(cycle?.number || "")}</h4></div><button class="tool-button primary" type="button" data-care-manager-detail-action="schedule" data-treatment-id="${escapeAttr(treatmentId)}" data-cycle-number="${escapeAttr(cycle?.number || "")}" data-session-id="${escapeAttr(careField(scheduledSession, "id", "sessionId"))}" data-scheduled-date="${escapeAttr(careLocalDateKey(careField(scheduledSession, "scheduledAt", "scheduled_at")))}"><i data-lucide="${scheduleIcon}"></i><span>${scheduleLabel}</span></button></header>${visible.length ? visible.map((session) => {
-    const clinical = careField(session, "clinicalStatus", "clinical_status") || "planned";
-    const pharmacy = careField(session, "pharmacyStatus", "pharmacy_status") || "pending";
-    const administration = careField(session, "administrationStatus", "administration_status") || "not_started";
-    const next = getCareInfusionNextStep(session);
-    const sessionId = careField(session, "id", "sessionId");
-    const version = careField(session, "revision", "version") || "1";
-    return `<article class="lira-hospital-session"><div><strong>${escapeHtml(formatCareDateTime(careField(session, "scheduledAt", "scheduled_at")))}</strong><span>${careField(session, "chair", "sillon") ? `Sillon ${escapeHtml(careField(session, "chair", "sillon"))}` : "Sin sillon asignado"}</span></div><dl><div><dt>Estado clinico</dt><dd>${escapeHtml(CARE_INFUSION_LABELS[clinical] || clinical)}</dd></div><div><dt>Farmacia</dt><dd>${escapeHtml(CARE_INFUSION_LABELS[pharmacy] || pharmacy)}</dd></div><div><dt>Administracion</dt><dd>${escapeHtml(CARE_INFUSION_LABELS[administration] || administration)}</dd></div></dl>${next ? `<button class="tool-button primary" type="button" data-care-infusion-action="advance" data-infusion-id="${escapeAttr(sessionId)}" data-version="${escapeAttr(version)}"><i data-lucide="arrow-right"></i><span>${escapeHtml(next.label)}</span></button>` : `<span class="care-badge ${escapeAttr(careInfusionVisualState(clinical))}">${escapeHtml(CARE_INFUSION_LABELS[clinical] || clinical)}</span>`}</article>`;
-  }).join("") : `<div class="care-treatment-detail-empty care-treatment-actionable-empty"><i data-lucide="calendar-plus"></i><strong>Este ciclo todavía no tiene turno.</strong><span>Programe la aplicación para continuar con farmacia, sillón y administración.</span></div>`}</section>`;
-}
-
-function renderCareExactPharmacy(item, cycle) {
-  const treatmentId = careTreatmentManagerRecordId(item);
-  const session = careInfusions.find((candidate) => careField(candidate, "treatmentId", "treatment_id") === treatmentId && Number(careField(candidate, "cycleNumber", "cycle_number")) === Number(cycle?.number));
-  const medicationStates = new Map((session?.medications || []).map((medication) => [normalizeSearchText(careField(medication, "drugName", "drug_name")), medication]));
-  const drugs = Array.isArray(cycle?.drugs) ? cycle.drugs : [];
-  const pharmacyStatus = careField(session, "pharmacyStatus", "pharmacy_status");
-  return `<section class="lira-pharmacy-branch"><header><div><small>Farmacia</small><h4>Preparacion del ciclo ${escapeHtml(cycle?.number || "")}</h4></div><span class="care-badge">${escapeHtml(CARE_INFUSION_LABELS[pharmacyStatus] || pharmacyStatus || "Pendiente de turno")}</span></header>${!session ? `<div class="care-treatment-local-next-step"><span>Primero asigne un turno para habilitar la recepción y preparación de medicación.</span><button class="tool-button primary" type="button" data-care-manager-detail-pane="day-hospital"><i data-lucide="calendar-plus"></i><span>Ir a Hospital de día</span></button></div>` : ""}<div>${drugs.map((drug) => {
-    const medication = medicationStates.get(normalizeSearchText(drug.drugName));
-    const preparation = careField(medication, "preparationStatus", "preparation_status") || "pending";
-    const administration = careField(medication, "administrationStatus", "administration_status") || "not_started";
-    return `<article><div><strong>${escapeHtml(drug.drugName)}</strong><span>${escapeHtml(drug.prescribedDoseText || "")}${drug.route ? ` · ${escapeHtml(drug.route)}` : ""}</span></div><dl><div><dt>Preparacion</dt><dd>${escapeHtml(CARE_INFUSION_LABELS[preparation] || preparation)}</dd></div><div><dt>Administracion</dt><dd>${escapeHtml(CARE_INFUSION_LABELS[administration] || administration)}</dd></div></dl></article>`;
-  }).join("") || `<div class="care-treatment-detail-empty">No hay drogas para preparar en este ciclo.</div>`}</div></section>`;
-}
-
 function renderCareExactDocuments(detail, cycle, patientId, treatmentId) {
   const actions = detail.actions || {};
   const availability = detail.documentAvailability || {};
@@ -5953,7 +5915,7 @@ function renderCareExactDocuments(detail, cycle, patientId, treatmentId) {
     sheetEnabled && ["treatment-sheet", "Descargar hoja de tratamiento", "Hoja tratamiento", "clipboard-down", { cycle: cycle.number }, sheetAvailable || !detail.documentAvailability],
     cycle?.number && ["qr", "Abrir QR para imprimir", "QR", "qr-code", { cycle: cycle.number }, true]
   ].filter(Boolean);
-  return `<div class="lira-treatment-downloads" aria-label="Documentos del tratamiento">${links.map(([kind, label, shortLabel, icon, parameters, available]) => available
+  return `<div class="lira-treatment-downloads" aria-label="Documentos y actualización del tratamiento"><button class="lira-treatment-document-button" type="button" data-care-manager-detail-action="refresh-detail" title="Actualizar estados del tratamiento" aria-label="Actualizar estados del tratamiento"><i data-lucide="refresh-cw"></i><span>Actualizar</span></button>${links.map(([kind, label, shortLabel, icon, parameters, available]) => available
     ? `<a class="lira-treatment-document-button" href="${escapeAttr(careTreatmentDocumentUrl(patientId, treatmentId, kind, parameters))}" target="_blank" rel="noopener" title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}"><i data-lucide="${escapeAttr(icon)}"></i><span>${escapeHtml(shortLabel)}</span></a>`
     : `<button class="lira-treatment-document-button" type="button" disabled title="${escapeAttr(`${label}: documento no disponible en la base clínica local`)}" aria-label="${escapeAttr(`${label}: no disponible`)}"><i data-lucide="${escapeAttr(icon)}"></i><span>${escapeHtml(shortLabel)}</span></button>`).join("")}</div>`;
 }
@@ -5993,10 +5955,11 @@ function renderCareTreatmentLocalSummary(item, detail, cycle) {
     ${calculationRows.length ? `<div class="care-treatment-local-calculation" aria-label="Datos de cálculo">${calculationRows.map(([label, value]) => `<span><small>${escapeHtml(label)}</small><b>${escapeHtml(value)}</b></span>`).join("")}</div>` : ""}
     ${observations ? `<p><strong>Observaciones</strong><span>${escapeHtml(observations)}</span></p>` : ""}
     ${!detail.schemeFound ? `<p class="care-treatment-local-notice"><i data-lucide="info"></i><span>El tratamiento está registrado. El detalle de drogas se completará cuando el esquema esté disponible en Protocolos.</span></p>` : ""}
-    <div class="care-treatment-local-statuses">
-      <button type="button" data-care-manager-detail-pane="day-hospital"><i data-lucide="calendar-clock"></i><span><small>Turno · Ciclo ${escapeHtml(cycle?.number || "")}</small><strong>${escapeHtml(appointmentStatus)}</strong></span><i data-lucide="chevron-right"></i></button>
-      <button type="button" data-care-manager-detail-pane="pharmacy"><i data-lucide="pill"></i><span><small>Farmacia</small><strong>${escapeHtml(CARE_INFUSION_LABELS[pharmacyStatus] || pharmacyStatus || "Pendiente de turno")}</strong></span><i data-lucide="chevron-right"></i></button>
+    <div class="care-treatment-local-statuses" role="status" aria-live="polite" aria-label="Estado operativo del ciclo seleccionado">
+      <div class="care-treatment-local-status"><i data-lucide="calendar-clock"></i><span><small>Turno · Ciclo ${escapeHtml(cycle?.number || "")}</small><strong>${escapeHtml(appointmentStatus)}</strong></span></div>
+      <div class="care-treatment-local-status"><i data-lucide="pill"></i><span><small>Farmacia</small><strong>${escapeHtml(CARE_INFUSION_LABELS[pharmacyStatus] || pharmacyStatus || "Pendiente de turno")}</strong></span></div>
     </div>
+    <p class="care-treatment-operational-hint"><i data-lucide="info"></i><span>Estados de consulta. La gestión continúa en las pestañas Farmacia y Sillones.</span></p>
   </section>`;
 }
 
@@ -6009,19 +5972,17 @@ function careTreatmentManagerDetailMarkup(item, pane, detail = careTreatmentMana
   const patientId = getActiveLiraPatientId();
   if (!detail) return `<button class="tool-button care-treatment-detail-back" type="button" data-care-manager-detail-action="back"><i data-lucide="arrow-left"></i><span>Volver a tratamientos</span></button><div class="lira-treatment-loading"><i data-lucide="loader-circle"></i><strong>Cargando datos del tratamiento...</strong><span>Plan, ciclos, drogas, aplicaciones y estados operativos.</span></div>`;
   const cycle = careTreatmentExactCycle(detail);
-  const allowedPanes = new Set(["drugs", "applications", "day-hospital", "pharmacy"]);
+  const allowedPanes = new Set(["drugs", "applications"]);
   const activePane = allowedPanes.has(pane) ? pane : "drugs";
   const statusClass = careTreatmentDetailStatusClass(status);
-  const paneMarkup = activePane === "drugs" ? renderCareExactDrugs(cycle)
-    : activePane === "applications" ? renderCareExactApplications(detail, cycle)
-    : activePane === "day-hospital" ? renderCareExactHospitalDay(item, cycle)
-    : renderCareExactPharmacy(item, cycle);
+  const paneMarkup = activePane === "drugs"
+    ? renderCareExactDrugs(cycle)
+    : renderCareExactApplications(detail, cycle);
   return `<button class="tool-button care-treatment-detail-back lira-treatment-list-back" type="button" data-care-manager-detail-action="back" aria-label="Volver a tratamientos" title="Volver a tratamientos"><i data-lucide="arrow-left"></i><span>Volver a tratamientos</span></button>
     <article class="care-treatment-detail-card lira-treatment-exact${detail.localView ? " is-local-view" : ""}">
       <header class="lira-treatment-overview-header">
         <div class="lira-treatment-title"><h3>Tratamiento para ${escapeHtml(title)}</h3><span class="care-badge ${escapeAttr(statusClass)}">${escapeHtml(status)}</span><span class="care-treatment-duration-chip" title="${escapeAttr(careTreatmentDurationTitle(item))}"><i data-lucide="clock-3"></i>${escapeHtml(duration)}</span></div>
         <div class="lira-treatment-header-tools">
-          <nav class="lira-treatment-branch-nav" aria-label="Gestión local del tratamiento"><button type="button" data-care-manager-detail-pane="day-hospital" class="${activePane === "day-hospital" ? "active" : ""}"><i data-lucide="syringe"></i><span>Hospital de día</span></button><button type="button" data-care-manager-detail-pane="pharmacy" class="${activePane === "pharmacy" ? "active" : ""}"><i data-lucide="pill"></i><span>Farmacia</span></button><button type="button" data-care-manager-detail-action="refresh-detail"><i data-lucide="refresh-cw"></i><span>${detail.localView ? "Actualizar estados" : "Actualizar detalle"}</span></button></nav>
           <div class="lira-treatment-heading-actions">${renderCareExactDocuments(detail, cycle, patientId, treatmentId)}</div>
         </div>
       </header>
@@ -6103,68 +6064,6 @@ function openCareTreatmentManagerDetail(item, pane = "drugs", { cycleNumber = 0 
   output.querySelector("button")?.focus();
 }
 
-async function openCareScheduleFromTreatmentDetail(actionButton, item) {
-  const patientId = getActiveLiraPatientId();
-  const treatmentId = String(actionButton?.dataset.treatmentId || careTreatmentManagerRecordId(item));
-  const cycleNumber = Math.max(1, Number(actionButton?.dataset.cycleNumber) || Number(careTreatmentExactCycle(careTreatmentManagerState.exactDetail)?.number) || 1);
-  const sessionId = String(actionButton?.dataset.sessionId || "");
-  const scheduledDate = String(actionButton?.dataset.scheduledDate || "");
-  const patientName = getLiraPatientName(state?.patient);
-  const patientSearch = patientName.replace(/[,;]+/g, " ").replace(/\s+/g, " ").trim();
-  const search = $("#careScheduleCandidateSearch");
-  if (search) search.value = patientName === "Paciente sin nombre" ? "" : patientSearch;
-  careScheduleSelectedCandidateId = "";
-  if (/^\d{4}-\d{2}-\d{2}$/.test(scheduledDate)) setCareScheduleDate(scheduledDate);
-  setCareHospitalTab("chairs");
-  await loadCareSchedule();
-
-  const scheduledSession = careScheduleInfusions.find((session) =>
-    (sessionId && String(session.id) === sessionId) ||
-    (String(session.patientId || "") === patientId &&
-      String(session.treatmentId || "") === treatmentId &&
-      Number(session.cycleNumber) === cycleNumber &&
-      session.clinicalStatus !== "cancelled"));
-  if (scheduledSession) {
-    const actualDate = careLocalDateKey(scheduledSession.scheduledAt);
-    if (actualDate && actualDate !== selectedCareScheduleDate()) {
-      setCareScheduleDate(actualDate);
-      await loadCareSchedule();
-    }
-    const chair = careScheduleChair(scheduledSession.chair);
-    const viewport = careScheduleChairViewport();
-    if (chair && (chair < viewport.first || chair > viewport.last)) {
-      careScheduleChairOffset = Math.max(0, Math.min(
-        viewport.total - viewport.visible,
-        chair - Math.ceil(viewport.visible / 2)
-      ));
-      renderCareSchedule();
-    }
-    renderCareScheduleSearchHighlights();
-    const appointment = $(`[data-care-schedule-infusion="${CSS.escape(String(scheduledSession.id))}"]`);
-    appointment?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
-    toast("Turno resaltado en Sillones");
-    return;
-  }
-
-  const candidate = careScheduleCandidates.find((entry) =>
-    String(entry.patientId || "") === patientId &&
-    String(entry.treatmentId || "") === treatmentId &&
-    Number(entry.cycleNumber) === cycleNumber);
-  if (!candidate) {
-    toast("El ciclo no está disponible para asignar en Sillones");
-    return;
-  }
-  const filter = $("#careScheduleCandidateFilter");
-  if (filter) filter.value = "prescribed";
-  const blockedReason = careScheduleCandidateBlockedReason(candidate);
-  careScheduleSelectedCandidateId = blockedReason ? "" : String(candidate.id);
-  renderCareScheduleCandidates();
-  renderCareScheduleAvailability();
-  const candidateCard = $(`[data-care-schedule-candidate="${CSS.escape(String(candidate.id))}"]`);
-  candidateCard?.scrollIntoView?.({ block: "nearest" });
-  toast(blockedReason || "Ciclo seleccionado para asignar en Sillones");
-}
-
 async function handleCareTreatmentManagerDetailAction(event) {
   const item = selectedCareTreatmentManagerRecord();
   const cycleButton = event.target.closest("[data-care-manager-cycle]");
@@ -6193,8 +6092,6 @@ async function handleCareTreatmentManagerDetailAction(event) {
     if ($("#careTreatmentManagerDetail")) $("#careTreatmentManagerDetail").hidden = true;
     renderCareTreatmentManagerPatientSummary();
     renderCareTreatmentManager();
-  } else if (action === "schedule") {
-    await openCareScheduleFromTreatmentDetail(actionButton, item);
   } else if (action === "observation" && item) {
     careTreatmentManagerState.observationApplicationId = String(actionButton?.dataset.applicationId || "");
     event.currentTarget.innerHTML = careTreatmentManagerDetailMarkup(item, careTreatmentManagerState.detailPane);
@@ -6581,7 +6478,6 @@ async function handleCareTreatmentHierarchyAction(event) {
   if (!record) return;
   careTreatmentManagerState.selectedId = treatmentId;
   if (actionButton.dataset.careHierarchyAction === "detail") openCareTreatmentManagerDetailFromSurface(record, "drugs");
-  else if (actionButton.dataset.careHierarchyAction === "schedule") openCareInfusionModal(treatmentId);
 }
 
 async function loadCareInfusions() {

@@ -299,7 +299,7 @@
         <h2>H. de día</h2>
         <p>El botón <strong>Hospital de día</strong> abre un único modal que integra, en este orden, <strong>Nuevo tratamiento</strong>, <strong>Farmacia</strong>, <strong>Sillones</strong> y <strong>Tratamientos</strong>. Farmacia queda antes que Sillones porque confirma la medicación antes de asignar el turno. Sillones y Farmacia muestran la operación general aunque no haya una historia abierta; Tratamientos y Nuevo tratamiento heredan el paciente activo o, si falta, muestran una explicación y la acción <strong>Abrir paciente</strong>.</p>
         <div class="doc-callout"><strong>Un solo espacio de trabajo:</strong> ya no hay un botón ni una ventana aparte para el turnero, ni un segundo modal legado. Cambiar de pestaña conserva la fecha, los filtros y el contexto disponible sin duplicar información.</div>
-        <p>La pestaña H. de día de la mitad derecha presenta el flujo integrado. “Tratamientos y aplicaciones” organiza la información como tarjetas: cerradas resumen plan, estado, duración estimada y fechas límite; abiertas muestran una cronología de todos los ciclos, incluso los que todavía no tienen turno. Las acciones operativas permanecen en Sillones y en el detalle amplio para no duplicar controles.</p>
+        <p>La pestaña H. de día de la mitad derecha presenta el flujo integrado. “Tratamientos y aplicaciones” organiza la información como tarjetas: cerradas resumen plan, estado, duración estimada y fechas límite; abiertas muestran una cronología de todos los ciclos, incluso los que todavía no tienen turno. Las acciones operativas se realizan exclusivamente en <strong>Farmacia</strong> y <strong>Sillones</strong>; Tratamientos queda como consulta longitudinal para no duplicar controles.</p>
         <div class="doc-callout warning"><strong>Duración para agenda:</strong> expresa el tiempo operativo estimado del turno/sillón. No son los días entre ciclos y no reemplaza los tiempos de administración indicados. Al dejar el puntero sobre el valor se muestra su procedencia.</div>
         <div class="doc-callout"><strong>Diferencia útil:</strong> Tratamiento responde “qué plan se indicó y cómo está compuesto”; Hospital de día responde “cuándo y en qué estado se administró cada ciclo”. Al desplegar una tarjeta se ven juntos porque pertenecen a la misma cadena asistencial.</div>
 
@@ -307,7 +307,6 @@
         <ul>
           <li><strong>Tarjeta cerrada:</strong> diagnóstico/esquema, estado, duración estimada, primera fecha y última fecha disponible.</li>
           <li><strong>Botón + o encabezado:</strong> despliega todos los ciclos indicados. Cada uno diferencia fecha prevista o plan actualizado, turno real, sillón, estado clínico, Farmacia y Administración. “Aplicado” significa que la sesión activa del ciclo terminó; “Pendiente” indica que todavía no existe un turno.</li>
-          <li><strong>Asignar / Ver turno en Sillones:</strong> cambia a la agenda del mismo Hospital de día, conserva el paciente y el ciclo seleccionados y resalta su tarjeta o su turno. Ya no abre un formulario manual separado; si el ciclo está suspendido, lleva a su gestión antes de permitir asignarlo.</li>
           <li><strong>Buscar:</strong> filtra por los valores visibles del tratamiento.</li>
           <li><strong>Fecha y estado:</strong> acotan aplicaciones; “Limpiar” restaura todos los resultados.</li>
           <li><strong>Nuevo tratamiento:</strong> abre el formulario con antecedentes desplegables, diagnóstico, carácter, tipo, esquema, ciclos, fecha prevista del primer ciclo, consentimiento, observaciones y requisitos del esquema. Al elegir esquema, cantidad y fecha muestra el intervalo, la duración de sillón y las fechas orientativas de los ciclos. Al guardar crea además una evolución completa en la hoja izquierda con esos datos, peso, talla en cm, IMC, superficie corporal y demás cálculos disponibles; esa entrada de sistema es inmutable y un reintento no la duplica.</li>
@@ -363,7 +362,8 @@
         <div class="doc-callout"><strong>Historia clínica automática:</strong> enviar, resolver, suspender o reactivar crea inmediatamente una evolución visible como texto plano en la hoja blanca. Incluye usuario activo, matrícula cuando existe, fecha, esquema, ciclo, destinatario, mensaje, motivo y fecha de reactivación. La evolución es generada por el sistema, inmutable e idempotente, y el evento original permanece en la auditoría PostgreSQL.</div>
 
         <h3 id="detalle-tratamiento">Detalle, consentimiento y documentos</h3>
-        <p>El ojo de cada fila abre el tratamiento completo. Allí se muestran Drogas, Aplicaciones, Hospital de día y Farmacia. La banda superior ofrece acceso directo a los documentos que están disponibles en la base clínica y su almacén local:</p>
+        <p>El ojo de cada fila abre el tratamiento completo. Allí se muestran <strong>Drogas</strong>, <strong>Aplicaciones</strong>, ciclos, documentos y dos indicadores de sólo lectura: turno del ciclo seleccionado y estado de Farmacia. Esos indicadores ya no abren ventanas ni acciones duplicadas. La operación continúa siempre en las pestañas principales <strong>Farmacia</strong> y <strong>Sillones</strong>. La banda superior ofrece acceso directo a los documentos disponibles en la base clínica y su almacén local:</p>
+        <div class="doc-callout"><strong>Recorrido único:</strong> Nuevo tratamiento → Farmacia → Sillones → Tratamientos. La última etapa sirve para comprobar el plan, su composición y lo realmente aplicado; no permite retroceder a un programador manual alternativo.</div>
         <div class="doc-callout"><strong>Tratamientos creados en HCOP JP:</strong> el detalle está disponible inmediatamente desde PostgreSQL, con los ciclos y las drogas del snapshot del protocolo indicado. No requiere abrir, consultar ni sincronizar Lira. Si todavía no existen aplicaciones, la sección se muestra vacía y el tratamiento continúa siendo operable.</div>
         <ul>
           <li><strong>Icono de hoja azul antes del ojo:</strong> existe consentimiento; al pulsarlo descarga o abre el PDF.</li>
@@ -371,9 +371,8 @@
           <li><strong>Prescripción:</strong> descarga la prescripción almacenada; aparece deshabilitada cuando ese documento no está disponible.</li>
           <li><strong>Hoja tratamiento:</strong> genera/descarga la hoja del ciclo seleccionado.</li>
           <li><strong>QR:</strong> genera la identificación exacta del paciente, tratamiento y ciclo seleccionado; puede usar la referencia local aunque no exista un identificador histórico de aplicación.</li>
-          <li><strong>Actualizar detalle:</strong> vuelve a pedir ciclos, drogas, aplicaciones, farmacia y documentos sin cerrar el tratamiento.</li>
-          <li><strong>Hospital de día:</strong> muestra sesiones del ciclo, estados y el próximo avance operativo.</li>
-          <li><strong>Farmacia:</strong> muestra preparación/liberación y las drogas relacionadas.</li>
+          <li><strong>Actualizar:</strong> vuelve a pedir ciclos, drogas, aplicaciones, estados operativos y documentos sin cerrar el tratamiento.</li>
+          <li><strong>Turno y Farmacia:</strong> informan el estado del ciclo seleccionado sin comportarse como botones.</li>
         </ul>
 
         <h3 id="modal">Modal amplio de Hospital de día</h3>
@@ -384,7 +383,6 @@
           <li>use el icono de consentimiento antes del ojo;</li>
           <li>pulse el ojo para abrir el detalle sin tener que seleccionar primero la fila;</li>
           <li>“Nuevo tratamiento” crea un plan;</li>
-          <li>“Turnos en Hospital de día” programa o consulta aplicaciones para el tratamiento seleccionado;</li>
           <li>la tabla muestra todos los registros y usa desplazamiento interno sólo si realmente hace falta.</li>
         </ul>
       </section>
@@ -498,7 +496,6 @@
               <tr data-filter-item><td>H. de día</td><td>Nuevo tratamiento</td><td>Abre la carga de un plan terapéutico para el paciente activo.</td><td>Es la primera pestaña; sin paciente ofrece abrir uno antes de continuar.</td></tr>
               <tr data-filter-item><td>H. de día</td><td>Farmacia</td><td>Gestiona la ubicación de la medicación por ciclo y el acceso al QR disponible.</td><td>No requiere paciente activo y reúne los ciclos pendientes de todos los pacientes.</td></tr>
               <tr data-filter-item><td>H. de día</td><td>Sillones</td><td>Abre la agenda general por fecha, horario y sillón.</td><td>No requiere paciente activo; asigna, reprograma o devuelve tratamientos a espera.</td></tr>
-              <tr data-filter-item><td>Tratamiento · Hospital de día</td><td>Asignar / Ver turno en Sillones</td><td>Lleva el ciclo visible a la agenda integrada y resalta el candidato o el turno existente.</td><td>No crea por sí solo una aplicación ni abre el formulario manual heredado; la asignación se completa en la grilla, con disponibilidad y superposiciones visibles.</td></tr>
               <tr data-filter-item><td>Sillones</td><td>Gestionar</td><td>Abre las decisiones del tratamiento y ciclo de esa tarjeta.</td><td>Ofrece sólo acciones permitidas y evita turnar ciclos bloqueados.</td></tr>
               <tr data-filter-item><td>Gestionar ciclo</td><td>Suspender</td><td>Registra una suspensión transitoria o definitiva con motivo.</td><td>La transitoria admite fecha y exige nueva prescripción para reactivar; la definitiva retira futuros candidatos.</td></tr>
               <tr data-filter-item><td>Gestionar ciclo</td><td>Solicitar prescripción</td><td>Envía el ciclo a un médico habilitado.</td><td>Bloquea el turno hasta su confirmación o rechazo; no permite duplicar una pendiente.</td></tr>
@@ -549,9 +546,8 @@
               <tr data-filter-item><td>Tratamiento</td><td>Hoja roja</td><td>Informa consentimiento faltante o pendiente.</td><td>No es pulsable; el tooltip explica el estado.</td></tr>
               <tr data-filter-item><td>Tratamiento</td><td>Drogas</td><td>Muestra componentes del esquema.</td><td>Trabaja sobre el tratamiento abierto.</td></tr>
               <tr data-filter-item><td>Tratamiento</td><td>Aplicaciones</td><td>Muestra ciclos y aplicaciones persistidos por el motor interno.</td><td>Permite abrir observaciones y signos vitales.</td></tr>
-              <tr data-filter-item><td>Tratamiento</td><td>Hospital de día</td><td>Muestra sesiones y avance operativo.</td><td>Permite programar una nueva aplicación.</td></tr>
-              <tr data-filter-item><td>Tratamiento</td><td>Farmacia</td><td>Muestra preparación y liberación.</td><td>Refleja el flujo clínico integrado.</td></tr>
-              <tr data-filter-item><td>Tratamiento</td><td>Actualizar detalle</td><td>Recarga el tratamiento abierto.</td><td>No reconstruye toda la HC.</td></tr>
+              <tr data-filter-item><td>Tratamiento</td><td>Estado Turno / Farmacia</td><td>Muestra el turno y el estado logístico del ciclo seleccionado.</td><td>Es información de sólo lectura; los cambios se realizan en las pestañas Farmacia y Sillones.</td></tr>
+              <tr data-filter-item><td>Tratamiento</td><td>Actualizar</td><td>Recarga el tratamiento abierto y sus estados.</td><td>No reconstruye toda la HC ni cambia el flujo.</td></tr>
               <tr data-filter-item><td>Tratamiento</td><td>Prescripción</td><td>Descarga el documento almacenado para ese tratamiento.</td><td>Gris/deshabilitado significa no disponible.</td></tr>
               <tr data-filter-item><td>Tratamiento</td><td>Hoja tratamiento</td><td>Descarga la hoja del ciclo.</td><td>Necesita un ciclo identificable.</td></tr>
               <tr data-filter-item><td>Tratamiento</td><td>QR</td><td>Genera identificación del paciente, tratamiento y ciclo.</td><td>Usa una referencia local exacta; si existe un ID de aplicación de origen también se conserva.</td></tr>

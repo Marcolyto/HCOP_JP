@@ -3911,33 +3911,27 @@ textarea.systemic-form-field{overflow:hidden;resize:none}
   gap: 8px;
 }
 
-.care-treatment-local-statuses button {
+.care-treatment-local-status {
   display: grid;
   min-width: 0;
   min-height: 45px;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 9px;
-  border: 1px solid #cddce4;
-  background: #f7fbfd;
+  border: 1px solid #e1e7eb;
+  background: #fafbfc;
   padding: 7px 10px;
-  color: #314955;
+  color: #596970;
   text-align: left;
 }
 
-.care-treatment-local-statuses button:hover,
-.care-treatment-local-statuses button:focus-visible {
-  border-color: #1b9bd7;
-  background: #edf8fe;
-  color: #087fc4;
-}
-
-.care-treatment-local-statuses button > svg {
+.care-treatment-local-status > svg {
   width: 17px;
   height: 17px;
+  color: #829099;
 }
 
-.care-treatment-local-statuses button > span {
+.care-treatment-local-status > span {
   display: grid;
   min-width: 0;
   gap: 2px;
@@ -3950,29 +3944,19 @@ textarea.systemic-form-field{overflow:hidden;resize:none}
   white-space: nowrap;
 }
 
-.care-treatment-local-next-step,
-.care-treatment-actionable-empty {
-  display: flex;
+.care-treatment-operational-hint {
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border: 1px solid #cfe1ea;
-  background: #f5fafc;
-  padding: 10px 12px;
-  color: #506772;
+  color: #76858d !important;
 }
 
-.care-treatment-actionable-empty {
-  min-height: 120px;
-  flex-direction: column;
-  justify-content: center;
-  text-align: center;
+.care-treatment-operational-hint svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
 }
 
-.care-treatment-actionable-empty svg {
-  width: 24px;
-  height: 24px;
-  color: #1b9bd7;
+#careTreatmentManagerModal.is-detail .care-treatment-local-summary {
+  border-bottom: 0;
 }
 
 @media (max-width: 920px) {
@@ -3999,10 +3983,6 @@ textarea.systemic-form-field{overflow:hidden;resize:none}
     border-right: 0;
   }
 
-  .care-treatment-local-next-step {
-    align-items: stretch;
-    flex-direction: column;
-  }
 }
 
 .clinical-document .doc-entry {
@@ -9102,40 +9082,6 @@ textarea:focus {
   box-shadow: inset 0 -1px 0 var(--lira-accent);
 }
 
-.lira-treatment-branch-nav {
-  display: flex;
-  justify-content: flex-end;
-  gap: 5px;
-  border-bottom: 1px solid var(--lira-border);
-  background: #f8f8f9;
-  padding: 7px 12px;
-}
-
-.lira-treatment-branch-nav button {
-  display: inline-flex;
-  min-height: 30px;
-  align-items: center;
-  gap: 5px;
-  border: 1px solid #d9e0e4;
-  border-radius: 3px;
-  background: #fff;
-  padding: 5px 9px;
-  color: #676a6c;
-  font-size: 9px;
-}
-
-.lira-treatment-branch-nav button:hover,
-.lira-treatment-branch-nav button.active {
-  border-color: var(--lira-accent);
-  background: #eef8fe;
-  color: #087fc4;
-}
-
-.lira-treatment-branch-nav svg {
-  width: 13px;
-  height: 13px;
-}
-
 .lira-treatment-exact .care-treatment-detail-pane {
   min-height: 360px;
   padding: 16px;
@@ -9199,9 +9145,7 @@ textarea:focus {
   font-size: 11px;
 }
 
-.lira-treatment-applications-head,
-.lira-hospital-day-branch > header,
-.lira-pharmacy-branch > header {
+.lira-treatment-applications-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -9211,24 +9155,18 @@ textarea:focus {
   padding: 10px 12px;
 }
 
-.lira-treatment-applications-head > div,
-.lira-hospital-day-branch > header > div,
-.lira-pharmacy-branch > header > div {
+.lira-treatment-applications-head > div {
   display: grid;
   gap: 2px;
 }
 
-.lira-treatment-applications-head small,
-.lira-hospital-day-branch small,
-.lira-pharmacy-branch small {
+.lira-treatment-applications-head small {
   color: #90979b;
   font-size: 8px;
   text-transform: uppercase;
 }
 
-.lira-treatment-applications-head strong,
-.lira-hospital-day-branch h4,
-.lira-pharmacy-branch h4 {
+.lira-treatment-applications-head strong {
   margin: 0;
   color: #2f4050;
   font-size: 12px;
@@ -9498,60 +9436,6 @@ textarea:focus {
   padding: 10px 16px;
 }
 
-.lira-hospital-day-branch,
-.lira-pharmacy-branch {
-  border: 1px solid var(--lira-border);
-}
-
-.lira-hospital-session,
-.lira-pharmacy-branch > div > article {
-  display: grid;
-  grid-template-columns: minmax(170px, 1fr) minmax(360px, 2fr) auto;
-  align-items: center;
-  gap: 14px;
-  border-bottom: 1px solid var(--lira-border);
-  padding: 11px 12px;
-}
-
-.lira-hospital-session > div:first-child,
-.lira-pharmacy-branch article > div:first-child {
-  display: grid;
-  gap: 3px;
-}
-
-.lira-hospital-session > div:first-child span,
-.lira-pharmacy-branch article > div:first-child span {
-  color: #90979b;
-  font-size: 9px;
-}
-
-.lira-hospital-session dl,
-.lira-pharmacy-branch article dl {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin: 0;
-}
-
-.lira-pharmacy-branch article dl {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.lira-hospital-session dt,
-.lira-pharmacy-branch article dt {
-  color: #90979b;
-  font-size: 8px;
-  text-transform: uppercase;
-}
-
-.lira-hospital-session dd,
-.lira-pharmacy-branch article dd {
-  margin: 2px 0 0;
-  color: #2f4050;
-  font-size: 10px;
-  font-weight: 750;
-}
-
 @media (max-width: 1050px) {
   .care-treatment-manager-patient {
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -9596,11 +9480,6 @@ textarea:focus {
     gap: 22px !important;
   }
 
-  .lira-treatment-branch-nav {
-    justify-content: flex-start;
-    overflow-x: auto;
-  }
-
   .lira-vital-grid {
     grid-template-columns: 1fr;
   }
@@ -9622,10 +9501,6 @@ textarea:focus {
     grid-column: 1;
   }
 
-  .lira-hospital-session,
-  .lira-pharmacy-branch > div > article {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* El detalle amplio funciona como la hoja blanca de Tratamiento en Lira. */
@@ -11852,13 +11727,6 @@ textarea.systemic-form-field::placeholder {
   gap: 6px;
 }
 
-#careTreatmentManagerModal.is-detail .lira-treatment-overview-header .lira-treatment-branch-nav {
-  gap: 5px;
-  border: 0;
-  background: transparent;
-  padding: 0;
-}
-
 #careTreatmentManagerModal.is-detail .lira-treatment-overview-header .lira-treatment-heading-actions {
   position: static;
 }
@@ -12185,21 +12053,6 @@ textarea.systemic-form-field::placeholder {
   font-weight: 700;
 }
 
-#careTreatmentManagerModal.is-detail .lira-treatment-branch-nav {
-  align-items: center;
-  border-top: 0;
-  border-bottom: 1px solid #e7eaec;
-  background: #fff;
-  padding: 10px 16px;
-}
-
-#careTreatmentManagerModal.is-detail .lira-treatment-branch-nav > span:first-child {
-  margin-right: auto;
-  color: #a7b1c2;
-  font-size: 9px;
-  text-transform: uppercase;
-}
-
 @media (max-width: 1050px) {
   #careTreatmentManagerModal.is-detail .lira-treatment-exact .care-treatment-drug-cards {
     grid-template-columns: 1fr;
@@ -12221,11 +12074,6 @@ textarea.systemic-form-field::placeholder {
 
   .lira-treatment-header-tools {
     min-width: 0;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-
-  #careTreatmentManagerModal.is-detail .lira-treatment-overview-header .lira-treatment-branch-nav {
     flex-wrap: wrap;
     justify-content: center;
   }

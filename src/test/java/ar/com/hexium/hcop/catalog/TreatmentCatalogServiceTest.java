@@ -41,5 +41,10 @@ class TreatmentCatalogServiceTest {
     assertThat(schemes)
         .extracting(item -> String.valueOf(item.get("nombre")))
         .anyMatch(name -> name.toUpperCase().contains("MAMA"));
+    assertThat(catalog.scheme("347"))
+        .isPresent()
+        .get()
+        .extracting(TreatmentCatalogService.Scheme::durationMinutes)
+        .isEqualTo(120);
   }
 }

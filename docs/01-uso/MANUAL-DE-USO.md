@@ -68,9 +68,10 @@ automáticas e inmutables.
 
 ## Configuración clínica
 
-- **Protocolos** combina los protocolos propios con el catálogo COIR pendiente
-  de completar. El contador superior informa ambos orígenes; al convertir un
-  registro COIR se completan drogas, preparación, ciclo y duración.
+- **Protocolos** combina los protocolos propios con el catálogo COIR. Los
+  registros importados muestran su duración, drogas y preparación disponibles;
+  al convertir uno en protocolo propio esos datos se precargan para revisión y
+  pueden completarse antes de guardarlo.
 - **Plantillas anatómicas** muestra la biblioteca incluida con sus miniaturas,
   licencia y atribución en modo de consulta. Las plantillas propias pueden
   agregarse, editarse o desactivarse.

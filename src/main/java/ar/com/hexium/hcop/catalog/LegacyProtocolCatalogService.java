@@ -79,6 +79,51 @@ public class LegacyProtocolCatalogService {
     return snapshot().drugNames();
   }
 
+  public List<Map<String, Object>> clinicalComponents(String schemeId) {
+    Object value = detail(schemeId, "coir").get("drugs");
+    if (!(value instanceof List<?> rows)) return List.of();
+    List<Map<String, Object>> result = new ArrayList<>();
+    for (Object row : rows) {
+      if (row instanceof Map<?, ?> map) result.add(component(stringMap(map)));
+    }
+    return List.copyOf(result);
+  }
+
+  public List<Map<String, Object>> searchableDrugs() {
+    Snapshot current = snapshot();
+    Set<String> ids = new LinkedHashSet<>();
+    ids.addAll(current.applications().keySet());
+    ids.addAll(current.presentations().keySet());
+    List<Map<String, Object>> result = new ArrayList<>();
+    for (String id : ids) {
+      List<Map<String, Object>> applications = current.applications().getOrDefault(id, List.of());
+      List<Map<String, Object>> presentations = current.presentations().getOrDefault(id, List.of());
+      String name = applications.stream().map(item -> text(item.get("monodroga")))
+          .filter(item -> !item.isBlank()).findFirst()
+          .orElseGet(() -> presentations.stream().map(item -> text(item.get("monodroga")))
+              .filter(item -> !item.isBlank()).findFirst().orElse(""));
+      if (id.isBlank() || name.isBlank()) continue;
+      Map<String, Object> drug = new LinkedHashMap<>();
+      drug.put("id", id);
+      drug.put("name", name);
+      drug.put("nombre", name);
+      drug.put("genericName", name);
+      drug.put("brand", "");
+      drug.put("presentation", presentations.stream()
+          .map(this::presentationLabel).filter(item -> !item.isBlank()).distinct()
+          .reduce((left, right) -> left + " / " + right).orElse(""));
+      drug.put("form", "");
+      drug.put("laboratory", "");
+      drug.put("source", "catalogo-coir");
+      drug.put("instructions", applications.stream().map(this::preparation).toList());
+      drug.put("presentations", presentations.stream().map(this::presentation).toList());
+      result.add(drug);
+    }
+    result.sort(Comparator.comparing(
+        item -> text(item.get("name")), String.CASE_INSENSITIVE_ORDER));
+    return List.copyOf(result);
+  }
+
   private Snapshot snapshot() {
     Snapshot value = snapshot;
     if (value != null) return value;
@@ -189,6 +234,91 @@ public class LegacyProtocolCatalogService {
     Map<String, List<Map<String, Object>>> groups = new HashMap<>();
     rows.forEach(row -> groups.computeIfAbsent(text(row.get("idDroga")), ignored -> new ArrayList<>()).add(row));
     return groups;
+  }
+
+  private Map<String, Object> component(Map<String, Object> source) {
+    Map<String, Object> result = new LinkedHashMap<>();
+    result.put("id", text(source.get("id")));
+    result.put("drugId", text(source.get("idDroga")));
+    result.put("drugName", text(source.get("droga")));
+    result.put("day", text(source.get("dia")));
+    result.put("prescribedDoseText", text(source.get("dosisDiaria")));
+    result.put("doseCalculationMethod", text(source.get("calculoDosis")));
+    result.put("route", text(source.get("viaAdministracion")));
+    result.put("administrationTime", text(source.get("tiempoAdministracion")));
+    result.put("dayHospital", !"0".equals(text(source.get("seAplicaEnHdd"))));
+    result.put("applications", mapList(source.get("applications")).stream()
+        .map(this::preparation).toList());
+    result.put("presentations", mapList(source.get("presentations")).stream()
+        .map(this::presentation).toList());
+    result.put("sourcePayload", source);
+    return result;
+  }
+
+  private Map<String, Object> preparation(Map<String, Object> source) {
+    Map<String, Object> result = new LinkedHashMap<>();
+    result.put("id", text(source.get("id")));
+    result.put("drugId", text(source.get("idDroga")));
+    result.put("drugName", text(source.get("monodroga")));
+    result.put("presentationReferences", text(source.get("presentaciones")));
+    result.put("reconstituent", text(source.get("reconstituyente")));
+    result.put("concentration", text(source.get("concentracion")));
+    result.put("diluent", text(source.get("diluyente")));
+    result.put("finalVolume", text(source.get("volumenFinal")));
+    result.put("route", text(source.get("viaAdministracion")));
+    result.put("stabilityRoomTemperature", firstText(
+        source, "estabilidadTemp", "estabilidadTA"));
+    result.put("stabilityRefrigerated", firstText(
+        source, "estabilidadFrio", "estabilidadF"));
+    result.put("laboratory", text(source.get("laboratorio")));
+    result.put("photosensitive", truthy(source.get("fotosensible")));
+    result.put("infusionGuide", text(source.get("guiaInfusion")));
+    result.put("preparationObservations", text(source.get("observacionesPreparacion")));
+    result.put("labelObservations", text(source.get("observacionesEtiqueta")));
+    result.put("sourcePayload", source);
+    return result;
+  }
+
+  private Map<String, Object> presentation(Map<String, Object> source) {
+    Map<String, Object> result = new LinkedHashMap<>(source);
+    result.put("id", text(source.get("id")));
+    result.put("drugId", text(source.get("idDroga")));
+    result.put("drugName", text(source.get("monodroga")));
+    result.put("display", presentationLabel(source));
+    return result;
+  }
+
+  private String presentationLabel(Map<String, Object> source) {
+    String amount = text(source.get("cantidad"));
+    return amount.isBlank() ? text(source.get("presentaciones")) : amount;
+  }
+
+  private List<Map<String, Object>> mapList(Object value) {
+    if (!(value instanceof List<?> list)) return List.of();
+    List<Map<String, Object>> result = new ArrayList<>();
+    for (Object item : list) {
+      if (item instanceof Map<?, ?> map) result.add(stringMap(map));
+    }
+    return result;
+  }
+
+  private Map<String, Object> stringMap(Map<?, ?> value) {
+    Map<String, Object> result = new LinkedHashMap<>();
+    value.forEach((key, item) -> result.put(String.valueOf(key), item));
+    return result;
+  }
+
+  private String firstText(Map<String, Object> source, String... keys) {
+    for (String key : keys) {
+      String value = text(source.get(key));
+      if (!value.isBlank()) return value;
+    }
+    return "";
+  }
+
+  private boolean truthy(Object value) {
+    String normalized = text(value).toLowerCase(Locale.ROOT);
+    return Set.of("1", "true", "si", "sí", "yes").contains(normalized);
   }
 
   private Map<String, Map<String, Object>> index(List<Map<String, Object>> values) {

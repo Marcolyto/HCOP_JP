@@ -2,6 +2,7 @@ package ar.com.hexium.hcop.configuration;
 
 import ar.com.hexium.hcop.auth.AuthContext;
 import ar.com.hexium.hcop.catalog.DrugCatalogService;
+import ar.com.hexium.hcop.catalog.LegacyProtocolCatalogService;
 import ar.com.hexium.hcop.catalog.TreatmentCatalogService;
 import ar.com.hexium.hcop.catalog.TreatmentCatalogService.Scheme;
 import ar.com.hexium.hcop.common.ApiException;
@@ -29,6 +30,7 @@ import tools.jackson.databind.node.ObjectNode;
 public class ProtocolController {
   private final ConfigurationService configurations;
   private final TreatmentCatalogService schemes;
+  private final LegacyProtocolCatalogService coirCatalog;
   private final DrugCatalogService drugs;
   private final AuthContext auth;
   private final ObjectMapper mapper;
@@ -36,11 +38,13 @@ public class ProtocolController {
   public ProtocolController(
       ConfigurationService configurations,
       TreatmentCatalogService schemes,
+      LegacyProtocolCatalogService coirCatalog,
       DrugCatalogService drugs,
       AuthContext auth,
       ObjectMapper mapper) {
     this.configurations = configurations;
     this.schemes = schemes;
+    this.coirCatalog = coirCatalog;
     this.drugs = drugs;
     this.auth = auth;
     this.mapper = mapper;
@@ -60,9 +64,9 @@ public class ProtocolController {
           .map(item -> String.valueOf(item.getOrDefault("coirSchemeId", "")))
           .filter(value -> !value.isBlank())
           .collect(java.util.stream.Collectors.toSet());
-      for (Map<String, Object> item : schemes.schemes("")) {
-        String id = String.valueOf(item.get("id"));
-        if (!linked.contains(id)) result.add(catalogProtocol(item));
+      for (Scheme item : schemes.allSchemes()) {
+        if (item.custom()) continue;
+        if (!linked.contains(item.id())) result.add(catalogProtocol(item, false));
       }
     }
     long current = custom.stream().filter(item -> Boolean.TRUE.equals(item.get("active"))).count();
@@ -81,7 +85,7 @@ public class ProtocolController {
       String schemeId = id.substring("coir-".length());
       Scheme scheme = schemes.scheme(schemeId)
           .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Protocolo no encontrado."));
-      return Map.of("ok", true, "protocol", catalogProtocol(scheme.view()));
+      return Map.of("ok", true, "protocol", catalogProtocol(scheme, true));
     }
     long numeric = numericId(id);
     Map<String, Object> item = configurations.list("protocol", true).stream()
@@ -127,13 +131,14 @@ public class ProtocolController {
   @GetMapping("/api/clinical/coir-catalog")
   Map<String, Object> coir(HttpServletRequest request) {
     auth.requirePermission(request, "section.protocols.view");
-    List<Map<String, Object>> catalog = schemes.schemes("").stream().map(item -> {
+    List<Map<String, Object>> catalog = schemes.allSchemes().stream()
+        .filter(item -> !item.custom()).map(item -> {
       Map<String, Object> row = new LinkedHashMap<>();
-      row.put("coirSchemeId", item.get("id"));
-      row.put("schemeName", item.get("nombre"));
-      row.put("durationMinutes", item.get("durationMinutes"));
-      row.put("durationText", item.get("estimatedDurationText"));
-      row.put("cycleDays", item.get("cycleDays"));
+      row.put("coirSchemeId", item.id());
+      row.put("schemeName", item.name());
+      row.put("durationMinutes", item.durationMinutes());
+      row.put("durationText", durationText(item.durationMinutes()));
+      row.put("cycleDays", item.cycleDays());
       row.put("entryType", "treatment");
       return row;
     }).toList();
@@ -187,23 +192,40 @@ public class ProtocolController {
     return result;
   }
 
-  private Map<String, Object> catalogProtocol(Map<String, Object> scheme) {
+  private Map<String, Object> catalogProtocol(Scheme scheme, boolean includeComponents) {
     Map<String, Object> result = new LinkedHashMap<>();
-    String id = String.valueOf(scheme.get("id"));
+    String id = scheme.id();
     result.put("id", "coir-" + id);
     result.put("coirSchemeId", id);
-    result.put("name", scheme.get("nombre"));
-    result.put("category", "COIR sin vincular");
-    result.put("description", "Esquema operativo del catálogo local pendiente de completar.");
-    result.put("cycleDays", scheme.get("cycleDays"));
-    result.put("durationMinutes", scheme.get("durationMinutes"));
-    result.put("durationText", scheme.get("estimatedDurationText"));
+    result.put("name", scheme.name());
+    result.put("category", category(scheme.name()));
+    result.put("description", "Esquema operativo importado del catálogo COIR.");
+    result.put("cycleDays", scheme.cycleDays());
+    result.put("durationMinutes", scheme.durationMinutes());
+    result.put("durationText", durationText(scheme.durationMinutes()));
     result.put("active", true);
     result.put("catalogOnly", true);
-    result.put("components", List.of());
-    result.put("componentCount", 0);
+    List<Map<String, Object>> components = includeComponents
+        ? coirCatalog.clinicalComponents(id) : List.of();
+    result.put("components", components);
+    result.put("componentCount", catalogComponentCount(scheme));
     result.put("coirLinks", List.of());
     return result;
+  }
+
+  private int catalogComponentCount(Scheme scheme) {
+    JsonNode source = scheme.definition().path("drugs");
+    if (!source.isArray()) source = scheme.definition().path("drogas");
+    if (!source.isArray()) source = scheme.definition().path("components");
+    return source.isArray() ? source.size() : 0;
+  }
+
+  private String category(String name) {
+    String value = name == null ? "" : name.trim();
+    int separator = value.indexOf(" - ");
+    if (separator < 0) separator = value.indexOf(':');
+    if (separator > 0) value = value.substring(0, separator);
+    return value.isBlank() ? "Otros" : value;
   }
 
   private long numericId(String value) {

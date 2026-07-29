@@ -48,12 +48,15 @@ public class LegacyCatalogController {
 
   @GetMapping("/api/catalogs/status")
   Map<String, Object> status() {
-    return protocols.status(tnm.list().size());
+    Map<String, Object> status = new java.util.LinkedHashMap<>(protocols.status(tnm.list().size()));
+    status.put("medications", drugs.total());
+    return status;
   }
 
   @PostMapping("/api/catalogs/update")
   Map<String, Object> update(@RequestBody(required = false) Map<String, Object> ignored) {
     Map<String, Object> status = new java.util.LinkedHashMap<>(protocols.status(tnm.list().size()));
+    status.put("medications", drugs.total());
     status.put("message", "Los catálogos locales ya están disponibles y versionados.");
     return status;
   }

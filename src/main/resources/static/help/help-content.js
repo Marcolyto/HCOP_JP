@@ -946,7 +946,7 @@
           id: "catalog",
           target: ".catalog-panel",
           title: "Catálogo",
-          body: "Busque protocolos activos, archivados o registros COIR todavía sin vincular."
+          body: "Busque protocolos activos, archivados o registros COIR. Estos últimos precargan duración, drogas y preparación disponibles al convertirlos."
         },
         {
           id: "new",

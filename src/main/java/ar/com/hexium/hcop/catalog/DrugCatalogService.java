@@ -17,8 +17,19 @@ import tools.jackson.databind.ObjectMapper;
 public class DrugCatalogService {
   private final List<Map<String, Object>> drugs;
 
-  public DrugCatalogService(HcopProperties properties, ObjectMapper mapper) {
+  public DrugCatalogService(
+      HcopProperties properties,
+      ObjectMapper mapper,
+      LegacyProtocolCatalogService protocols) {
     Map<String, Map<String, Object>> unique = new LinkedHashMap<>();
+    try {
+      for (Map<String, Object> item : protocols.searchableDrugs()) {
+        String name = String.valueOf(item.getOrDefault("name", "")).trim();
+        if (!name.isBlank()) unique.putIfAbsent(normalize(name), new LinkedHashMap<>(item));
+      }
+    } catch (RuntimeException ignored) {
+      // El vademecum local de apoyo sigue disponible si el catalogo COIR no puede leerse.
+    }
     try {
       JsonNode source = mapper.readTree(
           Files.readString(properties.catalogRoot().resolve("medicamentos-ar-demo.json")));
@@ -30,7 +41,7 @@ public class DrugCatalogService {
           String presentation = item.path("presentation").asText("").trim();
           String name = !generic.isBlank() ? generic : brand;
           if (name.isBlank()) continue;
-          String key = normalize(name + "|" + presentation);
+          String key = normalize(name);
           Map<String, Object> value = new LinkedHashMap<>();
           value.put("id", "med-" + (++index));
           value.put("name", name);
@@ -41,13 +52,24 @@ public class DrugCatalogService {
           value.put("form", item.path("form").asText(""));
           value.put("laboratory", item.path("laboratory").asText(""));
           value.put("source", "catalogo-local");
-          unique.putIfAbsent(key, value);
+          Map<String, Object> existing = unique.get(key);
+          if (existing == null) {
+            unique.put(key, value);
+          } else if (String.valueOf(existing.getOrDefault("presentation", "")).isBlank()) {
+            existing.put("presentation", presentation);
+            existing.put("form", item.path("form").asText(""));
+            existing.put("laboratory", item.path("laboratory").asText(""));
+          }
         }
       }
     } catch (IOException ignored) {
       // El administrador de protocolos permite crear drogas manuales si falta el catálogo.
     }
     this.drugs = List.copyOf(unique.values());
+  }
+
+  public int total() {
+    return drugs.size();
   }
 
   public List<Map<String, Object>> search(String query) {

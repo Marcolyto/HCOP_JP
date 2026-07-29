@@ -219,6 +219,7 @@ public class TreatmentService {
 
   public Map<String, Object> view(Treatment treatment) {
     Map<String, Object> result = new LinkedHashMap<>();
+    Integer duration = resolvedDuration(treatment);
     result.put("id", treatment.id());
     result.put("patientId", Long.toString(treatment.patientId()));
     result.put("category", "oncological");
@@ -252,9 +253,9 @@ public class TreatmentService {
     result.put("fechaCreacion", treatment.createdOn().format(ARGENTINE_DATE));
     result.put("firstCycleDate", treatment.firstCycleDate() == null ? "" : treatment.firstCycleDate().toString());
     result.put("fechaPrimerCiclo", treatment.firstCycleDate() == null ? "" : treatment.firstCycleDate().toString());
-    result.put("estimatedDurationMinutes", treatment.durationMinutes());
-    result.put("estimatedDurationText", durationText(treatment.durationMinutes()));
-    result.put("durationMinutes", treatment.durationMinutes());
+    result.put("estimatedDurationMinutes", duration);
+    result.put("estimatedDurationText", durationText(duration));
+    result.put("durationMinutes", duration);
     result.put("originLocal", true);
     result.put("origenLocal", true);
     result.put("revision", treatment.revision());
@@ -262,6 +263,16 @@ public class TreatmentService {
     result.put("updatedAt", treatment.updatedAt().toString());
     treatment.payload().properties().forEach(entry -> result.putIfAbsent(entry.getKey(), jsonValue(entry.getValue())));
     return result;
+  }
+
+  private Integer resolvedDuration(Treatment treatment) {
+    if (treatment.durationMinutes() != null && treatment.durationMinutes() > 0) {
+      return treatment.durationMinutes();
+    }
+    return catalog.scheme(treatment.schemeId())
+        .map(Scheme::durationMinutes)
+        .filter(value -> value != null && value > 0)
+        .orElse(null);
   }
 
   private List<Map<String, Object>> diagnoses(JsonNode document) {

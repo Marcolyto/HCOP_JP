@@ -124,7 +124,7 @@ function renderProtocolList() {
   list.innerHTML = rows.map((item) => {
     const classes = ["protocol-item", item.id === state.selectedId ? "active" : "", !item.active ? "is-archived" : "", item.catalogOnly ? "is-catalog" : ""].filter(Boolean).join(" ");
     const meta = item.catalogOnly
-      ? `${item.durationText || formatMinutes(item.durationMinutes)} · pendiente de completar`
+      ? `${item.componentCount || 0} drogas · ${item.durationText || formatMinutes(item.durationMinutes)}${item.componentCount ? "" : " · pendiente de completar"}`
       : `${item.componentCount || 0} drogas · ${item.durationText || "sin duración"}${item.active ? "" : " · archivado"}`;
     return `<button class="${classes}" type="button" role="option" aria-selected="${item.id === state.selectedId}" data-protocol-id="${escapeHtml(item.id)}"><small>${escapeHtml(item.category)}</small><strong>${escapeHtml(item.name)}</strong><em>${escapeHtml(meta)}</em><span>${item.catalogOnly ? "COIR" : escapeHtml(item.id)}</span></button>`;
   }).join("");
@@ -199,7 +199,7 @@ function renderEditor(protocol) {
   $("#editorEyebrow").textContent = catalogOnly ? "Catálogo operativo COIR" : protocol.id ? `Protocolo ${protocol.id}` : "Nuevo protocolo";
   $("#editorTitle").textContent = protocol.name || "Nuevo protocolo";
   $("#editorSubtitle").textContent = catalogOnly
-    ? "Este registro aporta nombre y duración; falta convertirlo en protocolo clínico."
+    ? "Revise las drogas, la preparación y la duración importadas antes de convertirlo."
     : "Los cambios se aplican a Protocolos y al alta de tratamientos.";
   $("#protocolName").value = protocol.name || "";
   $("#protocolCategory").value = protocol.category === "COIR sin vincular" ? "" : protocol.category || "";
@@ -515,11 +515,15 @@ function promoteCurrentCatalogEntry() {
   createNewProtocol({
     name: source.name,
     durationMinutes: source.durationMinutes,
-    cycleDays: 21,
+    cycleDays: source.cycleDays || 21,
     coirSchemeId: source.coirSchemeId,
-    category: "",
+    category: source.category || "",
+    description: source.description || "",
+    components: source.components || [],
   });
-  toast("Complete al menos una droga para crear el protocolo clínico.");
+  toast(source.components?.length
+    ? "Revise las drogas importadas y guarde el protocolo clínico."
+    : "Complete al menos una droga para crear el protocolo clínico.");
 }
 
 function duplicateCurrent() {

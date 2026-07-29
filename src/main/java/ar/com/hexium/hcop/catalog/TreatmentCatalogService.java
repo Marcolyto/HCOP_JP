@@ -51,6 +51,10 @@ public class TreatmentCatalogService {
         : Optional.empty();
   }
 
+  public List<Scheme> allSchemes() {
+    return current().schemes();
+  }
+
   public void invalidate() {
     lock.writeLock().lock();
     try {
@@ -97,7 +101,7 @@ public class TreatmentCatalogService {
   }
 
   private Catalog load() {
-    Map<String, Integer> durations = readDurations();
+    DurationIndex durations = readDurations();
     Map<String, Scheme> merged = new LinkedHashMap<>();
     var schemesFile = properties.catalogRoot().resolve("protocolos-lira").resolve("esquemas.json");
     try {
@@ -108,7 +112,7 @@ public class TreatmentCatalogService {
           String id = node.path("id").asText("").trim();
           String name = node.path("nombre").asText("").trim();
           if (id.isBlank() || name.isBlank()) continue;
-          Integer duration = durations.get(normalize(name));
+          Integer duration = durations.resolve(id, name);
           JsonNode definition = catalogDefinition(node, id);
           merged.put(id, new Scheme(
               id, name, number(node, "duracionCiclo"), duration, definition, false));
@@ -131,7 +135,7 @@ public class TreatmentCatalogService {
           if (cycleDays == 0) cycleDays = number(definition, "duracionCiclo");
           Integer duration = nullableNumber(definition, "durationMinutes");
           if (duration == null) duration = nullableNumber(definition, "estimatedDurationMinutes");
-          if (duration == null) duration = durations.get(normalize(name));
+          if (duration == null) duration = durations.resolve(id, name);
           merged.put(id, new Scheme(id, name, cycleDays, duration, definition, true));
         });
 
@@ -161,20 +165,26 @@ public class TreatmentCatalogService {
     return definition;
   }
 
-  private Map<String, Integer> readDurations() {
-    Map<String, Integer> result = new HashMap<>();
-    var file = properties.catalogRoot().resolve("esquemas-coir-419.json");
+  private DurationIndex readDurations() {
+    Map<String, Integer> byId = new HashMap<>();
+    Map<String, Integer> byName = new HashMap<>();
+    var file = properties.catalogRoot().resolve("scheme-duration-seed.json");
+    boolean consolidated = Files.isRegularFile(file);
+    if (!consolidated) file = properties.catalogRoot().resolve("esquemas-coir-419.json");
     try {
       JsonNode root = mapper.readTree(Files.readString(file));
       for (JsonNode node : root.path("schemes")) {
-        String name = node.path("scheme").asText("").trim();
+        String id = node.path(consolidated ? "schemeId" : "id").asText("").trim();
+        String name = node.path(consolidated ? "schemeName" : "scheme").asText("").trim();
         int duration = node.path("durationMinutes").asInt(0);
-        if (!name.isBlank() && duration > 0) result.put(normalize(name), duration);
+        if (duration < 1) continue;
+        if (!id.isBlank()) byId.put(id, duration);
+        if (!name.isBlank()) byName.put(normalize(name), duration);
       }
     } catch (IOException ignored) {
       // Los protocolos personalizados pueden indicar su propia duración.
     }
-    return result;
+    return new DurationIndex(Map.copyOf(byId), Map.copyOf(byName));
   }
 
   private int number(JsonNode node, String field) {
@@ -212,5 +222,21 @@ public class TreatmentCatalogService {
   }
 
   private record Catalog(List<Scheme> schemes, Map<String, Scheme> byId, Instant loadedAt) {
+  }
+
+  private record DurationIndex(Map<String, Integer> byId, Map<String, Integer> byName) {
+    Integer resolve(String id, String name) {
+      Integer value = byId.get(id);
+      return value == null ? byName.get(normalizeName(name)) : value;
+    }
+
+    private static String normalizeName(String value) {
+      if (value == null) return "";
+      return java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFD)
+          .replaceAll("\\p{M}", "")
+          .toLowerCase(Locale.ROOT)
+          .replaceAll("[^a-z0-9]+", " ")
+          .trim();
+    }
   }
 }

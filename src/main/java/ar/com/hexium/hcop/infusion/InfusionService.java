@@ -1,6 +1,7 @@
 package ar.com.hexium.hcop.infusion;
 
 import ar.com.hexium.hcop.auth.SessionPrincipal;
+import ar.com.hexium.hcop.catalog.TreatmentCatalogService;
 import ar.com.hexium.hcop.common.ApiException;
 import ar.com.hexium.hcop.infusion.InfusionRepository.Candidate;
 import ar.com.hexium.hcop.infusion.InfusionRepository.Infusion;
@@ -39,6 +40,7 @@ public class InfusionService {
       "not_started", "in_progress", "completed", "withheld", "cancelled");
   private final InfusionRepository infusions;
   private final TreatmentRepository treatments;
+  private final TreatmentCatalogService treatmentCatalog;
   private final PatientService patients;
   private final PatientDocumentService documents;
   private final ObjectMapper mapper;
@@ -47,12 +49,14 @@ public class InfusionService {
   public InfusionService(
       InfusionRepository infusions,
       TreatmentRepository treatments,
+      TreatmentCatalogService treatmentCatalog,
       PatientService patients,
       PatientDocumentService documents,
       ObjectMapper mapper,
       Clock clock) {
     this.infusions = infusions;
     this.treatments = treatments;
+    this.treatmentCatalog = treatmentCatalog;
     this.patients = patients;
     this.documents = documents;
     this.mapper = mapper;
@@ -84,7 +88,7 @@ public class InfusionService {
     String chair = text(input, "chair", "sillon");
     if (chair.isBlank()) throw new ApiException(HttpStatus.BAD_REQUEST, "Seleccione un sillón.");
     int duration = boundedInt(input, 1, 1440,
-        treatment.durationMinutes() == null ? 60 : treatment.durationMinutes(),
+        resolvedDuration(treatment.schemeId(), treatment.durationMinutes()),
         "durationMinutes", "duracionMinutos");
     NewInfusion value = new NewInfusion(
         patientId, treatmentId, cycle, scheduled, chair, duration,
@@ -288,7 +292,7 @@ public class InfusionService {
     result.put("treatmentType", item.treatmentType());
     result.put("totalCycles", item.totalCycles());
     result.put("cycleDays", item.cycleDays());
-    result.put("durationMinutes", item.durationMinutes());
+    result.put("durationMinutes", resolvedDuration(item.schemeId(), item.durationMinutes()));
     result.put("workflowStatus", item.continuityStatus());
     result.put("continuityState", item.continuityStatus());
     result.put("effectiveFromCycle", item.effectiveFromCycle());
@@ -298,6 +302,14 @@ public class InfusionService {
     result.put("managementRevision", item.managementRevision());
     result.put("pendingRequestIds", Map.of());
     return result;
+  }
+
+  private int resolvedDuration(String schemeId, Integer storedDuration) {
+    if (storedDuration != null && storedDuration > 0) return storedDuration;
+    return treatmentCatalog.scheme(schemeId)
+        .map(TreatmentCatalogService.Scheme::durationMinutes)
+        .filter(value -> value != null && value > 0)
+        .orElse(60);
   }
 
   private Map<String, Object> logisticsView(Logistics logistics) {

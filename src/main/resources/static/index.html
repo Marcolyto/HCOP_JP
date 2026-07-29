@@ -802,10 +802,10 @@
                 <span>Buscar</span>
               </button>
             </div>
-            <small id="liraPatientSearchHint">Ingrese al menos dos caracteres.</small>
+            <small id="liraPatientSearchHint">Al abrir se muestran los pacientes recientes; escriba para filtrar.</small>
           </form>
 
-          <div class="lira-search-message" id="liraPatientSearchMessage" role="status" aria-live="polite">Escriba un dato para comenzar.</div>
+          <div class="lira-search-message" id="liraPatientSearchMessage" role="status" aria-live="polite">Cargando pacientes recientes...</div>
           <div class="lira-patient-results" id="liraPatientResults" role="listbox" aria-label="Pacientes encontrados" aria-busy="false"></div>
 
           <section class="lira-patient-preview" id="liraPatientPreview" aria-labelledby="liraPatientPreviewTitle" aria-live="polite" hidden>
@@ -1074,6 +1074,23 @@
                 <span>Esquema</span>
                 <select id="careTreatmentScheme" name="esquema" required><option value="">Seleccione...</option></select>
               </label>
+              <section class="care-protocol-warning care-form-field--wide" id="careTreatmentProtocolWarning" role="alert" hidden>
+                <header>
+                  <i data-lucide="triangle-alert"></i>
+                  <div>
+                    <strong>Revise la relación entre diagnóstico y protocolo</strong>
+                    <span id="careTreatmentProtocolWarningText"></span>
+                  </div>
+                </header>
+                <label class="care-protocol-warning-confirmation">
+                  <input id="careTreatmentProtocolMismatchConfirmed" name="protocolMismatchConfirmed" type="checkbox" value="true">
+                  <span>Confirmo que se trata de una indicación clínica deliberada.</span>
+                </label>
+                <label class="care-form-field" for="careTreatmentProtocolMismatchReason">
+                  <span>Motivo clínico de la excepción</span>
+                  <textarea id="careTreatmentProtocolMismatchReason" name="protocolMismatchReason" rows="2" minlength="10" maxlength="500" placeholder="Ej.: indicación fuera de rótulo discutida en comité..."></textarea>
+                </label>
+              </section>
               <label class="care-form-field" for="careTreatmentCycles">
                 <span>Ciclos previstos</span>
                 <input id="careTreatmentCycles" name="cantidadCiclos" type="number" min="1" max="50" step="1" inputmode="numeric" required>

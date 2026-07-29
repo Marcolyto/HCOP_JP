@@ -19,6 +19,17 @@ diagnóstico, no a un texto suelto.
 - peso y talla en centímetros;
 - requisitos particulares del esquema.
 
+El sistema compara de forma conservadora el grupo clínico reconocible del
+diagnóstico con el del protocolo. Si la discordancia es evidente, muestra una
+advertencia y exige confirmar la excepción con un motivo clínico de al menos
+diez caracteres. No impide usos excepcionales u off-label: los vuelve
+explícitos y agrega el motivo a la evolución inmutable.
+
+El estado **Firmado · documento pendiente** permite registrar que el
+consentimiento fue informado como firmado sin afirmar que ya existe un archivo.
+El icono de descarga sólo se habilita cuando el documento está realmente
+guardado.
+
 El selector usa el catálogo clínico completo, sin recortar los primeros
 resultados. La misma fuente alimenta **Configuración → Protocolos**, por lo que
 los esquemas por sitio —incluidos Mama y las categorías alfabéticamente

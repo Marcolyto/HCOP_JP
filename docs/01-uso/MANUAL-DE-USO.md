@@ -3,7 +3,8 @@
 ## Cabecera
 
 - **Nuevo paciente**: abre un formulario limpio y crea una historia vacía.
-- **Abrir paciente**: busca en PostgreSQL por nombre, DNI, HC o ID.
+- **Abrir paciente**: muestra los pacientes recientes y permite filtrar en
+  PostgreSQL por nombre, DNI, HC o ID desde el primer carácter.
 - **Hospital de día**: abre el espacio operativo global.
 - **Imprimir**: imprime la hoja clínica visible.
 - **Configuración**: administra protocolos, guías, calculadoras, investigación,
@@ -84,6 +85,10 @@ automáticas e inmutables.
 Se admiten imágenes, PDF, Word, PowerPoint y video. Las cargas se almacenan en
 el volumen clínico y la historia guarda su referencia. Durante 24 horas y en la
 misma sesión, el archivo puede eliminarse con su token temporal.
+
+Un registro histórico rotulado como imagen pero sin archivo se conserva como
+metadato y se identifica como **sin archivo**. Las nuevas altas de imagen exigen
+un archivo real y nunca simulan una imagen disponible.
 
 Las anotaciones se rasterizan como una imagen nueva; la fuente original no se
 modifica silenciosamente.

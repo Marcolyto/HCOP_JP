@@ -68,7 +68,7 @@
               </tr>              <tr data-filter-item>
                 <td><code>GET</code></td>
                 <td class="path"><code>/api/clinical/patients</code></td>
-                <td><strong>Buscar pacientes</strong><small>Busca por nombre, apellido, DNI, historia cl&#237;nica o identificador local.</small></td>
+                <td><strong>Buscar pacientes</strong><small>Sin consulta devuelve los pacientes recientes; con texto filtra por nombre, apellido, DNI, historia cl&#237;nica o identificador local.</small></td>
                 <td>Pacientes e historia</td>
                 <td><code>section.history.view</code></td>
                 <td><code>PatientController</code></td>
@@ -138,7 +138,7 @@
               </tr>              <tr data-filter-item>
                 <td><code>GET</code></td>
                 <td class="path"><code>/api/lira/patients</code></td>
-                <td><strong>Buscar pacientes</strong><small>Busca por nombre, apellido, DNI, historia cl&#237;nica o identificador local.</small></td>
+                <td><strong>Buscar pacientes</strong><small>Sin consulta devuelve los pacientes recientes; con texto filtra por nombre, apellido, DNI, historia cl&#237;nica o identificador local.</small></td>
                 <td>Pacientes e historia</td>
                 <td><code>section.history.view</code></td>
                 <td><code>PatientController</code></td>
@@ -166,7 +166,7 @@
               </tr>              <tr data-filter-item>
                 <td><code>GET</code></td>
                 <td class="path"><code>/api/clinical/patients/{patientId}/treatment-options</code></td>
-                <td><strong>Opciones de prescripci&#243;n</strong><small>Devuelve diagn&#243;sticos, esquemas, tipos, intenci&#243;n y estados de consentimiento.</small></td>
+                <td><strong>Opciones de prescripci&#243;n</strong><small>Devuelve diagn&#243;sticos y esquemas con su grupo cl&#237;nico, tipos, intenci&#243;n y estados de consentimiento.</small></td>
                 <td>Tratamientos</td>
                 <td><code>section.prescriptions.view</code></td>
                 <td><code>TreatmentController</code></td>
@@ -187,7 +187,7 @@
               </tr>              <tr data-filter-item>
                 <td><code>POST</code></td>
                 <td class="path"><code>/api/clinical/patients/{patientId}/treatments</code></td>
-                <td><strong>Prescribir tratamiento</strong><small>Crea tratamiento, ciclos, log&#237;stica y una evoluci&#243;n cl&#237;nica inmutable en una transacci&#243;n.</small></td>
+                <td><strong>Prescribir tratamiento</strong><small>Crea tratamiento, ciclos, log&#237;stica y una evoluci&#243;n cl&#237;nica inmutable; una discordancia diagn&#243;stica evidente exige confirmaci&#243;n y motivo cl&#237;nico.</small></td>
                 <td>Tratamientos</td>
                 <td><code>section.prescriptions.edit</code></td>
                 <td><code>TreatmentController</code></td>
@@ -229,7 +229,7 @@
               </tr>              <tr data-filter-item>
                 <td><code>GET</code></td>
                 <td class="path"><code>/api/clinical/treatments/{treatmentId}/consent</code></td>
-                <td><strong>Abrir consentimiento</strong><small>Entrega el consentimiento guardado; responde 404 si no existe archivo.</small></td>
+                <td><strong>Abrir consentimiento</strong><small>Entrega el archivo de consentimiento guardado; un estado firmado sin archivo se informa como documento pendiente y este endpoint responde 404.</small></td>
                 <td>Tratamientos</td>
                 <td><code>section.prescriptions.view</code></td>
                 <td><code>TreatmentDocumentController</code></td>

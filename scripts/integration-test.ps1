@@ -83,11 +83,14 @@ Assert-True ($savedHistory.unified.persisted -eq $true) "No se guard√≥ el diagn√
 
 $options = Invoke-HcopJson -Path "/api/clinical/patients/$patientId/treatment-options"
 $scheme = @($options.options.schemes) |
-  Where-Object { [string]$_.id -eq "347" } |
+  Where-Object { [string]$_.id -eq "238" } |
   Select-Object -First 1
 if ($null -eq $scheme) {
   $scheme = @($options.options.schemes) |
-    Where-Object { [int]($_.durationMinutes) -gt 0 } |
+    Where-Object {
+      [string]$_.protocolGroup -eq "thoracic" -and
+      [int]($_.durationMinutes) -gt 0
+    } |
     Select-Object -First 1
 }
 if ($null -eq $scheme) { $scheme = @($options.options.schemes) | Select-Object -First 1 }

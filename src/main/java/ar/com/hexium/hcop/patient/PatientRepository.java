@@ -40,6 +40,17 @@ public class PatientRepository {
         """, this::map, like, like, like, like, like, like);
   }
 
+  public List<Patient> recent() {
+    return jdbc.query("""
+        SELECT source_id, document_number, medical_record_number, first_name, last_name,
+               birth_date, sex, health_insurance, health_insurance_number, phone, email,
+               address, local_only, created_at, updated_at
+          FROM patients
+         ORDER BY updated_at DESC, last_name, first_name, source_id
+         LIMIT 50
+        """, this::map);
+  }
+
   public Optional<Patient> find(long patientId) {
     return jdbc.query("""
         SELECT source_id, document_number, medical_record_number, first_name, last_name,

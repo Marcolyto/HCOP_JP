@@ -28,8 +28,9 @@ public class PatientService {
   }
 
   public List<Map<String, Object>> search(String query) {
-    if (query == null || query.trim().length() < 2) return List.of();
-    return patients.search(query).stream().map(this::searchView).toList();
+    String normalized = query == null ? "" : query.trim();
+    List<Patient> found = normalized.isBlank() ? patients.recent() : patients.search(normalized);
+    return found.stream().map(this::searchView).toList();
   }
 
   public Patient require(long patientId) {

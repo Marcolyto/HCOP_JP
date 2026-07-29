@@ -71,7 +71,7 @@ Cambia la contraseña y revoca las otras sesiones del usuario.
 
 ### `GET /api/clinical/patients` - Buscar pacientes
 
-Busca por nombre, apellido, DNI, historia clínica o identificador local.
+Sin consulta devuelve los pacientes recientes; con texto filtra por nombre, apellido, DNI, historia clínica o identificador local.
 
 - **Controlador MVC:** `PatientController`
 - **Operación Java/OpenAPI:** `search`
@@ -181,7 +181,7 @@ Confirma que la historia es persistente y que no se restaura un demo.
 
 ### `GET /api/lira/patients` - Buscar pacientes
 
-Busca por nombre, apellido, DNI, historia clínica o identificador local.
+Sin consulta devuelve los pacientes recientes; con texto filtra por nombre, apellido, DNI, historia clínica o identificador local.
 
 - **Controlador MVC:** `PatientController`
 - **Operación Java/OpenAPI:** `search_2`
@@ -227,7 +227,7 @@ Activa una historia ya consolidada en PostgreSQL; no consulta Lira.
 
 ### `GET /api/clinical/patients/{patientId}/treatment-options` - Opciones de prescripción
 
-Devuelve diagnósticos, esquemas, tipos, intención y estados de consentimiento.
+Devuelve diagnósticos y esquemas con su grupo clínico, tipos, intención y estados de consentimiento.
 
 - **Controlador MVC:** `TreatmentController`
 - **Operación Java/OpenAPI:** `options`
@@ -260,7 +260,7 @@ Devuelve tratamientos oncológicos locales y su estado actual.
 
 ### `POST /api/clinical/patients/{patientId}/treatments` - Prescribir tratamiento
 
-Crea tratamiento, ciclos, logística y una evolución clínica inmutable en una transacción.
+Crea tratamiento, ciclos, logística y una evolución clínica inmutable; una discordancia diagnóstica evidente exige confirmación y motivo clínico.
 
 - **Controlador MVC:** `TreatmentController`
 - **Operación Java/OpenAPI:** `create_4`
@@ -326,7 +326,7 @@ Devuelve la duración operativa estimada del esquema.
 
 ### `GET /api/clinical/treatments/{treatmentId}/consent` - Abrir consentimiento
 
-Entrega el consentimiento guardado; responde 404 si no existe archivo.
+Entrega el archivo de consentimiento guardado; un estado firmado sin archivo se informa como documento pendiente y este endpoint responde 404.
 
 - **Controlador MVC:** `TreatmentDocumentController`
 - **Operación Java/OpenAPI:** `consent`

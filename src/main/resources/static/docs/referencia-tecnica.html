@@ -124,7 +124,7 @@
               <tr><td>Nombre, apellido, DNI, HC, nacimiento, sexo, obra social y número</td><td>Nuevo paciente / edición de identidad</td><td>Columnas tipadas de <code>patients</code></td><td>Búsqueda, cabecera, receta, turno y documentos</td></tr>
               <tr><td>Motivo de consulta, enfermedad actual, antecedentes, examen, complementarios, resumen</td><td>Hoja blanca / evolución</td><td>JSONB versionado en <code>hcop_patient_documents.document_json</code></td><td><code>/api/hc</code> para el paciente activo</td></tr>
               <tr><td>SNOMED, CIE-10, sitio AJCC, T, N, M, estadio</td><td>Modal Agregar diagnóstico</td><td><code>oncology.diagnosisRecords</code> y copia narrativa en evolución</td><td>Cabecera, historia y selector de Nuevo tratamiento</td></tr>
-              <tr><td>Peso en kg, talla en cm, superficie corporal</td><td>Nuevo tratamiento</td><td>Payload del tratamiento y evolución inmutable</td><td>Detalle, cálculos y hoja clínica</td></tr>
+              <tr><td>Peso en kg, talla en cm, superficie corporal y excepción diagnóstico–protocolo</td><td>Nuevo tratamiento</td><td>Payload del tratamiento y evolución inmutable</td><td>Detalle, cálculos, trazabilidad y hoja clínica</td></tr>
               <tr><td>Esquema, drogas, dosis, vía, preparación, tiempo</td><td>Protocolo + prescripción</td><td><code>clinical_treatments</code> + snapshot JSONB en <code>treatment_details</code></td><td>Detalle histórico estable aunque cambie el protocolo</td></tr>
               <tr><td>Ciclo, fecha planificada, medicación, prescripción</td><td>Prescripción / Farmacia</td><td><code>treatment_cycle_logistics</code></td><td>Lista de espera y ficha de turno</td></tr>
               <tr><td>Fecha, sillón, inicio, duración, estado</td><td>Turnero</td><td><code>unified_infusion_sessions</code></td><td>Grilla, detalle de tratamiento y hoja imprimible</td></tr>
@@ -141,7 +141,7 @@
         <h2>Tratamiento, ciclos y Hospital de Día</h2>
         <ol>
           <li>La prescripción exige un diagnóstico perteneciente al paciente.</li>
-          <li>El protocolo aporta drogas, requisitos, intervalo y duración estimada.</li>
+          <li>El protocolo aporta drogas, requisitos, intervalo, duración estimada y grupo clínico. Si este último contradice un diagnóstico reconocible, se exige una confirmación explícita y su justificación.</li>
           <li>Al guardar se crean tratamiento, snapshot, ciclos logísticos y evolución en una transacción.</li>
           <li>Cada ciclo pendiente reaparece según la fecha calculada hasta ser turnado, suspendido o completado.</li>
           <li>Farmacia marca medicación recibida o en poder del paciente y puede imprimir el QR.</li>

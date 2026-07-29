@@ -996,10 +996,6 @@ function wireEvents() {
     window.clearTimeout(liraImportSearchTimer);
     clearLiraPatientSelection();
     const query = event.target.value.trim();
-    if (query.length < 2) {
-      renderLiraSearchState("Escriba al menos dos caracteres.");
-      return;
-    }
     liraImportSearchTimer = window.setTimeout(() => searchLiraPatients(query), 280);
   });
   $("#liraPatientResults")?.addEventListener("click", (event) => {
@@ -1698,7 +1694,10 @@ function openLiraImportModal({ auto = false } = {}) {
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
   $("#openLiraImportBtn")?.setAttribute("aria-expanded", "true");
-  refreshLiraStatus();
+  void refreshLiraStatus().then((available) => {
+    if (!available || !modal.classList.contains("open")) return;
+    if (!String($("#liraPatientSearchInput")?.value || "").trim()) void searchLiraPatients("");
+  });
   window.requestAnimationFrame(() => $("#liraPatientSearchInput")?.focus());
 }
 
@@ -1752,10 +1751,12 @@ async function refreshLiraStatus() {
     liraSourceAvailable = available;
     setLiraSourceStatus(available ? "ready" : "error", available ? "Base clinica disponible" : "Base clinica no disponible", payload.message || details);
     setLiraSearchEnabled(available);
+    return available;
   } catch (error) {
     liraSourceAvailable = false;
     setLiraSourceStatus("error", "No se pudo acceder a la base clinica", error.message || "Compruebe que el servicio local este iniciado.");
     setLiraSearchEnabled(false);
+    return false;
   } finally {
     if (button) button.disabled = false;
     refreshIcons();
@@ -1926,6 +1927,9 @@ function wireCareEvents() {
   $("#careInfusionForm")?.addEventListener("submit", submitCareInfusion);
   $("#careTreatmentForm")?.addEventListener("change", (event) => {
     if (event.target.matches('[name="esquema"], [name="scheme"], [name="schemeId"]')) void renderCareTreatmentRequirements();
+    if (event.target.matches('[name="diagnostico"], [name="diagnosis"], [name="diagnosisId"], [name="esquema"], [name="scheme"], [name="schemeId"]')) {
+      renderCareProtocolCompatibility();
+    }
     if (event.target.matches('[name="esquema"], [name="scheme"], [name="schemeId"], [name="cantidadCiclos"], [name="cycles"], [name="cicloInicial"], [name="initialCycle"], [name="fechaPrimerCiclo"]')) {
       renderCareTreatmentProjection();
     }
@@ -2291,6 +2295,8 @@ function activateCareHospitalTab(mode) {
   setCareHospitalTab(mode);
   if (careScheduleMode === "chairs" || careScheduleMode === "pharmacy") {
     void loadCareSchedule();
+  } else if (careScheduleMode === "new-treatment" && getActiveLiraPatientId() && !careTreatmentOptions && !careBusy) {
+    void refreshCareWorkspace();
   } else if (careScheduleMode === "treatments" && getActiveLiraPatientId() && !careTreatments.length && !careBusy) {
     void refreshCareWorkspace();
   }
@@ -2323,6 +2329,12 @@ function handleCareHospitalAction(event) {
   if (action === "open-new-treatment") {
     if (!getActiveLiraPatientId()) {
       renderCareHospitalPatientContext();
+      return;
+    }
+    if (!careTreatmentOptions) {
+      void refreshCareWorkspace().then(() => {
+        if (careTreatmentOptions && getActiveLiraPatientId()) openCareTreatmentModal();
+      });
       return;
     }
     openCareTreatmentModal();
@@ -4688,8 +4700,11 @@ function renderCareHospitalPatientContext() {
       : "Abra una historia clinica para prescribir un protocolo.";
   }
   if ($("#careHospitalOpenNewTreatmentBtn")) {
-    $("#careHospitalOpenNewTreatmentBtn").hidden =
-      !patientId || !clinicalHasPermission("section.prescriptions.edit");
+    const button = $("#careHospitalOpenNewTreatmentBtn");
+    button.hidden = !patientId || !clinicalHasPermission("section.prescriptions.edit");
+    button.disabled = Boolean(patientId) && (careBusy || !careTreatmentOptions);
+    const label = $("span", button);
+    if (label) label.textContent = button.disabled ? "Cargando datos..." : "Crear tratamiento";
   }
   if ($("#careHospitalSelectPatientBtn")) $("#careHospitalSelectPatientBtn").hidden = Boolean(patientId);
 }
@@ -6998,6 +7013,34 @@ function updateCareTreatmentSubmitAvailability() {
     !hasDiagnosisOptions || careTreatmentRequirementsState.status === "loading";
 }
 
+function renderCareProtocolCompatibility() {
+  const form = $("#careTreatmentForm");
+  const warning = $("#careTreatmentProtocolWarning");
+  if (!form || !warning) return false;
+  const diagnosis = selectByNames(form, "diagnostico", "diagnosis", "diagnosisId")?.selectedOptions?.[0];
+  const scheme = selectByNames(form, "esquema", "scheme", "schemeId")?.selectedOptions?.[0];
+  const diagnosisGroup = String(diagnosis?.dataset.protocolGroup || "");
+  const protocolGroup = String(scheme?.dataset.protocolGroup || "");
+  const mismatch = Boolean(diagnosisGroup && protocolGroup && diagnosisGroup !== protocolGroup);
+  const confirmation = $("#careTreatmentProtocolMismatchConfirmed");
+  const reason = $("#careTreatmentProtocolMismatchReason");
+  warning.hidden = !mismatch;
+  if (confirmation) confirmation.required = mismatch;
+  if (reason) reason.required = mismatch;
+  if (!mismatch) {
+    if (confirmation) confirmation.checked = false;
+    if (reason) reason.value = "";
+    return false;
+  }
+  const diagnosisLabel = diagnosis?.dataset.protocolGroupLabel || "el grupo del diagnóstico";
+  const protocolLabel = scheme?.dataset.protocolGroupLabel || "otro grupo";
+  const message = $("#careTreatmentProtocolWarningText");
+  if (message) {
+    message.textContent = `El diagnóstico se reconoce como ${diagnosisLabel}, pero el protocolo corresponde a ${protocolLabel}. Puede continuar si confirma y deja el motivo.`;
+  }
+  return true;
+}
+
 function populateCareForms() {
   const treatmentForm = $("#careTreatmentForm");
   if (treatmentForm && careTreatmentOptions) {
@@ -7012,6 +7055,13 @@ function populateCareForms() {
     fillCareSelect(selectByNames(treatmentForm, "tipoOncologico", "type", "treatmentType"), options.treatmentTypes || options.tipos, "Seleccione tipo...");
     fillCareSelect(selectByNames(treatmentForm, "esquema", "scheme", "schemeId"), options.schemes || options.esquemas, "Seleccione esquema...");
     fillCareSelect(selectByNames(treatmentForm, "estadoConsentimiento", "consent", "consentStatus"), options.consentStates || options.consentimientos, "Seleccione consentimiento...");
+    const diagnosisSelect = selectByNames(treatmentForm, "diagnostico", "diagnosis", "diagnosisId");
+    for (const diagnosis of diagnoses) {
+      const option = [...(diagnosisSelect?.options || [])].find((item) => item.value === optionId(diagnosis));
+      if (!option) continue;
+      option.dataset.protocolGroup = String(diagnosis.protocolGroup || "");
+      option.dataset.protocolGroupLabel = String(diagnosis.protocolGroupLabel || "");
+    }
     const schemeSelect = selectByNames(treatmentForm, "esquema", "scheme", "schemeId");
     for (const scheme of options.schemes || options.esquemas || []) {
       const option = [...(schemeSelect?.options || [])].find((item) => item.value === optionId(scheme));
@@ -7019,7 +7069,10 @@ function populateCareForms() {
       option.dataset.cycleDays = String(scheme.duracionCiclo || scheme.cycleDays || "");
       option.dataset.durationMinutes = String(scheme.estimatedDurationMinutes || scheme.durationMinutes || "");
       option.dataset.durationText = String(scheme.estimatedDurationText || "");
+      option.dataset.protocolGroup = String(scheme.protocolGroup || "");
+      option.dataset.protocolGroupLabel = String(scheme.protocolGroupLabel || "");
     }
+    renderCareProtocolCompatibility();
     updateCareTreatmentSubmitAvailability();
   }
   const infusionForm = $("#careInfusionForm");
@@ -7215,6 +7268,9 @@ function buildTreatmentEvolutionEntry({
     fields.requirementsConfirmed === true || fields.requirementsConfirmed === "true"
       ? "Datos requeridos verificados: Sí"
       : "",
+    fields.protocolMismatchConfirmed === true || fields.protocolMismatchConfirmed === "true"
+      ? `Excepción diagnóstico-protocolo: ${treatmentEvolutionValue(fields, "protocolMismatchReason")}`
+      : "",
     observations && `Observaciones: ${observations}`
   ].filter(Boolean);
   const clinicalDate = treatmentEvolutionValue(fields, "date", "createdDate") ||
@@ -7385,6 +7441,7 @@ async function submitCareTreatment(event) {
   const form = event.currentTarget;
   const patientId = getActiveLiraPatientId();
   if (!patientId) return;
+  renderCareProtocolCompatibility();
   if (!form.reportValidity()) return;
   const diagnosisSelect = selectByNames(form, "diagnostico", "diagnosis", "diagnosisId");
   const selectedDiagnosisId = String(diagnosisSelect?.value || "");
@@ -7430,6 +7487,8 @@ async function submitCareTreatment(event) {
     observaciones: fields.observaciones || fields.notes || "",
     supCorporal: anthropometrics.bodySurface > 0 ? round(anthropometrics.bodySurface, 3) : "",
     requirementsConfirmed: !requirementsConfirmation || requirementsConfirmation.checked,
+    protocolMismatchConfirmed: fields.protocolMismatchConfirmed === "true",
+    protocolMismatchReason: fields.protocolMismatchReason || "",
     clinicalEntryId: treatmentEntryId
   };
   const submit = $('button[type="submit"]', form);
@@ -7593,16 +7652,13 @@ async function searchLiraPatients(rawQuery) {
     renderLiraSearchState("La base clinica no esta disponible. Vuelva a comprobar la conexion.");
     return;
   }
-  if (query.length < 2 || liraImportBusy) {
-    renderLiraSearchState("Escriba al menos dos caracteres.");
-    return;
-  }
+  if (liraImportBusy) return;
   window.clearTimeout(liraImportSearchTimer);
   liraImportSearchController?.abort();
   liraImportSearchController = new AbortController();
   clearLiraPatientSelection();
   setLiraSearchBusy(true);
-  renderLiraSearchState("Buscando pacientes...", { clearResults: true });
+  renderLiraSearchState(query ? "Buscando pacientes..." : "Cargando pacientes recientes...", { clearResults: true });
   try {
     const response = await fetch(`/api/lira/patients?q=${encodeURIComponent(query)}`, {
       cache: "no-store",
@@ -7621,8 +7677,10 @@ async function searchLiraPatients(rawQuery) {
     renderLiraPatientResults(liraImportResults);
     const total = Number.isFinite(Number(payload.total)) ? Number(payload.total) : liraImportResults.length;
     renderLiraSearchState(liraImportResults.length
-      ? `${total} ${total === 1 ? "paciente encontrado" : "pacientes encontrados"}. Seleccione uno para revisar la disponibilidad.`
-      : "No se encontraron pacientes con esos datos.", { clearResults: false });
+      ? query
+        ? `${total} ${total === 1 ? "paciente encontrado" : "pacientes encontrados"}. Seleccione uno para revisar la disponibilidad.`
+        : `${total} ${total === 1 ? "paciente reciente" : "pacientes recientes"}. Escriba para filtrar o seleccione uno.`
+      : query ? "No se encontraron pacientes con esos datos." : "Todavía no hay pacientes cargados.", { clearResults: false });
   } catch (error) {
     if (error.name === "AbortError") return;
     liraImportResults = [];
@@ -11120,6 +11178,12 @@ async function addStudy(event) {
   event.preventDefault();
   const title = $("#studyTitle").value.trim();
   const summary = $("#studySummary").value.trim();
+  const selectedType = String($("#studyType").value || "");
+  if (/(?:imagen|foto|dicom)/i.test(selectedType) && !pendingStudyFile) {
+    toast("Seleccione un archivo para registrar un estudio de imagen");
+    $("#studyFile")?.focus();
+    return;
+  }
   if (!title && !summary && !pendingStudyFile) {
     toast("Estudio vacio");
     return;
@@ -11256,6 +11320,7 @@ function renderStudyList() {
   list.innerHTML = studies.map((study) => {
     const authorization = getStudySessionDeleteAuthorization(study);
     const deleting = studyDeleteBusyId === String(study.id);
+    const metadataOnlyImage = isStudyImageRecordWithoutFile(study);
     return `
       <article class="study-card pangea-study-card ${study.id === selectedStudyId ? "active" : ""}" data-action="view-study" data-id="${escapeAttr(study.id)}">
         <div class="study-row-main">
@@ -11269,9 +11334,9 @@ function renderStudyList() {
           ].filter(hasText).join(" · "))}</span>
         </div>
         <div class="study-actions">
-          <button class="tiny-button study-detail-button" type="button" data-action="view-study" data-id="${escapeAttr(study.id)}" title="Ver imágenes y detalle">
-            <i data-lucide="eye"></i>
-            <span>Ver imágenes / detalle</span>
+          <button class="tiny-button study-detail-button" type="button" data-action="view-study" data-id="${escapeAttr(study.id)}" title="${metadataOnlyImage ? "Ver registro sin archivo adjunto" : "Ver imágenes y detalle"}">
+            <i data-lucide="${metadataOnlyImage ? "file-search" : "eye"}"></i>
+            <span>${metadataOnlyImage ? "Ver registro" : "Ver imágenes / detalle"}</span>
           </button>
           ${renderStudyExternalLinks(study)}
           ${authorization ? `
@@ -11454,7 +11519,17 @@ function getLooseImageUploadedAt(study) {
 }
 
 function getStudyBadge(study) {
-  return study.modality || study.type || "Otro";
+  const label = study.modality || study.type || "Otro";
+  return isStudyImageRecordWithoutFile(study) ? `${label} · sin archivo` : label;
+}
+
+function isStudyImageRecordWithoutFile(study) {
+  const type = String(study?.modality || study?.type || "");
+  if (!/(?:imagen|foto|dicom)/i.test(type)) return false;
+  return !getStudyImages(study).length &&
+    !getStudyPrimaryFile(study) &&
+    !hasText(study?.reportUrl) &&
+    !hasText(study?.studyUrl);
 }
 
 function getStudyAttachments(study) {
@@ -11651,7 +11726,9 @@ function renderStudyImages() {
       refreshIcons();
       return;
     }
-    imageList.innerHTML = `<div class="study-images-empty">Este estudio no tiene imagenes importadas.</div>`;
+    imageList.innerHTML = isStudyImageRecordWithoutFile(study)
+      ? `<div class="study-images-empty">Registro histórico de imagen sin archivo adjunto. Se conserva la información clínica, pero no se presenta como una imagen disponible.</div>`
+      : `<div class="study-images-empty">Este estudio no tiene imágenes importadas.</div>`;
     return;
   }
 

@@ -210,7 +210,7 @@
         <h3>Abrir paciente</h3>
         <div class="doc-steps">
           <div class="doc-step"><strong>Pulse “Abrir paciente”</strong><p>Se abre el buscador conectado con la base PostgreSQL local.</p></div>
-          <div class="doc-step"><strong>Escriba un criterio</strong><p>Puede usar nombre, documento o identificador. Seleccione un resultado para ver su resumen.</p></div>
+          <div class="doc-step"><strong>Elija o filtre</strong><p>Al abrir se muestran los pacientes actualizados recientemente. Puede seleccionar uno directamente o escribir nombre, documento, HC o identificador para filtrar.</p></div>
           <div class="doc-step"><strong>Confirme “Abrir historia”</strong><p>HCOP JP recupera desde PostgreSQL la historia, los tratamientos y los estudios y cambia el paciente activo de la sesión.</p></div>
         </div>
         <h3>Actualizar datos del paciente</h3>
@@ -267,6 +267,7 @@
           <div class="doc-step"><strong>Pulse “Subir archivos”</strong><p>Cada archivo válido se guarda como un estudio independiente, aparece inmediatamente en la lista y queda vinculado sólo al paciente activo. Si uno falla puede reintentarlo sin repetir los demás.</p></div>
         </div>
         <div class="doc-callout"><strong>Formatos admitidos:</strong> imágenes habituales y médicas (incluido DICOM), PDF, documentos Word/RTF/ODT, presentaciones PowerPoint/ODP y videos de uso corriente. El sistema valida tanto la extensión como el contenido real antes de conservarlos.</div>
+        <div class="doc-callout warning"><strong>Registros históricos sin archivo:</strong> si una historia anterior dice “Imagen” pero no contiene un adjunto recuperable, HCOP conserva sus metadatos y lo identifica como “sin archivo”; no simula una imagen disponible. Las nuevas cargas de imagen siempre exigen seleccionar un archivo.</div>
         <p>Las imágenes, los PDF y los videos compatibles se visualizan dentro de HCOP. Word, PowerPoint y otros formatos documentales se muestran como una tarjeta de archivo para abrirlos o descargarlos con la aplicación correspondiente.</p>
         <h3>Usar una plantilla anatómica</h3>
         <p>Junto a <strong>Subir estudios</strong>, el botón <strong>Cargar plantilla</strong> abre una biblioteca local que combina 165 imágenes anatómicas incluidas con las plantillas institucionales activas creadas en Configuración. Incluye ocho grupos: cuerpo completo —con vistas de frente y espalda—, ginecología, urología, tórax, abdomen, cabeza y cuello, extremidades y órganos individuales.</p>
@@ -314,6 +315,8 @@
         </ul>
         <h3>Requisitos antes de iniciar</h3>
         <p>Al elegir un esquema, HCOP consulta sus requisitos. Cada requisito obligatorio debe completarse y confirmarse. Si el esquema no informa requisitos, el sistema lo indica explícitamente y permite continuar con los datos generales.</p>
+        <div class="doc-callout warning"><strong>Relación diagnóstico–protocolo:</strong> cuando ambos se reconocen con claridad y pertenecen a grupos oncológicos distintos, el formulario lo advierte. No bloquea una indicación excepcional, pero exige confirmarla y escribir un motivo clínico de al menos diez caracteres; ese motivo queda en el tratamiento y en su evolución inmutable.</div>
+        <div class="doc-callout"><strong>Consentimiento honesto:</strong> “Firmado · documento pendiente” registra que el acto fue informado como firmado sin afirmar que el archivo ya existe. El icono de documento sólo se habilita cuando hay un archivo real guardado; los tratamientos históricos se muestran con la misma regla.</div>
         <h3>Aplicaciones programadas</h3>
         <p>Las aplicaciones se pueden filtrar por texto, fecha y estado. Esos filtros reducen los ciclos visibles sin alterar el plan completo de la tarjeta. El resumen desplegado es de lectura: la asignación o reprogramación se hace en <strong>Sillones</strong>, y los avances, la cancelación y la finalización se realizan en el detalle operativo de la aplicación.</p>
         <h3 id="escanear-qr">Escanear QR y abrir la administración</h3>

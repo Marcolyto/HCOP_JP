@@ -40,6 +40,7 @@ public class TreatmentService {
   private final ObjectMapper mapper;
   private final Clock clock;
   private final InfusionService infusions;
+  private final TreatmentProtocolCompatibility compatibility;
 
   public TreatmentService(
       TreatmentRepository treatments,
@@ -48,7 +49,8 @@ public class TreatmentService {
       PatientDocumentService documents,
       ObjectMapper mapper,
       Clock clock,
-      InfusionService infusions) {
+      InfusionService infusions,
+      TreatmentProtocolCompatibility compatibility) {
     this.treatments = treatments;
     this.catalog = catalog;
     this.patients = patients;
@@ -56,6 +58,7 @@ public class TreatmentService {
     this.mapper = mapper;
     this.clock = clock;
     this.infusions = infusions;
+    this.compatibility = compatibility;
   }
 
   public List<Map<String, Object>> list(long patientId) {
@@ -70,15 +73,22 @@ public class TreatmentService {
     Map<String, Object> options = new LinkedHashMap<>();
     options.put("diagnoses", diagnoses);
     options.put("diagnosticos", diagnoses);
-    options.put("schemes", catalog.schemes(""));
-    options.put("esquemas", catalog.schemes(""));
+    List<Map<String, Object>> schemes = catalog.schemes("").stream().map(item -> {
+      Map<String, Object> view = new LinkedHashMap<>(item);
+      var assessment = compatibility.assess("", String.valueOf(item.getOrDefault("nombre", "")));
+      view.put("protocolGroup", assessment.protocolGroup());
+      view.put("protocolGroupLabel", assessment.protocolGroupLabel());
+      return view;
+    }).toList();
+    options.put("schemes", schemes);
+    options.put("esquemas", schemes);
     options.put("characters", simpleOptions("Curativo", "Paliativo", "Adyuvante", "Neoadyuvante"));
     options.put("caracteres", options.get("characters"));
     options.put("treatmentTypes", simpleOptions(
         "Quimioterapia", "Inmunoterapia", "Hormonoterapia",
         "Quimioterapia + Inmunoterapia", "Bifosfonatos", "Terapia dirigida"));
     options.put("tipos", options.get("treatmentTypes"));
-    options.put("consentStates", simpleOptions("Pendiente", "Firmado", "No requiere"));
+    options.put("consentStates", simpleOptions("Pendiente", "Firmado · documento pendiente", "No requiere"));
     options.put("consentimientos", options.get("consentStates"));
     return Map.of("ok", true, "patientId", Long.toString(patientId), "options", options);
   }
@@ -132,6 +142,17 @@ public class TreatmentService {
     String schemeId = text(input, "esquema", "scheme", "schemeId");
     Scheme scheme = catalog.scheme(schemeId)
         .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "Seleccione un esquema válido."));
+    var protocolAssessment = compatibility.assess(diagnosis, scheme.name());
+    boolean protocolMismatchConfirmed = input.path("protocolMismatchConfirmed").asBoolean(false);
+    String protocolMismatchReason = text(input, "protocolMismatchReason");
+    if (protocolAssessment.mismatch()
+        && (!protocolMismatchConfirmed || protocolMismatchReason.length() < 10)) {
+      throw new ApiException(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          "El esquema pertenece a " + protocolAssessment.protocolGroupLabel()
+              + " y el diagnóstico a " + protocolAssessment.diagnosisGroupLabel()
+              + ". Confirme la excepción y documente el motivo clínico.");
+    }
     int cycleCount = boundedInt(input, 1, 500, 1, "cantidadCiclos", "cycles", "cycleCount");
     int initialCycle = boundedInt(input, 1, 500, 1, "cicloInicial", "initialCycle");
     int cycleDays = boundedInt(input, 0, 3650, Math.max(0, scheme.cycleDays()),
@@ -143,10 +164,17 @@ public class TreatmentService {
     if (oncologist.isBlank()) oncologist = actor.displayName();
     String consent = text(input, "estadoConsentimiento", "consent", "consentStatus");
     boolean consentAvailable = input.path("consentAvailable").asBoolean(false);
+    if (isSignedConsent(consent) && !consentAvailable) {
+      consent = "Firmado · documento pendiente";
+    }
     ObjectNode payload = (ObjectNode) input.deepCopy();
     payload.put("clinicalEntryId", text(input, "clinicalEntryId", "treatmentEntryId"));
     payload.put("origenLocal", true);
     payload.put("requirementsConfirmed", input.path("requirementsConfirmed").asBoolean(false));
+    payload.put("protocolDiagnosisGroup", protocolAssessment.diagnosisGroup());
+    payload.put("protocolGroup", protocolAssessment.protocolGroup());
+    payload.put("protocolMismatchConfirmed", protocolAssessment.mismatch() && protocolMismatchConfirmed);
+    payload.put("protocolMismatchReason", protocolAssessment.mismatch() ? protocolMismatchReason : "");
     ObjectNode detail = createDetail(id, patientId, scheme, initialCycle, cycleCount, firstCycle, cycleDays);
     NewTreatment value = new NewTreatment(
         id, patientId, diagnosisId, createdOn, firstCycle, initialCycle, cycleCount, cycleDays,
@@ -236,8 +264,9 @@ public class TreatmentService {
     result.put("oncologo", treatment.oncologist());
     result.put("status", treatment.status());
     result.put("estadoTratamiento", treatment.status());
-    result.put("consentStatus", treatment.consentStatus());
-    result.put("estadoConsentimiento", treatment.consentStatus());
+    String consentStatus = displayConsentStatus(treatment);
+    result.put("consentStatus", consentStatus);
+    result.put("estadoConsentimiento", consentStatus);
     result.put("consentAvailable", treatment.consentAvailable());
     result.put("intent", treatment.intent());
     result.put("caracter", treatment.intent());
@@ -286,14 +315,24 @@ public class TreatmentService {
         String id = text(record, "id", "diagnosisEntryId");
         if (id.isBlank()) id = "diagnosis-" + (++index);
         String label = diagnosisDisplay(record);
-        if (!label.isBlank()) result.add(Map.of("id", id, "nombre", label, "activo", "1"));
+        if (!label.isBlank()) result.add(diagnosisOption(id, label));
       }
     }
     if (result.isEmpty()) {
       String label = document.path("oncology").path("diagnosis").asText("").trim();
-      if (!label.isBlank()) result.add(Map.of("id", "oncology-current", "nombre", label, "activo", "1"));
+      if (!label.isBlank()) result.add(diagnosisOption("oncology-current", label));
     }
     return result;
+  }
+
+  private Map<String, Object> diagnosisOption(String id, String label) {
+    var assessment = compatibility.assess(label, "");
+    return Map.of(
+        "id", id,
+        "nombre", label,
+        "activo", "1",
+        "protocolGroup", assessment.diagnosisGroup(),
+        "protocolGroupLabel", assessment.diagnosisGroupLabel());
   }
 
   private String diagnosisLabel(JsonNode document, String id) {
@@ -429,6 +468,9 @@ public class TreatmentService {
     addLine(lines, "Superficie corporal", unit(text(input, "supCorporal", "superficieCorporal"), "m²"));
     addLine(lines, "Observaciones", text(input, "observaciones", "notes"));
     if (input.path("requirementsConfirmed").asBoolean(false)) lines.add("Datos requeridos verificados: Sí");
+    if (input.path("protocolMismatchConfirmed").asBoolean(false)) {
+      addLine(lines, "Excepción diagnóstico-protocolo", text(input, "protocolMismatchReason"));
+    }
     evolution.put("text", String.join("\n", lines));
     ObjectNode audit = evolution.putObject("audit");
     audit.put("action", "cargado");
@@ -451,6 +493,20 @@ public class TreatmentService {
 
   private String unit(String value, String unit) {
     return value.isBlank() ? "" : value + " " + unit;
+  }
+
+  private String displayConsentStatus(Treatment treatment) {
+    if (isSignedConsent(treatment.consentStatus()) && !treatment.consentAvailable()) {
+      return "Firmado · documento pendiente";
+    }
+    return treatment.consentStatus();
+  }
+
+  private boolean isSignedConsent(String value) {
+    String normalized = normalize(value);
+    return normalized.equals("firmado")
+        || normalized.equals("signed")
+        || normalized.startsWith("firmado documento");
   }
 
   private int boundedInt(JsonNode input, int min, int max, int fallback, String... keys) {

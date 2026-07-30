@@ -1,0 +1,1134 @@
+{
+  "version": 1,
+  "canvas": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "background": "#EAF2F7"
+  },
+  "defaults": {
+    "duration_seconds": 8,
+    "transition_seconds": 0.35,
+    "title_duration_seconds": 2.8,
+    "cursor": {
+      "size": 38,
+      "halo_radius": 38,
+      "halo_color": "#006BFF"
+    }
+  },
+  "scenes": [
+    {
+      "id": "00-recorrido",
+      "step": "1",
+      "duration_seconds": 9,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/01-prescripcion.png",
+      "title": "Circuito integral de Hospital de día",
+      "caption": "Una aplicación, siete controles y trazabilidad completa.",
+      "subtitle": "Este recorrido sigue una aplicación real: prescripción, Farmacia, turno, triaje, preparación, administración y cierre.",
+      "cursor_path": [
+        { "t": 0.5, "x": 600, "y": 165 },
+        { "t": 4.2, "x": 955, "y": 165 },
+        { "t": 8.2, "x": 1440, "y": 165 }
+      ],
+      "highlights": [
+        {
+          "rect": [376, 56, 1522, 194],
+          "start": 3.0,
+          "end": 8.5,
+          "label": "Hospital de día",
+          "color": "#006BFF"
+        }
+      ],
+      "panel": {
+        "rect": [1590, 260, 1880, 850],
+        "start": 3.1,
+        "end": 8.5,
+        "title": "7 controles",
+        "items": [
+          { "text": "Prescribir", "tone": "blue" },
+          { "text": "Validar medicación", "tone": "amber" },
+          { "text": "Agendar", "tone": "blue" },
+          { "text": "Autorizar clínicamente", "tone": "green" },
+          { "text": "Preparar y administrar", "tone": "green" },
+          { "text": "Cerrar y auditar", "tone": "gray" }
+        ]
+      }
+    },
+    {
+      "id": "01-abrir-nuevo-tratamiento",
+      "step": "1",
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/08-nuevo-tratamiento.png",
+      "title": "Crear la prescripción",
+      "caption": "El oncólogo inicia desde Nuevo tratamiento.",
+      "subtitle": "Con el paciente abierto, entre en H. de día y pulse Nuevo tratamiento. El sistema no modifica tratamientos anteriores.",
+      "cursor_path": [
+        { "t": 0.5, "x": 115, "y": 106 },
+        { "t": 3.2, "x": 115, "y": 106, "click": true },
+        { "t": 5.1, "x": 780, "y": 185 },
+        { "t": 7.3, "x": 770, "y": 365, "click": true }
+      ],
+      "highlights": [
+        {
+          "rect": [45, 87, 225, 126],
+          "start": 2.9,
+          "end": 4.6,
+          "label": "Nuevo tratamiento",
+          "color": "#006BFF"
+        },
+        {
+          "rect": [600, 130, 1380, 950],
+          "start": 4.3,
+          "end": 7.6,
+          "label": "Formulario de prescripción",
+          "color": "#006BFF"
+        }
+      ],
+      "arrows": [
+        {
+          "from": [300, 180],
+          "to": [130, 110],
+          "start": 3.4,
+          "end": 4.6,
+          "label": "Comenzar aquí",
+          "color": "#006BFF"
+        }
+      ]
+    },
+    {
+      "id": "01-datos-prescripcion",
+      "step": "1",
+      "duration_seconds": 10,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/08-nuevo-tratamiento.png",
+      "title": "Completar la orden médica",
+      "caption": "Diagnóstico, protocolo, días, medidas y dosis.",
+      "subtitle": "Seleccione diagnóstico y protocolo. Confirme ciclos y días de aplicación, peso, talla en centímetros, superficie corporal, dosis y requisitos.",
+      "cursor_path": [
+        { "t": 0.5, "x": 850, "y": 365 },
+        { "t": 3.8, "x": 850, "y": 495, "click": true },
+        { "t": 6.5, "x": 850, "y": 620 },
+        { "t": 9.3, "x": 1260, "y": 915, "click": true }
+      ],
+      "highlights": [
+        {
+          "rect": [610, 335, 1350, 710],
+          "start": 3.0,
+          "end": 9.5,
+          "label": "Diagnóstico, esquema y ciclos",
+          "color": "#006BFF"
+        },
+        {
+          "rect": [1180, 890, 1360, 945],
+          "start": 6.5,
+          "end": 9.5,
+          "label": "Guardar tratamiento",
+          "color": "#006BFF"
+        }
+      ],
+      "panel": {
+        "rect": [35, 300, 335, 880],
+        "start": 3.0,
+        "end": 9.5,
+        "title": "Datos obligatorios",
+        "items": [
+          { "text": "Diagnóstico y protocolo", "tone": "blue" },
+          { "text": "Ciclos y días reales", "tone": "blue" },
+          { "text": "Peso, talla y superficie", "tone": "green" },
+          { "text": "Dosis y requisitos previos", "tone": "amber" }
+        ]
+      }
+    },
+    {
+      "id": "01-aplicaciones-generadas",
+      "step": "1",
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/20-tratamiento-detalle.png",
+      "title": "Revisar ciclos y aplicaciones",
+      "caption": "Cada día con medicación se gestiona por separado.",
+      "subtitle": "Al guardar, el tratamiento conserva su árbol ciclo, día y aplicación. Cada día con medicación tendrá su propia Farmacia y su propio turno.",
+      "cursor_path": [
+        { "t": 0.5, "x": 875, "y": 710 },
+        { "t": 4.2, "x": 1030, "y": 710 },
+        { "t": 7.4, "x": 1180, "y": 850 }
+      ],
+      "highlights": [
+        {
+          "rect": [790, 650, 1120, 800],
+          "start": 2.9,
+          "end": 7.7,
+          "label": "Ciclos",
+          "color": "#006BFF"
+        },
+        {
+          "rect": [420, 810, 1490, 1055],
+          "start": 4.0,
+          "end": 7.7,
+          "label": "Drogas y aplicaciones",
+          "color": "#006BFF"
+        }
+      ]
+    },
+    {
+      "id": "01-documentos-y-detalle",
+      "step": "1",
+      "duration_seconds": 10,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/19-tratamientos-lista.png",
+      "title": "Consultar documentos del tratamiento",
+      "caption": "Los documentos están junto al acceso al detalle.",
+      "subtitle": "Desde cada fila consulte consentimiento, prescripción, hoja de tratamiento y QR. Azul indica documento disponible; rojo, ausente. Actualizar recupera el detalle vigente.",
+      "cursor_path": [
+        { "t": 0.5, "x": 1405, "y": 870 },
+        { "t": 4.0, "x": 1440, "y": 870, "click": true },
+        { "t": 7.0, "x": 1480, "y": 870, "click": true },
+        { "t": 9.4, "x": 1480, "y": 870 }
+      ],
+      "highlights": [
+        {
+          "rect": [1375, 825, 1520, 925],
+          "start": 2.9,
+          "end": 9.6,
+          "label": "Documentos y detalle",
+          "color": "#006BFF"
+        }
+      ],
+      "panel": {
+        "rect": [35, 320, 340, 835],
+        "start": 3.0,
+        "end": 9.5,
+        "title": "Accesos",
+        "items": [
+          { "text": "Consentimiento azul o rojo", "tone": "blue" },
+          { "text": "Prescripción", "tone": "green" },
+          { "text": "Hoja de tratamiento", "tone": "green" },
+          { "text": "QR de identificación", "tone": "blue" },
+          { "text": "Actualizar detalle", "tone": "gray" }
+        ]
+      }
+    },
+    {
+      "id": "02-buscar-en-farmacia",
+      "step": "2",
+      "duration_seconds": 9,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/09-farmacia-lista.png",
+      "title": "Encontrar la aplicación en Farmacia",
+      "caption": "Busque por persona o por tratamiento.",
+      "subtitle": "Farmacia filtra por procedencia y busca por nombre, DNI, esquema o diagnóstico. La fila identifica ciclo, día, fecha y medicación.",
+      "cursor_path": [
+        { "t": 0.5, "x": 985, "y": 210 },
+        { "t": 4.0, "x": 1200, "y": 215, "click": true },
+        { "t": 8.4, "x": 750, "y": 400 }
+      ],
+      "highlights": [
+        {
+          "rect": [950, 180, 1525, 250],
+          "start": 2.9,
+          "end": 8.5,
+          "label": "Buscar",
+          "color": "#006BFF"
+        },
+        {
+          "rect": [385, 395, 1525, 520],
+          "start": 4.2,
+          "end": 8.5,
+          "label": "Aplicación exacta",
+          "color": "#006BFF"
+        }
+      ]
+    },
+    {
+      "id": "02-procedencia-medicacion",
+      "step": "2",
+      "duration_seconds": 11,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/02-farmacia-reserva.png",
+      "title": "Definir de dónde proviene la medicación",
+      "caption": "El estado decide si se puede seguir al turno.",
+      "subtitle": "Marque si la medicación pertenece al stock del centro, ya fue recibida o la traerá el paciente. Si todavía falta, permanece pendiente y no habilita el turno.",
+      "cursor_path": [
+        { "t": 0.5, "x": 660, "y": 275 },
+        { "t": 5.0, "x": 650, "y": 275, "click": true },
+        { "t": 10.4, "x": 1245, "y": 408 }
+      ],
+      "highlights": [
+        {
+          "rect": [385, 240, 950, 315],
+          "start": 2.9,
+          "end": 10.5,
+          "label": "Procedencia",
+          "color": "#006BFF"
+        },
+        {
+          "rect": [1182, 354, 1330, 458],
+          "start": 4.0,
+          "end": 10.5,
+          "label": "Disponibilidad",
+          "color": "#006BFF"
+        }
+      ],
+      "panel": {
+        "rect": [1590, 280, 1890, 810],
+        "start": 3.1,
+        "end": 10.5,
+        "title": "Procedencias",
+        "items": [
+          { "text": "Stock del centro", "tone": "green" },
+          { "text": "Debe traerla el paciente", "tone": "amber" },
+          { "text": "La tiene el paciente", "tone": "blue" },
+          { "text": "Recibida en el centro", "tone": "green" },
+          { "text": "Pendiente del proveedor", "tone": "red" }
+        ]
+      }
+    },
+    {
+      "id": "02-auditar-y-reservar",
+      "step": "2",
+      "duration_seconds": 10,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/02-farmacia-reserva.png",
+      "title": "Auditar y reservar stock",
+      "caption": "Drogas y dosis deben coincidir con la orden.",
+      "subtitle": "Revise drogas, dosis y cantidad física. Al confirmar, el stock queda reservado para esta aplicación y el sistema registra al responsable.",
+      "cursor_path": [
+        { "t": 0.5, "x": 1050, "y": 405 },
+        { "t": 5.5, "x": 1395, "y": 410, "click": true },
+        { "t": 9.4, "x": 1395, "y": 410 }
+      ],
+      "highlights": [
+        {
+          "rect": [900, 310, 1330, 470],
+          "start": 3.0,
+          "end": 9.5,
+          "label": "Drogas y disponibilidad",
+          "color": "#006BFF"
+        },
+        {
+          "rect": [1330, 375, 1465, 445],
+          "start": 4.6,
+          "end": 9.5,
+          "label": "Confirmar",
+          "color": "#138A53"
+        }
+      ],
+      "panel": {
+        "rect": [35, 360, 330, 745],
+        "start": 3.0,
+        "end": 9.5,
+        "title": "Si algo no coincide",
+        "items": [
+          { "text": "No confirmar la reserva", "tone": "red" },
+          { "text": "Corregir orden o stock", "tone": "amber" },
+          { "text": "Registrar responsable", "tone": "gray" }
+        ]
+      }
+    },
+    {
+      "id": "02-rechazar-y-revalidar",
+      "step": "2",
+      "duration_seconds": 10,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/02-farmacia-reserva.png",
+      "title": "Corregir una orden inconsistente",
+      "caption": "Rechazar bloquea el circuito, pero no borra la orden.",
+      "subtitle": "Si la orden es inconsistente, Farmacia la rechaza con motivo. Tras corregir procedencia u observaciones, Revalidar orden la devuelve al circuito.",
+      "cursor_path": [
+        { "t": 0.5, "x": 1350, "y": 410 },
+        { "t": 4.2, "x": 1350, "y": 410, "click": true },
+        { "t": 7.0, "x": 1245, "y": 410 },
+        { "t": 9.4, "x": 1395, "y": 410, "click": true }
+      ],
+      "highlights": [
+        {
+          "rect": [1180, 350, 1465, 460],
+          "start": 2.9,
+          "end": 9.6,
+          "label": "Rechazar o revalidar",
+          "color": "#C83532"
+        }
+      ],
+      "panel": {
+        "rect": [35, 350, 335, 790],
+        "start": 3.0,
+        "end": 9.5,
+        "title": "Corrección segura",
+        "items": [
+          { "text": "Motivo obligatorio", "tone": "red" },
+          { "text": "Bloquea el turno", "tone": "red" },
+          { "text": "Corregir procedencia", "tone": "amber" },
+          { "text": "Revalidar sin borrar", "tone": "green" }
+        ]
+      }
+    },
+    {
+      "id": "02-qr-aplicacion",
+      "step": "2",
+      "duration_seconds": 7,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/02-farmacia-reserva.png",
+      "title": "Imprimir el QR correcto",
+      "caption": "El código identifica una sola aplicación.",
+      "subtitle": "El icono QR imprime la identificación de esta aplicación, no del tratamiento completo. Se usará luego para abrirla en Sala.",
+      "cursor_path": [
+        { "t": 0.5, "x": 1485, "y": 410 },
+        { "t": 4.0, "x": 1485, "y": 410, "click": true },
+        { "t": 6.5, "x": 1485, "y": 410 }
+      ],
+      "highlights": [
+        {
+          "rect": [1460, 374, 1520, 445],
+          "start": 2.8,
+          "end": 6.6,
+          "label": "QR de la aplicación",
+          "color": "#006BFF"
+        }
+      ]
+    },
+    {
+      "id": "03-fecha-lista-y-buscador",
+      "step": "3",
+      "duration_seconds": 10,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/11-agenda-lista.png",
+      "title": "Elegir día y encontrar al paciente",
+      "caption": "La lista de espera está a la izquierda.",
+      "subtitle": "Seleccione la fecha con el calendario. Aquí aparecen las aplicaciones habilitadas; el buscador encuentra por paciente, DNI, esquema o diagnóstico y también resalta turnos ya ubicados.",
+      "cursor_path": [
+        { "t": 0.5, "x": 640, "y": 70 },
+        { "t": 4.0, "x": 655, "y": 70, "click": true },
+        { "t": 7.0, "x": 520, "y": 370, "click": true },
+        { "t": 9.5, "x": 520, "y": 520 }
+      ],
+      "highlights": [
+        {
+          "rect": [440, 30, 690, 105],
+          "start": 2.9,
+          "end": 9.6,
+          "label": "Fecha y calendario",
+          "color": "#006BFF"
+        },
+        {
+          "rect": [385, 245, 700, 1060],
+          "start": 4.3,
+          "end": 9.6,
+          "label": "Lista de espera",
+          "color": "#006BFF"
+        }
+      ],
+      "panel": {
+        "rect": [35, 360, 345, 765],
+        "start": 4.0,
+        "end": 9.5,
+        "title": "Cada tarjeta muestra",
+        "items": [
+          { "text": "Nombre y DNI", "tone": "blue" },
+          { "text": "Ciclo, día y esquema", "tone": "blue" },
+          { "text": "Prescripción y medicación", "tone": "amber" },
+          { "text": "Días hasta la aplicación", "tone": "gray" }
+        ]
+      }
+    },
+    {
+      "id": "03-seleccionar-y-previsualizar",
+      "step": "3",
+      "duration_seconds": 9,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/12-agenda-seleccion.png",
+      "title": "Previsualizar dónde cabe",
+      "caption": "El sistema explica por qué una aplicación todavía no puede agendarse.",
+      "subtitle": "Haga clic en una tarjeta de espera. Si falta prescripción o medicación, queda bloqueada y no habilita ningún lugar. Cuando está lista, las posiciones donde cabe se muestran en celeste.",
+      "cursor_path": [
+        { "t": 0.5, "x": 150, "y": 330 },
+        { "t": 4.2, "x": 150, "y": 330, "click": true },
+        { "t": 6.5, "x": 95, "y": 344 },
+        { "t": 8.4, "x": 1200, "y": 300 }
+      ],
+      "highlights": [
+        {
+          "rect": [20, 270, 270, 395],
+          "start": 2.9,
+          "end": 8.6,
+          "label": "Bloqueada: falta medicación",
+          "color": "#C83532"
+        },
+        {
+          "rect": [1100, 225, 1365, 385],
+          "start": 5.2,
+          "end": 8.6,
+          "label": "Celeste sólo cuando está habilitada",
+          "color": "#006BFF"
+        }
+      ]
+    },
+    {
+      "id": "03-arrastrar-a-sillon",
+      "step": "3",
+      "duration_seconds": 10,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/12-agenda-seleccion.png",
+      "title": "Dar turno por arrastre",
+      "caption": "Verde significa que el bloque completo está libre.",
+      "subtitle": "Cuando la aplicación ya está habilitada, tome su tarjeta y arrástrela al sillón y hora deseados. Durante el movimiento sólo se iluminan en verde los bloques donde cabe toda la duración.",
+      "cursor_path": [
+        { "t": 0.6, "x": 150, "y": 330, "click": true },
+        { "t": 4.5, "x": 650, "y": 310 },
+        { "t": 8.0, "x": 1200, "y": 300 },
+        { "t": 9.5, "x": 1200, "y": 300, "click": true }
+      ],
+      "highlights": [
+        {
+          "rect": [20, 270, 270, 395],
+          "start": 2.8,
+          "end": 5.2,
+          "label": "Tarjeta habilitada",
+          "color": "#006BFF"
+        },
+        {
+          "rect": [1100, 225, 1365, 385],
+          "start": 4.2,
+          "end": 9.6,
+          "label": "Soltar en celdas verdes",
+          "color": "#138A53"
+        }
+      ],
+      "arrows": [
+        {
+          "from": [260, 330],
+          "to": [1180, 300],
+          "start": 4.0,
+          "end": 9.5,
+          "label": "Arrastrar y soltar",
+          "color": "#138A53"
+        }
+      ]
+    },
+    {
+      "id": "03-estado-del-turno",
+      "step": "3",
+      "duration_seconds": 9,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/03-agendamiento.png",
+      "title": "Leer el bloque asignado",
+      "caption": "Un bloque ocupa la duración completa.",
+      "subtitle": "El turno muestra paciente, DNI, esquema, ciclo, día y franja horaria. Abra la hoja para confirmar: azul es pendiente y rojo es confirmado.",
+      "cursor_path": [
+        { "t": 0.5, "x": 820, "y": 390 },
+        { "t": 4.3, "x": 1110, "y": 390 },
+        { "t": 8.4, "x": 1180, "y": 500 }
+      ],
+      "highlights": [
+        {
+          "rect": [700, 320, 985, 520],
+          "start": 2.8,
+          "end": 8.6,
+          "label": "Azul: sin confirmar",
+          "color": "#006BFF"
+        },
+        {
+          "rect": [990, 320, 1270, 520],
+          "start": 3.4,
+          "end": 8.6,
+          "label": "Rojo: confirmado",
+          "color": "#C83532"
+        }
+      ],
+      "panel": {
+        "rect": [1590, 360, 1890, 690],
+        "start": 3.0,
+        "end": 8.5,
+        "title": "Confirmación",
+        "items": [
+          { "text": "Hoja: revisar el turno", "tone": "blue" },
+          { "text": "Azul: no confirmado", "tone": "blue" },
+          { "text": "Rojo: confirmado", "tone": "red" }
+        ]
+      }
+    },
+    {
+      "id": "03-revisar-detalle-del-turno",
+      "step": "3",
+      "duration_seconds": 9,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/13-turno-detalle.png",
+      "title": "Revisar antes de confirmar",
+      "caption": "La hoja reúne identidad, cobertura y tratamiento.",
+      "subtitle": "La hoja muestra nombre, DNI, obra social y número, diagnóstico, esquema, sillón, horario, ciclo, día, duración, prescripción y medicación.",
+      "cursor_path": [
+        { "t": 0.5, "x": 650, "y": 240 },
+        { "t": 4.0, "x": 850, "y": 540 },
+        { "t": 7.0, "x": 760, "y": 850 },
+        { "t": 8.5, "x": 1120, "y": 980 }
+      ],
+      "highlights": [
+        {
+          "rect": [400, 145, 1500, 405],
+          "start": 2.9,
+          "end": 8.6,
+          "label": "Paciente y cobertura",
+          "color": "#006BFF"
+        },
+        {
+          "rect": [400, 405, 1500, 760],
+          "start": 3.8,
+          "end": 8.6,
+          "label": "Diagnóstico, esquema y turno",
+          "color": "#006BFF"
+        },
+        {
+          "rect": [400, 775, 1500, 1050],
+          "start": 5.5,
+          "end": 8.6,
+          "label": "Controles previos",
+          "color": "#138A53"
+        }
+      ]
+    },
+    {
+      "id": "03-mover-o-quitar",
+      "step": "3",
+      "duration_seconds": 10,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/21-agenda-mover.png",
+      "title": "Mover, abrir o quitar un turno",
+      "caption": "Cada icono tiene una acción reversible.",
+      "subtitle": "La cruz quita el turno y devuelve la aplicación a espera. El icono de mover permite recolocarla; la hoja abre toda la información sin alterar la agenda.",
+      "cursor_path": [
+        { "t": 0.5, "x": 495, "y": 238 },
+        { "t": 4.0, "x": 520, "y": 238, "click": true },
+        { "t": 6.8, "x": 542, "y": 238, "click": true },
+        { "t": 9.4, "x": 498, "y": 238, "click": true }
+      ],
+      "highlights": [
+        {
+          "rect": [480, 210, 558, 270],
+          "start": 2.9,
+          "end": 9.6,
+          "label": "Hoja · mover · quitar",
+          "color": "#006BFF"
+        }
+      ],
+      "panel": {
+        "rect": [1590, 350, 1890, 745],
+        "start": 3.0,
+        "end": 9.5,
+        "title": "Acciones",
+        "items": [
+          { "text": "Hoja: ver detalle", "tone": "blue" },
+          { "text": "Cruces: mover", "tone": "green" },
+          { "text": "X: volver a espera", "tone": "red" }
+        ]
+      }
+    },
+    {
+      "id": "03-gestionar-el-ciclo",
+      "step": "3",
+      "duration_seconds": 12,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/12-agenda-seleccion.png",
+      "title": "Gestionar excepciones del ciclo",
+      "caption": "La hoja abre decisiones clínicas y operativas.",
+      "subtitle": "Desde Gestionar puede suspender, solicitar una prescripción o pedir continuidad a un médico. Una suspensión transitoria puede reanudarse; la definitiva exige una nueva decisión clínica.",
+      "cursor_path": [
+        { "t": 0.5, "x": 890, "y": 380 },
+        { "t": 4.0, "x": 890, "y": 380, "click": true },
+        { "t": 7.0, "x": 1110, "y": 480 },
+        { "t": 11.4, "x": 1110, "y": 480, "click": true }
+      ],
+      "highlights": [
+        {
+          "rect": [860, 345, 920, 420],
+          "start": 2.9,
+          "end": 11.5,
+          "label": "Abrir Gestionar",
+          "color": "#006BFF"
+        }
+      ],
+      "panel": {
+        "rect": [1570, 265, 1900, 910],
+        "start": 3.0,
+        "end": 11.5,
+        "title": "Gestionar",
+        "items": [
+          { "text": "Solicitar prescripción", "tone": "blue" },
+          { "text": "Solicitar continuidad", "tone": "blue" },
+          { "text": "Suspender transitoriamente", "tone": "amber" },
+          { "text": "Suspender definitivamente", "tone": "red" },
+          { "text": "Reanudar con motivo", "tone": "green" },
+          { "text": "Resolver desde la campana", "tone": "gray" }
+        ]
+      }
+    },
+    {
+      "id": "03-reglas-de-agenda",
+      "step": "3",
+      "duration_seconds": 9,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/12-agenda-seleccion.png",
+      "title": "Evitar errores de agenda",
+      "caption": "No se permiten solapamientos ni cortes.",
+      "subtitle": "El sistema rechaza un turno superpuesto, fuera de la jornada o sin espacio continuo. Use las flechas para otros sillones y la lupa para ajustar la vista.",
+      "cursor_path": [
+        { "t": 0.5, "x": 1670, "y": 180 },
+        { "t": 4.5, "x": 1815, "y": 180, "click": true },
+        { "t": 8.4, "x": 1860, "y": 180, "click": true }
+      ],
+      "highlights": [
+        {
+          "rect": [1645, 165, 1895, 220],
+          "start": 2.8,
+          "end": 8.6,
+          "label": "Sillones y zoom",
+          "color": "#006BFF"
+        },
+        {
+          "rect": [300, 220, 1895, 1060],
+          "start": 4.0,
+          "end": 8.6,
+          "label": "Sin superposición",
+          "color": "#C83532"
+        }
+      ]
+    },
+    {
+      "id": "04-evaluacion-triaje",
+      "step": "4",
+      "duration_seconds": 10,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/15-triaje-formulario.png",
+      "title": "Completar el triaje del día",
+      "caption": "La lista se ordena por hora del turno.",
+      "subtitle": "Antes de preparar, registre laboratorio, peso, presión, temperatura, saturación, ECOG, toxicidad y observaciones clínicas.",
+      "cursor_path": [
+        { "t": 0.5, "x": 700, "y": 565 },
+        { "t": 4.0, "x": 945, "y": 565, "click": true },
+        { "t": 7.0, "x": 700, "y": 735, "click": true },
+        { "t": 9.5, "x": 1170, "y": 790 }
+      ],
+      "highlights": [
+        {
+          "rect": [540, 505, 1370, 835],
+          "start": 2.9,
+          "end": 9.6,
+          "label": "Evaluación clínica",
+          "color": "#006BFF"
+        }
+      ],
+      "panel": {
+        "rect": [35, 355, 340, 800],
+        "start": 3.0,
+        "end": 9.5,
+        "title": "Revisar",
+        "items": [
+          { "text": "Laboratorio y signos vitales", "tone": "blue" },
+          { "text": "ECOG y toxicidad", "tone": "amber" },
+          { "text": "Peso actual y observaciones", "tone": "blue" }
+        ]
+      }
+    },
+    {
+      "id": "04-autorizar-pass",
+      "step": "4",
+      "duration_seconds": 8,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/15-triaje-formulario.png",
+      "title": "PASS: autorizar la preparación",
+      "caption": "Sólo una evaluación apta libera la mezcla.",
+      "subtitle": "Si el paciente está apto, pulse Autorizar PASS. La aplicación queda habilitada para Preparación y conserva quién tomó la decisión.",
+      "cursor_path": [
+        { "t": 0.5, "x": 1300, "y": 860 },
+        { "t": 4.8, "x": 1300, "y": 860, "click": true },
+        { "t": 7.5, "x": 1300, "y": 860 }
+      ],
+      "highlights": [
+        {
+          "rect": [1228, 828, 1378, 895],
+          "start": 2.8,
+          "end": 7.6,
+          "label": "Autorizar PASS",
+          "color": "#138A53"
+        }
+      ]
+    },
+    {
+      "id": "04-postergar-fail",
+      "step": "4",
+      "duration_seconds": 11,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/15-triaje-formulario.png",
+      "title": "FAIL: postergar con motivo",
+      "caption": "La causa y la nueva fecha son obligatorias.",
+      "subtitle": "Si no está apto, escriba el motivo y proponga una nueva fecha. Postergar libera la reserva, quita el turno y devuelve la aplicación al circuito sin perderla.",
+      "cursor_path": [
+        { "t": 0.5, "x": 850, "y": 720 },
+        { "t": 4.0, "x": 850, "y": 720, "click": true },
+        { "t": 7.0, "x": 1120, "y": 860, "click": true },
+        { "t": 10.3, "x": 1170, "y": 860, "click": true }
+      ],
+      "highlights": [
+        {
+          "rect": [540, 675, 1370, 825],
+          "start": 2.9,
+          "end": 10.5,
+          "label": "Motivo y nueva fecha",
+          "color": "#C83532"
+        },
+        {
+          "rect": [1115, 828, 1230, 895],
+          "start": 7.2,
+          "end": 10.5,
+          "label": "Postergar",
+          "color": "#C83532"
+        }
+      ],
+      "panel": {
+        "rect": [35, 360, 335, 770],
+        "start": 3.0,
+        "end": 10.4,
+        "title": "El FAIL hace",
+        "items": [
+          { "text": "Libera la reserva", "tone": "amber" },
+          { "text": "Quita el turno actual", "tone": "red" },
+          { "text": "Reprograma sin borrar", "tone": "blue" }
+        ]
+      }
+    },
+    {
+      "id": "05-trazabilidad-preparacion",
+      "step": "5",
+      "duration_seconds": 11,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/05-preparacion.png",
+      "title": "Preparar cada droga",
+      "caption": "La mezcla registra toda su trazabilidad.",
+      "subtitle": "Para cada droga cargue lote, vencimiento, cantidad usada, unidad, diluyente, volumen final, concentración y vida útil o TTL.",
+      "cursor_path": [
+        { "t": 0.5, "x": 680, "y": 405 },
+        { "t": 4.0, "x": 1120, "y": 405, "click": true },
+        { "t": 7.0, "x": 690, "y": 610, "click": true },
+        { "t": 10.4, "x": 1120, "y": 680 }
+      ],
+      "highlights": [
+        {
+          "rect": [420, 320, 1485, 730],
+          "start": 2.9,
+          "end": 10.5,
+          "label": "Datos de la mezcla",
+          "color": "#006BFF"
+        }
+      ],
+      "panel": {
+        "rect": [35, 335, 340, 875],
+        "start": 3.0,
+        "end": 10.4,
+        "title": "Trazabilidad",
+        "items": [
+          { "text": "Lote y vencimiento", "tone": "blue" },
+          { "text": "Cantidad y diluyente", "tone": "blue" },
+          { "text": "Volumen y concentración", "tone": "green" },
+          { "text": "TTL de cada mezcla", "tone": "amber" }
+        ]
+      }
+    },
+    {
+      "id": "05-doble-control-etiqueta",
+      "step": "5",
+      "duration_seconds": 9,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/05-preparacion.png",
+      "title": "Confirmar, etiquetar y liberar",
+      "caption": "El segundo control debe ser otra persona.",
+      "subtitle": "Registre preparador y segundo control, imprima la etiqueta y recién entonces libere la mezcla a Sala. Las acciones quedan auditadas.",
+      "cursor_path": [
+        { "t": 0.5, "x": 700, "y": 805 },
+        { "t": 3.8, "x": 1140, "y": 805, "click": true },
+        { "t": 6.2, "x": 1080, "y": 990, "click": true },
+        { "t": 8.5, "x": 1360, "y": 990, "click": true }
+      ],
+      "highlights": [
+        {
+          "rect": [420, 748, 1485, 850],
+          "start": 2.8,
+          "end": 8.6,
+          "label": "Dos responsables",
+          "color": "#006BFF"
+        },
+        {
+          "rect": [900, 945, 1500, 1025],
+          "start": 5.0,
+          "end": 8.6,
+          "label": "Etiqueta → liberar",
+          "color": "#138A53"
+        }
+      ]
+    },
+    {
+      "id": "05-ttl-y-vencimiento",
+      "step": "5",
+      "duration_seconds": 10,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/05-preparacion.png",
+      "title": "Controlar la vida útil",
+      "caption": "Una mezcla vencida nunca llega a administración.",
+      "subtitle": "El TTL comienza al preparar. Si vence antes de administrarse, se marca Mezcla vencida: hay que descartarla y repetir la preparación.",
+      "cursor_path": [
+        { "t": 0.5, "x": 1130, "y": 260 },
+        { "t": 4.5, "x": 1130, "y": 680, "click": true },
+        { "t": 9.3, "x": 1130, "y": 680 }
+      ],
+      "highlights": [
+        {
+          "rect": [990, 225, 1490, 300],
+          "start": 2.8,
+          "end": 5.5,
+          "label": "TTL",
+          "color": "#B46900"
+        },
+        {
+          "rect": [990, 635, 1490, 725],
+          "start": 5.0,
+          "end": 9.5,
+          "label": "TTL por droga",
+          "color": "#C83532"
+        }
+      ],
+      "panel": {
+        "rect": [35, 410, 335, 735],
+        "start": 3.0,
+        "end": 9.5,
+        "title": "Si vence",
+        "items": [
+          { "text": "Bloquear administración", "tone": "red" },
+          { "text": "Descartar la mezcla", "tone": "red" },
+          { "text": "Preparar nuevamente", "tone": "amber" }
+        ]
+      }
+    },
+    {
+      "id": "06-abrir-con-qr",
+      "step": "6",
+      "duration_seconds": 8,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/17-sala-lista.png",
+      "title": "Abrir la aplicación en Sala",
+      "caption": "El QR evita elegir al paciente equivocado.",
+      "subtitle": "Escanee el QR desde la cabecera o pulse Abrir QR de identificación. Se abre la aplicación exacta que se administrará.",
+      "cursor_path": [
+        { "t": 0.5, "x": 1580, "y": 45 },
+        { "t": 4.6, "x": 1580, "y": 45, "click": true },
+        { "t": 7.5, "x": 1800, "y": 282, "click": true }
+      ],
+      "highlights": [
+        {
+          "rect": [1515, 22, 1660, 72],
+          "start": 2.8,
+          "end": 7.6,
+          "label": "Abrir o escanear QR",
+          "color": "#006BFF"
+        }
+      ]
+    },
+    {
+      "id": "06-doble-chequeo",
+      "step": "6",
+      "duration_seconds": 10,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/18-administracion-final.png",
+      "title": "Hacer el doble chequeo",
+      "caption": "Paciente y etiqueta deben coincidir.",
+      "subtitle": "Confirme nombre, DNI y pulsera; después droga, dosis, vía, lote, vencimiento y velocidad. El segundo verificador debe ser otro profesional.",
+      "cursor_path": [
+        { "t": 0.5, "x": 600, "y": 690 },
+        { "t": 4.0, "x": 600, "y": 745, "click": true },
+        { "t": 7.0, "x": 970, "y": 810, "click": true },
+        { "t": 9.5, "x": 970, "y": 810 }
+      ],
+      "highlights": [
+        {
+          "rect": [545, 640, 1375, 850],
+          "start": 2.9,
+          "end": 9.6,
+          "label": "Doble control a pie de cama",
+          "color": "#138A53"
+        }
+      ],
+      "panel": {
+        "rect": [35, 350, 335, 815],
+        "start": 3.0,
+        "end": 9.5,
+        "title": "Debe coincidir",
+        "items": [
+          { "text": "Paciente y pulsera", "tone": "green" },
+          { "text": "Droga, dosis y vía", "tone": "green" },
+          { "text": "Lote y vencimiento", "tone": "green" },
+          { "text": "Segundo profesional", "tone": "blue" }
+        ]
+      }
+    },
+    {
+      "id": "06-iniciar-administracion",
+      "step": "6",
+      "duration_seconds": 8,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/06-administracion.png",
+      "title": "Registrar el inicio real",
+      "caption": "Cada droga conserva su propia ejecución.",
+      "subtitle": "Registre la hora real de inicio y comience la administración. La ficha mantiene separadas las drogas y su dosis efectivamente administrada.",
+      "cursor_path": [
+        { "t": 0.5, "x": 700, "y": 905 },
+        { "t": 4.5, "x": 700, "y": 905, "click": true },
+        { "t": 7.5, "x": 1100, "y": 355 }
+      ],
+      "highlights": [
+        {
+          "rect": [420, 825, 1490, 960],
+          "start": 2.8,
+          "end": 7.6,
+          "label": "Hora real de inicio",
+          "color": "#006BFF"
+        },
+        {
+          "rect": [420, 310, 1490, 390],
+          "start": 4.5,
+          "end": 7.6,
+          "label": "Drogas de la aplicación",
+          "color": "#006BFF"
+        }
+      ]
+    },
+    {
+      "id": "06-interrumpir",
+      "step": "6",
+      "duration_seconds": 11,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/06-administracion.png",
+      "title": "Resolver una interrupción",
+      "caption": "Nunca se pierde la dosis parcial ni la reacción.",
+      "subtitle": "Ante una reacción, interrumpa la droga y registre motivo, signos y dosis parcial. Luego puede reanudar la misma aplicación o cerrarla como no administrada por completo.",
+      "cursor_path": [
+        { "t": 0.5, "x": 1100, "y": 360 },
+        { "t": 4.0, "x": 1350, "y": 360, "click": true },
+        { "t": 7.0, "x": 950, "y": 880, "click": true },
+        { "t": 10.4, "x": 1350, "y": 985 }
+      ],
+      "highlights": [
+        {
+          "rect": [420, 310, 1490, 390],
+          "start": 2.9,
+          "end": 10.5,
+          "label": "Interrumpir una droga",
+          "color": "#C83532"
+        }
+      ],
+      "panel": {
+        "rect": [35, 330, 340, 850],
+        "start": 3.0,
+        "end": 10.5,
+        "title": "Registrar",
+        "items": [
+          { "text": "Motivo y reacción", "tone": "red" },
+          { "text": "Dosis parcial", "tone": "amber" },
+          { "text": "Reanudar si es seguro", "tone": "green" },
+          { "text": "Cerrar como incompleta", "tone": "red" }
+        ]
+      }
+    },
+    {
+      "id": "06-reanudar-o-cerrar",
+      "step": "6",
+      "duration_seconds": 10,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/06-administracion.png",
+      "title": "Reanudar o finalizar con seguridad",
+      "caption": "La decisión clínica queda ligada a la aplicación.",
+      "subtitle": "Si se reanuda, continúe sobre la misma aplicación. Si se suspende definitivamente, conserve la dosis administrada y cierre con la causa clínica.",
+      "cursor_path": [
+        { "t": 0.5, "x": 920, "y": 355 },
+        { "t": 4.0, "x": 1150, "y": 355, "click": true },
+        { "t": 7.0, "x": 1390, "y": 985, "click": true },
+        { "t": 9.5, "x": 1390, "y": 985 }
+      ],
+      "panel": {
+        "rect": [35, 345, 340, 735],
+        "start": 3.0,
+        "end": 9.5,
+        "title": "Dos salidas",
+        "items": [
+          { "text": "Reanudar: misma aplicación", "tone": "green" },
+          { "text": "Suspender: causa y dosis parcial", "tone": "red" },
+          { "text": "Nunca borrar la reacción", "tone": "amber" }
+        ]
+      },
+      "highlights": [
+        {
+          "rect": [1240, 945, 1500, 1025],
+          "start": 5.5,
+          "end": 9.6,
+          "label": "Cerrar con datos reales",
+          "color": "#006BFF"
+        }
+      ]
+    },
+    {
+      "id": "07-completar-aplicacion",
+      "step": "7",
+      "duration_seconds": 10,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/18-administracion-final.png",
+      "title": "Cerrar la aplicación",
+      "caption": "Finalizar consolida todo lo realmente ocurrido.",
+      "subtitle": "Confirme hora final, dosis administrada, observaciones y cualquier reacción. Al completar, el estado queda Finalizada y ya no puede confundirse con una pendiente.",
+      "cursor_path": [
+        { "t": 0.5, "x": 1300, "y": 450 },
+        { "t": 4.5, "x": 930, "y": 505 },
+        { "t": 7.5, "x": 1300, "y": 450, "click": true },
+        { "t": 9.5, "x": 1300, "y": 450 }
+      ],
+      "highlights": [
+        {
+          "rect": [1245, 425, 1365, 480],
+          "start": 2.9,
+          "end": 9.6,
+          "label": "Finalizada",
+          "color": "#138A53"
+        },
+        {
+          "rect": [540, 480, 1375, 850],
+          "start": 4.0,
+          "end": 9.6,
+          "label": "Registro de administración",
+          "color": "#006BFF"
+        }
+      ]
+    },
+    {
+      "id": "07-proxima-aplicacion",
+      "step": "7",
+      "duration_seconds": 9,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/01-prescripcion.png",
+      "title": "Continuar con el siguiente día",
+      "caption": "Cada aplicación vuelve a recorrer el circuito.",
+      "subtitle": "La próxima aplicación aparece según los días del protocolo. Vuelve a Farmacia y a la lista de espera con su fecha, sin duplicar ni adelantar ciclos.",
+      "cursor_path": [
+        { "t": 0.5, "x": 850, "y": 760 },
+        { "t": 4.5, "x": 850, "y": 980 },
+        { "t": 8.5, "x": 1250, "y": 980 }
+      ],
+      "highlights": [
+        {
+          "rect": [420, 685, 1480, 1060],
+          "start": 2.9,
+          "end": 8.6,
+          "label": "Siguiente ciclo o día",
+          "color": "#006BFF"
+        }
+      ]
+    },
+    {
+      "id": "07-trazabilidad-final",
+      "step": "7",
+      "duration_seconds": 10,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/18-administracion-final.png",
+      "title": "Trazabilidad clínica completa",
+      "caption": "Cada decisión queda asociada a usuario y hora.",
+      "subtitle": "La línea superior resume los siete controles. Reserva, turno, PASS o FAIL, preparación, administración, interrupciones y cierre quedan documentados en la historia clínica.",
+      "cursor_path": [
+        { "t": 0.5, "x": 600, "y": 310 },
+        { "t": 4.8, "x": 955, "y": 310 },
+        { "t": 9.4, "x": 1290, "y": 310 }
+      ],
+      "highlights": [
+        {
+          "rect": [545, 285, 1370, 350],
+          "start": 2.9,
+          "end": 9.6,
+          "label": "7 pasos auditados",
+          "color": "#006BFF"
+        }
+      ],
+      "panel": {
+        "rect": [1590, 360, 1890, 765],
+        "start": 3.0,
+        "end": 9.5,
+        "title": "Siempre queda",
+        "items": [
+          { "text": "Usuario y fecha", "tone": "gray" },
+          { "text": "Estado anterior y nuevo", "tone": "blue" },
+          { "text": "Motivo y observaciones", "tone": "amber" },
+          { "text": "Evolución clínica", "tone": "green" }
+        ]
+      }
+    }
+  ]
+}

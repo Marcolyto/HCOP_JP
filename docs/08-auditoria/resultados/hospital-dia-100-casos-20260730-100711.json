@@ -1,0 +1,1053 @@
+{
+    "generatedAt":  "2026-07-30T10:07:11.8950762-03:00",
+    "baseUrl":  "http://127.0.0.1:5181",
+    "safety":  {
+                   "readOnly":  true,
+                   "forbiddenPort":  5180,
+                   "defaultQaPort":  5181,
+                   "onlyNonGetRequest":  "POST /api/auth/login"
+               },
+    "summary":  {
+                    "total":  100,
+                    "pass":  100,
+                    "fail":  0,
+                    "noData":  0,
+                    "manual":  0
+                },
+    "roles":  [
+                  {
+                      "role":  "Farmacia",
+                      "total":  25,
+                      "pass":  25,
+                      "fail":  0,
+                      "noData":  0,
+                      "manual":  0
+                  },
+                  {
+                      "role":  "Enfermeria",
+                      "total":  25,
+                      "pass":  25,
+                      "fail":  0,
+                      "noData":  0,
+                      "manual":  0
+                  },
+                  {
+                      "role":  "Oncologia",
+                      "total":  25,
+                      "pass":  25,
+                      "fail":  0,
+                      "noData":  0,
+                      "manual":  0
+                  },
+                  {
+                      "role":  "Turnos",
+                      "total":  25,
+                      "pass":  25,
+                      "fail":  0,
+                      "noData":  0,
+                      "manual":  0
+                  }
+              ],
+    "results":  [
+                    {
+                        "id":  "FAR-01",
+                        "role":  "Farmacia",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Abrir cola completa de Farmacia",
+                        "expected":  "Respuesta ok/items/total sin error 500.",
+                        "evidence":  "HTTP real: 2000 fila(s), contrato ok/items/total valido.",
+                        "elapsedMs":  1470
+                    },
+                    {
+                        "id":  "FAR-02",
+                        "role":  "Farmacia",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Buscar por nombre de paciente",
+                        "expected":  "La fila de origen aparece al buscar su nombre.",
+                        "evidence":  "Consulta real por \u0027QA Farmacia, Carga 01\u0027: 2000 coincidencia(s).",
+                        "elapsedMs":  3294
+                    },
+                    {
+                        "id":  "FAR-03",
+                        "role":  "Farmacia",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Buscar por DNI",
+                        "expected":  "La fila de origen aparece al buscar su DNI.",
+                        "evidence":  "Consulta real por \u0027QA-FAR24-01\u0027: 500 coincidencia(s).",
+                        "elapsedMs":  1762
+                    },
+                    {
+                        "id":  "FAR-04",
+                        "role":  "Farmacia",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Buscar por historia clinica",
+                        "expected":  "La fila de origen aparece al buscar su HC.",
+                        "evidence":  "Consulta real por \u0027HC-FAR24-01\u0027: 500 coincidencia(s).",
+                        "elapsedMs":  2308
+                    },
+                    {
+                        "id":  "FAR-05",
+                        "role":  "Farmacia",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Buscar por esquema",
+                        "expected":  "La fila de origen aparece al buscar su esquema.",
+                        "evidence":  "Consulta real por \u0027ANEMIA - Hierro carboximaltosa\u0027: 2000 coincidencia(s).",
+                        "elapsedMs":  3140
+                    },
+                    {
+                        "id":  "FAR-06",
+                        "role":  "Farmacia",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Buscar por diagnostico",
+                        "expected":  "La fila de origen aparece al buscar su diagnostico.",
+                        "evidence":  "Consulta real por \u0027Anemia ferropenica para semilla QA · CIE-10 D50.9 · Estadio No aplica\u0027: 2000 coincidencia(s).",
+                        "elapsedMs":  4383
+                    },
+                    {
+                        "id":  "FAR-07",
+                        "role":  "Farmacia",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Buscar por droga",
+                        "expected":  "La fila de origen aparece al buscar su droga o resumen de drogas.",
+                        "evidence":  "Consulta real por \u0027Hierro carboximaltosa\u0027: 2000 coincidencia(s).",
+                        "elapsedMs":  3507
+                    },
+                    {
+                        "id":  "FAR-08",
+                        "role":  "Farmacia",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Buscar por ciclo y dia",
+                        "expected":  "La consulta ciclo N dia N ubica la aplicacion.",
+                        "evidence":  "Consulta real por \u0027ciclo 1 dia 1\u0027: 2000 coincidencia(s).",
+                        "elapsedMs":  2879
+                    },
+                    {
+                        "id":  "FAR-09",
+                        "role":  "Farmacia",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Buscar por fecha ISO",
+                        "expected":  "La fecha yyyy-mm-dd ubica la aplicacion.",
+                        "evidence":  "Consulta real por \u00272010-01-01\u0027: 1 coincidencia(s).",
+                        "elapsedMs":  1051
+                    },
+                    {
+                        "id":  "FAR-10",
+                        "role":  "Farmacia",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Buscar por fecha local",
+                        "expected":  "La fecha dd/mm/aaaa ubica la aplicacion.",
+                        "evidence":  "Consulta real por \u002701/01/2010\u0027: 1 coincidencia(s).",
+                        "elapsedMs":  1103
+                    },
+                    {
+                        "id":  "FAR-11",
+                        "role":  "Farmacia",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Filtrar quien debe traer medicacion",
+                        "expected":  "El filtro patient_to_bring responde como cola valida.",
+                        "evidence":  "HTTP real: 0 fila(s), contrato ok/items/total valido.",
+                        "elapsedMs":  56
+                    },
+                    {
+                        "id":  "FAR-12",
+                        "role":  "Farmacia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Prioridad temporal visible",
+                        "expected":  "Existen Hoy, vencidas +7, vencidas +30 y todas.",
+                        "evidence":  "Contrato estatico encontrado en /index.html: careSchedulePharmacyDateScope, value=\"today\", value=\"next-7\", value=\"next-30\", value=\"all\".",
+                        "elapsedMs":  33
+                    },
+                    {
+                        "id":  "FAR-13",
+                        "role":  "Farmacia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Filtros de estado completos",
+                        "expected":  "Se distinguen pendiente, rechazada, paciente, centro y reserva.",
+                        "evidence":  "Contrato estatico encontrado en /index.html: pending-validation, value=\"rejected\", value=\"patient\", value=\"patient-has\", value=\"received-center\", value=\"pending-stock\", value=\"reserved\".",
+                        "elapsedMs":  3
+                    },
+                    {
+                        "id":  "FAR-14",
+                        "role":  "Farmacia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Listado agrupado por fecha",
+                        "expected":  "La tabla inserta cabeceras por fecha con cantidad.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: carePharmacyGroupLabel, care-pharmacy-date-group, groupCounts.",
+                        "elapsedMs":  119
+                    },
+                    {
+                        "id":  "FAR-15",
+                        "role":  "Farmacia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Rechazar una orden inicialmente pendiente",
+                        "expected":  "El modal ofrece Rechazar orden antes de aprobar.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: Rechazar orden, data-validated=\"false\", pharmacyActionReason.",
+                        "elapsedMs":  4
+                    },
+                    {
+                        "id":  "FAR-16",
+                        "role":  "Farmacia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Validar o revalidar la orden",
+                        "expected":  "El modal expone validacion y revalidacion.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: Validar orden, Revalidar orden, data-validated=\"true\".",
+                        "elapsedMs":  2
+                    },
+                    {
+                        "id":  "FAR-17",
+                        "role":  "Farmacia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Procedencias de medicacion no ambiguas",
+                        "expected":  "Se distinguen stock, debe traer, la tiene, recibida y proveedor.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: center_stock, patient_to_bring, patient_has_medication, received_center, pending_supplier.",
+                        "elapsedMs":  4
+                    },
+                    {
+                        "id":  "FAR-18",
+                        "role":  "Farmacia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Reserva y liberacion de stock documentadas",
+                        "expected":  "Swagger expone el comando de reserva/liberacion.",
+                        "evidence":  "Swagger contiene POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/stock-reservation.",
+                        "elapsedMs":  17
+                    },
+                    {
+                        "id":  "FAR-19",
+                        "role":  "Farmacia",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Fila con datos farmaceuticos esenciales",
+                        "expected":  "La cola informa drogas, procedencia, validacion, reserva y fecha.",
+                        "evidence":  "Primera fila contiene: applicationDrugs, medicationSource, pharmacyValidationStatus, stockReservationStatus, plannedDate.",
+                        "elapsedMs":  969
+                    },
+                    {
+                        "id":  "FAR-20",
+                        "role":  "Farmacia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Alerta de aprobacion heredada sin traza",
+                        "expected":  "Una validacion migrada sin actor/fecha se marca para revision.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: pharmacyValidationTraceable, is-untraceable, sin traza.",
+                        "elapsedMs":  4
+                    },
+                    {
+                        "id":  "FAR-21",
+                        "role":  "Farmacia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Historial auditable de la aplicacion",
+                        "expected":  "El modal representa auditTrail con actor y revision.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: careApplicationWorkflowAuditMarkup, auditTrail, resultingRevision.",
+                        "elapsedMs":  2
+                    },
+                    {
+                        "id":  "FAR-22",
+                        "role":  "Farmacia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Carga incremental para listados extensos",
+                        "expected":  "La interfaz limita y permite cargar 250 filas adicionales.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: careSchedulePharmacyVisibleLimit, += 250, data-care-pharmacy-load-more.",
+                        "elapsedMs":  2
+                    },
+                    {
+                        "id":  "FAR-23",
+                        "role":  "Farmacia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "QR por aplicacion disponible en Farmacia",
+                        "expected":  "Cada fila habilitada puede abrir el QR del ciclo y dia.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: care-pharmacy-qr, documents/qr?cycle=, applicationDay=.",
+                        "elapsedMs":  4
+                    },
+                    {
+                        "id":  "FAR-24",
+                        "role":  "Farmacia",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Encontrar un paciente en una lista de 2000 filas",
+                        "expected":  "Nombre, DNI, HC, ciclo/dia y fecha deben resolverse en menos de 10 segundos.",
+                        "evidence":  "2000 filas; carga=1106ms; patientName=566ms, patientDni=364ms, medicalRecord=327ms, cycleDay=115ms, plannedDateLocal=111ms.",
+                        "elapsedMs":  4231
+                    },
+                    {
+                        "id":  "FAR-25",
+                        "role":  "Farmacia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Dos farmaceuticos intentan reservar el mismo stock",
+                        "expected":  "Solo una reserva se consolida; el segundo intento no puede sobre-reservar y la aplicacion se serializa por revision.",
+                        "evidence":  "Prueba automatizada presente en /src/test/java/ar/com/hexium/hcop/infusion/HospitalDayConcurrencySafetyTest.java: far25TwoPharmacistsCannotOverReserveTheSameInventoryLot, far25ApplicationLockSerializesTwoPharmacistsBeforeCheckingRevision, containsExactlyInAnyOrder(true, false), FOR UPDATE OF w.",
+                        "elapsedMs":  61
+                    },
+                    {
+                        "id":  "ENF-01",
+                        "role":  "Enfermeria",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Abrir cola de triaje de hoy",
+                        "expected":  "Respuesta ok/items/total filtrada por la fecha operativa.",
+                        "evidence":  "HTTP real: 2 fila(s), contrato ok/items/total valido.",
+                        "elapsedMs":  58
+                    },
+                    {
+                        "id":  "ENF-02",
+                        "role":  "Enfermeria",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Buscar paciente en triaje",
+                        "expected":  "Nombre de una fila real vuelve a encontrar la aplicacion.",
+                        "evidence":  "Consulta real por \u0027QA Triaje, Alfa\u0027: 1 coincidencia(s).",
+                        "elapsedMs":  151
+                    },
+                    {
+                        "id":  "ENF-03",
+                        "role":  "Enfermeria",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Orden cronologico de triaje",
+                        "expected":  "Los pacientes de hoy aparecen por hora de turno.",
+                        "evidence":  "2 turnos verificados en orden ascendente.",
+                        "elapsedMs":  101
+                    },
+                    {
+                        "id":  "ENF-04",
+                        "role":  "Enfermeria",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Abrir cola de preparacion",
+                        "expected":  "Respuesta valida para el trabajo esteril.",
+                        "evidence":  "HTTP real: 0 fila(s), contrato ok/items/total valido.",
+                        "elapsedMs":  59
+                    },
+                    {
+                        "id":  "ENF-05",
+                        "role":  "Enfermeria",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Abrir cola de administracion",
+                        "expected":  "Respuesta valida para sala de hoy.",
+                        "evidence":  "HTTP real: 6 fila(s), contrato ok/items/total valido.",
+                        "elapsedMs":  56
+                    },
+                    {
+                        "id":  "ENF-06",
+                        "role":  "Enfermeria",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Buscador de sala",
+                        "expected":  "Sala permite buscar por paciente, DNI, esquema o sillon.",
+                        "evidence":  "Contrato estatico encontrado en /index.html: careRoomSearch, Buscar aplicaciones en sala.",
+                        "elapsedMs":  2
+                    },
+                    {
+                        "id":  "ENF-07",
+                        "role":  "Enfermeria",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Buscador de triaje",
+                        "expected":  "Triaje permite buscar por paciente, DNI, esquema o sillon.",
+                        "evidence":  "Contrato estatico encontrado en /index.html: careTriageSearch, Buscar pacientes para triaje.",
+                        "elapsedMs":  4
+                    },
+                    {
+                        "id":  "ENF-08",
+                        "role":  "Enfermeria",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Filtro de triaje",
+                        "expected":  "Se distinguen todos, pendientes, aptos y postergados.",
+                        "evidence":  "Contrato estatico encontrado en /index.html: careTriageFilter, value=\"pending\", value=\"pass\", value=\"fail\".",
+                        "elapsedMs":  1
+                    },
+                    {
+                        "id":  "ENF-09",
+                        "role":  "Enfermeria",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Turno listo para operar hoy",
+                        "expected":  "La fila informa turno, confirmacion y evaluacion clinica.",
+                        "evidence":  "Primera fila contiene: appointment, clinicalAuthorizationStatus, clinicalAssessment.",
+                        "elapsedMs":  95
+                    },
+                    {
+                        "id":  "ENF-10",
+                        "role":  "Enfermeria",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Laboratorio pretratamiento",
+                        "expected":  "Fecha, neutrofilos, plaquetas, creatinina y funcion hepatica estan disponibles.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: name=\"labDate\", name=\"neutrophils\", name=\"platelets\", name=\"creatinine\", name=\"hepaticFunction\".",
+                        "elapsedMs":  4
+                    },
+                    {
+                        "id":  "ENF-11",
+                        "role":  "Enfermeria",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Signos vitales obligatorios",
+                        "expected":  "Peso, presion y temperatura forman parte del PASS.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: name=\"weightKg\", name=\"bloodPressure\", name=\"temperatureC\", data-required-for-pass.",
+                        "elapsedMs":  4
+                    },
+                    {
+                        "id":  "ENF-12",
+                        "role":  "Enfermeria",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Frecuencia cardiaca visible",
+                        "expected":  "El formulario y el payload incluyen heartRate.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: name=\"heartRate\", heartRate: careApplicationFormNumber(\"heartRate\").",
+                        "elapsedMs":  1
+                    },
+                    {
+                        "id":  "ENF-13",
+                        "role":  "Enfermeria",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Saturacion visible",
+                        "expected":  "El formulario y el payload incluyen oxygenSaturation.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: name=\"oxygenSaturation\", oxygenSaturation: careApplicationFormNumber(\"oxygenSaturation\").",
+                        "elapsedMs":  4
+                    },
+                    {
+                        "id":  "ENF-14",
+                        "role":  "Enfermeria",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Toxicidad y ECOG",
+                        "expected":  "Se registran ECOG 0-4 y toxicidad 0-5.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: name=\"ecog\", name=\"toxicityGrade\", [0,1,2,3,4,5].",
+                        "elapsedMs":  3
+                    },
+                    {
+                        "id":  "ENF-15",
+                        "role":  "Enfermeria",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Alertas clinicas de seguridad",
+                        "expected":  "Se advierten neutropenia, plaquetopenia, fiebre, hipoxemia y toxicidad.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: neutrophils \u003c 1000, platelets \u003c 75000, temperature \u003e= 38, saturation \u003c 92, toxicity \u003e= 3.",
+                        "elapsedMs":  6
+                    },
+                    {
+                        "id":  "ENF-16",
+                        "role":  "Enfermeria",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Override clinico documentado",
+                        "expected":  "Un PASS con alerta exige justificacion de al menos 10 caracteres.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: clinicalOverrideReason, override.required = alerts.length \u003e 0, length \u003c 10.",
+                        "elapsedMs":  2
+                    },
+                    {
+                        "id":  "ENF-17",
+                        "role":  "Enfermeria",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "FAIL con motivo y nueva fecha",
+                        "expected":  "La postergacion registra motivo y fecha propuesta.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: name=\"failReason\", name=\"rescheduledDate\", data-decision=\"FAIL\".",
+                        "elapsedMs":  2
+                    },
+                    {
+                        "id":  "ENF-18",
+                        "role":  "Enfermeria",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Revocar un PASS antes de preparar",
+                        "expected":  "Existe accion explicita Revocar PASS y postergar.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: Revocar PASS y postergar, data-revoking-pass=\"true\", window.confirm.",
+                        "elapsedMs":  11
+                    },
+                    {
+                        "id":  "ENF-19",
+                        "role":  "Enfermeria",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Trazabilidad de cada mezcla",
+                        "expected":  "Lote, vencimiento, cantidad, diluyente, volumen, concentracion y TTL son obligatorios.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: name=\"lot\", name=\"expiryDate\", name=\"quantity\", name=\"diluent\", name=\"finalVolume\", name=\"concentration\", name=\"ttlMinutes\".",
+                        "elapsedMs":  6
+                    },
+                    {
+                        "id":  "ENF-20",
+                        "role":  "Enfermeria",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Segundo control de preparacion",
+                        "expected":  "Se declara otro profesional habilitado y la interfaz aclara que la seleccion no reemplaza una cofirma.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: name=\"verifiedBy\", Segundo profesional que controló, no reemplaza la cofirma.",
+                        "elapsedMs":  3
+                    },
+                    {
+                        "id":  "ENF-21",
+                        "role":  "Enfermeria",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Mezcla vencida y reinicio",
+                        "expected":  "Swagger expone el descarte/reinicio sin borrar trazabilidad.",
+                        "evidence":  "Swagger contiene POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/preparation/restart.",
+                        "elapsedMs":  54
+                    },
+                    {
+                        "id":  "ENF-22",
+                        "role":  "Enfermeria",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Doble chequeo a pie de cama",
+                        "expected":  "Paciente, etiqueta y segundo profesional son controles separados.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: name=\"patientVerified\", name=\"labelVerified\", name=\"doubleCheckBy\", Doble chequeo a pie de cama.",
+                        "elapsedMs":  4
+                    },
+                    {
+                        "id":  "ENF-23",
+                        "role":  "Enfermeria",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Inicio y cierre reales",
+                        "expected":  "Se registran horas, dosis real, reaccion y observacion.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: name=\"startedAt\", name=\"completedAt\", name=\"actualDose\", name=\"reactionOccurred\", name=\"administrationObservation\".",
+                        "elapsedMs":  4
+                    },
+                    {
+                        "id":  "ENF-24",
+                        "role":  "Enfermeria",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "QR como control de identidad",
+                        "expected":  "Sala permite leer el QR y abrir la ficha operativa canonica.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: careQrScannerModal, Abrir ficha de administración, openCareApplicationWorkflowModal(\"administration\".",
+                        "elapsedMs":  4
+                    },
+                    {
+                        "id":  "ENF-25",
+                        "role":  "Enfermeria",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Reaccion aguda o administracion parcial",
+                        "expected":  "Debe poder detener, documentar droga/dosis parcial, medidas y escalar sin cerrar todo como completado.",
+                        "evidence":  "Prueba automatizada presente en /scripts/integration-test.ps1: La prueba de seguridad requiere un protocolo multidroga, administration/interrupt, actualDose = $partialDose, actualDoseAtInterruption, interruptionPending, administration/resolve.",
+                        "elapsedMs":  2
+                    },
+                    {
+                        "id":  "ONC-01",
+                        "role":  "Oncologia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Nuevo tratamiento es el primer paso",
+                        "expected":  "La primera pestana del Hospital de dia es Nuevo tratamiento.",
+                        "evidence":  "Contrato estatico encontrado en /index.html: data-care-hospital-tab=\"new-treatment\", Nuevo tratamiento.",
+                        "elapsedMs":  0
+                    },
+                    {
+                        "id":  "ONC-02",
+                        "role":  "Oncologia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Contexto de paciente activo",
+                        "expected":  "El modal distingue claramente paciente activo o ausencia de paciente.",
+                        "evidence":  "Contrato estatico encontrado en /index.html: careHospitalPatientContext, careHospitalPatientName, Sin paciente activo.",
+                        "elapsedMs":  1
+                    },
+                    {
+                        "id":  "ONC-03",
+                        "role":  "Oncologia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Diagnostico obligatorio",
+                        "expected":  "El alta de tratamiento exige elegir un diagnostico guardado.",
+                        "evidence":  "Contrato estatico encontrado en /index.html: id=\"careTreatmentDiagnosis\", name=\"diagnostico\", required.",
+                        "elapsedMs":  1
+                    },
+                    {
+                        "id":  "ONC-04",
+                        "role":  "Oncologia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Caracter terapeutico obligatorio",
+                        "expected":  "Se puede elegir curativo, adyuvante, neoadyuvante, paliativo o soporte.",
+                        "evidence":  "Contrato estatico encontrado en /index.html: careTreatmentCharacter, curative, adjuvant, neoadjuvant, palliative, supportive.",
+                        "elapsedMs":  3
+                    },
+                    {
+                        "id":  "ONC-05",
+                        "role":  "Oncologia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Tipo oncologico obligatorio",
+                        "expected":  "Quimio, inmuno, dirigida, hormona y soporte estan disponibles.",
+                        "evidence":  "Contrato estatico encontrado en /index.html: careTreatmentType, chemotherapy, immunotherapy, targeted, hormone.",
+                        "elapsedMs":  2
+                    },
+                    {
+                        "id":  "ONC-06",
+                        "role":  "Oncologia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Selector de esquema",
+                        "expected":  "El formulario selecciona esquema, no estadio.",
+                        "evidence":  "Contrato estatico encontrado en /index.html: id=\"careTreatmentScheme\", name=\"esquema\", Seleccione....",
+                        "elapsedMs":  2
+                    },
+                    {
+                        "id":  "ONC-07",
+                        "role":  "Oncologia",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Catalogo de protocolos accesible",
+                        "expected":  "El catalogo responde sin modificar configuracion.",
+                        "evidence":  "HTTP real con propiedades: ok.",
+                        "elapsedMs":  15
+                    },
+                    {
+                        "id":  "ONC-08",
+                        "role":  "Oncologia",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Catalogo de esquemas prescribibles",
+                        "expected":  "Los esquemas disponibles responden desde la base local.",
+                        "evidence":  "HTTP real con propiedades: ok.",
+                        "elapsedMs":  48
+                    },
+                    {
+                        "id":  "ONC-09",
+                        "role":  "Oncologia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Opciones por paciente documentadas",
+                        "expected":  "Swagger expone diagnosticos y esquemas elegibles.",
+                        "evidence":  "Swagger contiene GET /api/clinical/patients/{patientId}/treatment-options.",
+                        "elapsedMs":  0
+                    },
+                    {
+                        "id":  "ONC-10",
+                        "role":  "Oncologia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Requisitos del esquema documentados",
+                        "expected":  "Swagger expone los requisitos previos por esquema.",
+                        "evidence":  "Swagger contiene GET /api/clinical/patients/{patientId}/treatment-requirements/{schemeId}.",
+                        "elapsedMs":  0
+                    },
+                    {
+                        "id":  "ONC-11",
+                        "role":  "Oncologia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Incompatibilidad diagnostico-protocolo",
+                        "expected":  "La excepcion exige confirmacion y motivo clinico.",
+                        "evidence":  "Contrato estatico encontrado en /index.html: careTreatmentProtocolWarning, careTreatmentProtocolMismatchConfirmed, careTreatmentProtocolMismatchReason, minlength=\"10\".",
+                        "elapsedMs":  2
+                    },
+                    {
+                        "id":  "ONC-12",
+                        "role":  "Oncologia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Cantidad de ciclos acotada",
+                        "expected":  "Ciclos previstos admite 1 a 50.",
+                        "evidence":  "Contrato estatico encontrado en /index.html: id=\"careTreatmentCycles\", min=\"1\", max=\"50\".",
+                        "elapsedMs":  2
+                    },
+                    {
+                        "id":  "ONC-13",
+                        "role":  "Oncologia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Ciclo inicial explicito",
+                        "expected":  "Se puede iniciar o reanudar desde un numero de ciclo valido.",
+                        "evidence":  "Contrato estatico encontrado en /index.html: id=\"careTreatmentInitialCycle\", name=\"cicloInicial\", value=\"1\".",
+                        "elapsedMs":  2
+                    },
+                    {
+                        "id":  "ONC-14",
+                        "role":  "Oncologia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Fecha del primer ciclo",
+                        "expected":  "La fecha es obligatoria y alimenta la proyeccion.",
+                        "evidence":  "Contrato estatico encontrado en /index.html: id=\"careTreatmentFirstCycleDate\", name=\"fechaPrimerCiclo\", required.",
+                        "elapsedMs":  2
+                    },
+                    {
+                        "id":  "ONC-15",
+                        "role":  "Oncologia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Proyeccion previa de ciclos",
+                        "expected":  "Antes de guardar se muestran fechas calculadas.",
+                        "evidence":  "Contrato estatico encontrado en /index.html: careTreatmentProjection, Seleccione un esquema y una fecha para proyectar los ciclos.",
+                        "elapsedMs":  1
+                    },
+                    {
+                        "id":  "ONC-16",
+                        "role":  "Oncologia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Estado de consentimiento",
+                        "expected":  "Pendiente, firmado o no requerido son opciones explicitas.",
+                        "evidence":  "Contrato estatico encontrado en /index.html: careTreatmentConsent, value=\"pending\", value=\"signed\", value=\"not-required\".",
+                        "elapsedMs":  1
+                    },
+                    {
+                        "id":  "ONC-17",
+                        "role":  "Oncologia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Requisitos confirmados antes de guardar",
+                        "expected":  "Los datos dinamicos del protocolo requieren confirmacion.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: careTreatmentRequirementsConfirmed, data-care-requirements-confirm, Datos verificados.",
+                        "elapsedMs":  6
+                    },
+                    {
+                        "id":  "ONC-18",
+                        "role":  "Oncologia",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Aplicacion conserva drogas del dia",
+                        "expected":  "La cola informa applicationDrugs, ciclo y dia.",
+                        "evidence":  "Primera fila contiene: applicationDrugs, cycleNumber, applicationDay.",
+                        "elapsedMs":  1131
+                    },
+                    {
+                        "id":  "ONC-19",
+                        "role":  "Oncologia",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Aplicaciones reales por ciclo y dia",
+                        "expected":  "Cada fila incluye fecha prevista, duracion y fuente del calculo.",
+                        "evidence":  "Primera fila contiene: plannedDate, durationMinutes, durationSource, totalCycles.",
+                        "elapsedMs":  953
+                    },
+                    {
+                        "id":  "ONC-20",
+                        "role":  "Oncologia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Alta y listado de tratamientos",
+                        "expected":  "Swagger documenta GET y POST de tratamientos del paciente.",
+                        "evidence":  "Swagger contiene POST /api/clinical/patients/{patientId}/treatments.",
+                        "elapsedMs":  0
+                    },
+                    {
+                        "id":  "ONC-21",
+                        "role":  "Oncologia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Detalle ciclo-dia-aplicacion",
+                        "expected":  "Swagger expone el detalle completo del tratamiento.",
+                        "evidence":  "Swagger contiene GET /api/clinical/patients/{patientId}/treatments/{treatmentId}/detail.",
+                        "elapsedMs":  0
+                    },
+                    {
+                        "id":  "ONC-22",
+                        "role":  "Oncologia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Suspension documentada",
+                        "expected":  "Swagger expone la suspension del tratamiento.",
+                        "evidence":  "Swagger contiene POST /api/clinical/treatments/{patientId}/{treatmentId}/suspend.",
+                        "elapsedMs":  2
+                    },
+                    {
+                        "id":  "ONC-23",
+                        "role":  "Oncologia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Reanudacion documentada",
+                        "expected":  "Swagger expone la reanudacion desde un ciclo coherente.",
+                        "evidence":  "Swagger contiene POST /api/clinical/treatments/{patientId}/{treatmentId}/resume.",
+                        "elapsedMs":  0
+                    },
+                    {
+                        "id":  "ONC-24",
+                        "role":  "Oncologia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Evolucion clinica al prescribir",
+                        "expected":  "El frontend construye y agrega una evolucion del tratamiento.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: treatmentEvolution, append, fechaPrimerCiclo, cantidadCiclos.",
+                        "elapsedMs":  5
+                    },
+                    {
+                        "id":  "ONC-25",
+                        "role":  "Oncologia",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Documentos del tratamiento",
+                        "expected":  "La interfaz enlaza hoja de tratamiento, QR y consentimiento.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: \"treatment-sheet\", documents/qr?cycle=, /consent.",
+                        "elapsedMs":  5
+                    },
+                    {
+                        "id":  "TUR-01",
+                        "role":  "Turnos",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Abrir candidatos del turnero",
+                        "expected":  "Respuesta ok/candidates/total sin alterar turnos.",
+                        "evidence":  "HTTP real: 2000 candidato(s), contrato ok/candidates/total valido.",
+                        "elapsedMs":  1118
+                    },
+                    {
+                        "id":  "TUR-02",
+                        "role":  "Turnos",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Buscar candidato por paciente",
+                        "expected":  "El buscador encuentra una fila real cuando existe semilla QA.",
+                        "evidence":  "Busqueda real de candidato por \u0027QA Farmacia, Carga 01\u0027: 2000 resultado(s).",
+                        "elapsedMs":  2541
+                    },
+                    {
+                        "id":  "TUR-03",
+                        "role":  "Turnos",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Excluir ya programados de espera",
+                        "expected":  "includeScheduled=false responde como contrato valido.",
+                        "evidence":  "HTTP real: 2000 candidato(s), contrato ok/candidates/total valido.",
+                        "elapsedMs":  1332
+                    },
+                    {
+                        "id":  "TUR-04",
+                        "role":  "Turnos",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Mostrar tambien bloqueados para gestion",
+                        "expected":  "onlySchedulingEligible=false permite explicar por que no entran.",
+                        "evidence":  "HTTP real: 2000 candidato(s), contrato ok/candidates/total valido.",
+                        "elapsedMs":  1362
+                    },
+                    {
+                        "id":  "TUR-05",
+                        "role":  "Turnos",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Agenda del dia",
+                        "expected":  "Lista de infusiones por fecha responde sin cambios.",
+                        "evidence":  "HTTP real con propiedades: ok, infusions, total.",
+                        "elapsedMs":  28
+                    },
+                    {
+                        "id":  "TUR-06",
+                        "role":  "Turnos",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Filtros operativos de espera",
+                        "expected":  "Todos, prescriptos, falta receta, falta medicacion, recibida y paciente.",
+                        "evidence":  "Contrato estatico encontrado en /index.html: careScheduleCandidateFilter, prescription-confirmed, missing-prescription, missing-medication, medication-received, medication-with-patient.",
+                        "elapsedMs":  2
+                    },
+                    {
+                        "id":  "TUR-07",
+                        "role":  "Turnos",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Prioridad cronologica de espera",
+                        "expected":  "El listado usa un comparador por ciclo/fecha y no orden de carga.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: careScheduleCandidateCompare, .sort(, suggestedDate.",
+                        "elapsedMs":  7
+                    },
+                    {
+                        "id":  "TUR-08",
+                        "role":  "Turnos",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Fecha en formato local y dia de semana",
+                        "expected":  "La cabecera tiene dd/mm/aaaa y nombre del dia.",
+                        "evidence":  "Contrato estatico encontrado en /index.html: careScheduleDate, dd/mm/aaaa, careScheduleWeekday.",
+                        "elapsedMs":  4
+                    },
+                    {
+                        "id":  "TUR-09",
+                        "role":  "Turnos",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Calendario y navegacion diaria",
+                        "expected":  "Existen calendario, anterior, hoy y siguiente.",
+                        "evidence":  "Contrato estatico encontrado en /index.html: careScheduleCalendarDate, careSchedulePreviousDayBtn, careScheduleTodayBtn, careScheduleNextDayBtn.",
+                        "elapsedMs":  3
+                    },
+                    {
+                        "id":  "TUR-10",
+                        "role":  "Turnos",
+                        "mode":  "REAL",
+                        "status":  "PASS",
+                        "title":  "Configuracion de Hospital de dia disponible",
+                        "expected":  "La definicion activa se recupera desde PostgreSQL.",
+                        "evidence":  "HTTP real con propiedades: ok, items, total.",
+                        "elapsedMs":  11
+                    },
+                    {
+                        "id":  "TUR-11",
+                        "role":  "Turnos",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Fracciones permitidas",
+                        "expected":  "La grilla admite 5, 10, 15, 20 y 30 minutos.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: [5, 10, 15, 20, 30], careScheduleSupportedSlotMinutes.",
+                        "elapsedMs":  6
+                    },
+                    {
+                        "id":  "TUR-12",
+                        "role":  "Turnos",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Cantidad de sillones y jornada configurables",
+                        "expected":  "La agenda consume chairCount, startTime y endTime.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: chairCount, startTime, endTime, careScheduleSettings.",
+                        "elapsedMs":  1
+                    },
+                    {
+                        "id":  "TUR-13",
+                        "role":  "Turnos",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Zoom de sillones",
+                        "expected":  "Acercar y alejar cambian la cantidad visible.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: careScheduleZoomInBtn, careScheduleZoomOutBtn, zoomCareScheduleChairViewport.",
+                        "elapsedMs":  3
+                    },
+                    {
+                        "id":  "TUR-14",
+                        "role":  "Turnos",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Paginado horizontal de sillones",
+                        "expected":  "Anterior/siguiente desplazan el rango sin perder turnos.",
+                        "evidence":  "Contrato estatico encontrado en /index.html: careSchedulePreviousChairsBtn, careScheduleNextChairsBtn, careScheduleChairRange.",
+                        "elapsedMs":  2
+                    },
+                    {
+                        "id":  "TUR-15",
+                        "role":  "Turnos",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Arrastrar y soltar",
+                        "expected":  "La grilla escucha dragover y drop sobre el mismo objetivo.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: $(\"#careScheduleGrid\")?.addEventListener(\"dragover\", $(\"#careScheduleGrid\")?.addEventListener(\"drop\", dropCareScheduleItem.",
+                        "elapsedMs":  3
+                    },
+                    {
+                        "id":  "TUR-16",
+                        "role":  "Turnos",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Vista previa solo en posiciones validas",
+                        "expected":  "El dropEffect es move solo cuando target.valid.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: target.valid ? \"move\" : \"none\", handleCareScheduleDragOver.",
+                        "elapsedMs":  4
+                    },
+                    {
+                        "id":  "TUR-17",
+                        "role":  "Turnos",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Prevencion de superposicion",
+                        "expected":  "El calculo compara inicio/fin contra cada turno existente.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: itemStart, itemEnd, placementItem, target.valid.",
+                        "elapsedMs":  10
+                    },
+                    {
+                        "id":  "TUR-18",
+                        "role":  "Turnos",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Duracion ocupa casilleros completos",
+                        "expected":  "El span usa ceil(duracion/slotMinutes).",
+                        "evidence":  "Contrato estatico encontrado en /app.js: Math.ceil(careScheduleItemDuration, layout.slotMinutes, span.",
+                        "elapsedMs":  5
+                    },
+                    {
+                        "id":  "TUR-19",
+                        "role":  "Turnos",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Franja horaria visible",
+                        "expected":  "El bloque muestra desde inicio hasta el ultimo minuto ocupado.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: occupiedRange, careScheduleClock(minutes), slotMinutes - 1.",
+                        "elapsedMs":  6
+                    },
+                    {
+                        "id":  "TUR-20",
+                        "role":  "Turnos",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Turno confirmado y no confirmado distinguibles",
+                        "expected":  "La tarjeta usa estados y colores separados.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: is-appointment-confirmed, is-appointment-pending, appointmentConfirmed.",
+                        "elapsedMs":  4
+                    },
+                    {
+                        "id":  "TUR-21",
+                        "role":  "Turnos",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Mover turno asignado",
+                        "expected":  "La logica de drop conserva la aplicacion y actualiza su ubicacion.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: dropCareScheduleItem, previousCandidates, scheduledAt, chair.",
+                        "elapsedMs":  4
+                    },
+                    {
+                        "id":  "TUR-22",
+                        "role":  "Turnos",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Quitar turno y devolver a espera",
+                        "expected":  "Quitar la ubicacion no falsifica los estados historicos de Farmacia o Administracion.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: scheduledAt: null, chair: null, clinicalStatus: \"cancelled\", loadCareSchedule.",
+                        "elapsedMs":  7
+                    },
+                    {
+                        "id":  "TUR-23",
+                        "role":  "Turnos",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Modal de datos del turno",
+                        "expected":  "Paciente, DNI, esquema, diagnostico, medicacion y confirmacion estan visibles.",
+                        "evidence":  "Contrato estatico encontrado en /app.js: careScheduleDetail, patientDni, scheme, diagnosis, medicationWithPatient, appointmentConfirmed.",
+                        "elapsedMs":  3
+                    },
+                    {
+                        "id":  "TUR-24",
+                        "role":  "Turnos",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "API de alta de turno documentada",
+                        "expected":  "Swagger expone POST /api/clinical/infusions y su conflicto de agenda.",
+                        "evidence":  "Swagger contiene POST /api/clinical/infusions.",
+                        "elapsedMs":  3
+                    },
+                    {
+                        "id":  "TUR-25",
+                        "role":  "Turnos",
+                        "mode":  "CONTRACT",
+                        "status":  "PASS",
+                        "title":  "Drop rapido, borde de jornada y conflicto concurrente",
+                        "expected":  "Un solo turno se consolida, el otro recibe 409 claro y los limites 08:00-16:00 se validan al minuto.",
+                        "evidence":  "Prueba automatizada presente en /src/test/java/ar/com/hexium/hcop/infusion/HospitalDayConcurrencySafetyTest.java: tur25SimultaneousDropsYieldOneAppointmentAndOneClearConflict, tur25DatabaseSerializesAChairAndRejectsDuplicateActiveApplications, tur25AcceptsExactWorkdayEdgesAndRejectsTheFirstOverflowingSlot, CHAIR_SCHEDULE_CONFLICT, OUTSIDE_DAY_HOSPITAL_HOURS.",
+                        "elapsedMs":  2
+                    }
+                ]
+}

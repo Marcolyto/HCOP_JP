@@ -56,6 +56,24 @@
     return (content().topics || []).find((topic) => topic.id === topicId) || null;
   }
 
+  function resolveContextTopic(topicId) {
+    if (topicId !== "scheduler-chairs") return topicId;
+    const hospitalModal = resolveElement("#careTreatmentManagerModal.open");
+    if (!hospitalModal) return topicId;
+    const activeTab = hospitalModal.querySelector("[data-care-hospital-tab][aria-selected=\"true\"]")?.dataset?.careHospitalTab || "";
+    if (activeTab === "chairs") {
+      const chairMode = hospitalModal.querySelector("[data-care-chair-mode][aria-selected=\"true\"]")?.dataset?.careChairMode || "agenda";
+      return chairMode === "room" ? "scheduler-room" : "scheduler-agenda";
+    }
+    return {
+      pharmacy: "scheduler-pharmacy",
+      triage: "scheduler-triage",
+      preparation: "scheduler-preparation",
+      "new-treatment": "treatment-new",
+      treatments: "treatment-detail"
+    }[activeTab] || topicId;
+  }
+
   function inferPage() {
     const path = String(global.location?.pathname || "").toLowerCase();
     if (path.includes("/configuration")) return "configuration";
@@ -197,8 +215,10 @@
     } catch {
       external = "";
     }
-    if (external && getTopic(external)) return external;
-    if (runtime.context && getTopic(runtime.context)) return runtime.context;
+    const externalTopic = resolveContextTopic(external);
+    if (externalTopic && getTopic(externalTopic)) return externalTopic;
+    const runtimeTopic = resolveContextTopic(runtime.context);
+    if (runtimeTopic && getTopic(runtimeTopic)) return runtimeTopic;
     return topicsForPage()[0]?.id || "";
   }
 
@@ -301,6 +321,7 @@
         <div class="hcop-help-menu__context-actions">
           <button class="hcop-help-primary" type="button" data-help-menu-action="start-context">${icon("play")}<span>Iniciar recorrido</span></button>
           <a class="hcop-help-secondary" href="${escapeHtml(topic.docsHref || content().manualHref || "/docs/")}" target="_blank" rel="noopener">Leer esta sección</a>
+          ${topic.videoHref ? `<a class="hcop-help-video" href="${escapeHtml(topic.videoHref)}" target="_blank" rel="noopener">${icon("play")}<span>Ver circuito paso a paso</span></a>` : ""}
         </div>`;
     } else {
       contextNode.innerHTML = '<div class="hcop-help-menu__context-copy"><strong>Ayuda general</strong><p>No hay un recorrido asociado a esta pantalla.</p></div>';
@@ -368,6 +389,7 @@
           <button class="hcop-help-tour__close" type="button" data-help-tour-action="close" aria-label="Cerrar recorrido">${icon("close")}</button>
         </header>
         <p class="hcop-help-tour__description" id="${TOUR_ID}Description" data-help-tour-description aria-live="polite"></p>
+        <a class="hcop-help-tour__video hcop-help-video" data-help-tour-video href="#" target="_blank" rel="noopener" hidden>${icon("play")}<span>Ver circuito paso a paso</span></a>
         <div class="hcop-help-tour__missing" role="status">Este control aparece cuando se cumplen las condiciones indicadas. Puede continuar con el recorrido.</div>
         <div class="hcop-help-tour__progress">
           <div class="hcop-help-tour__progress-copy"><span data-help-tour-progress-text></span><span data-help-tour-state>Reproduciendo</span></div>
@@ -553,6 +575,12 @@
     root.querySelector("[data-help-tour-title]").textContent = step.title;
     root.querySelector("[data-help-tour-description]").textContent = step.body;
     root.querySelector("[data-help-tour-progress-text]").textContent = `Paso ${current} de ${total}`;
+    const videoLink = root.querySelector("[data-help-tour-video]");
+    if (videoLink) {
+      videoLink.hidden = !topic.videoHref;
+      if (topic.videoHref) videoLink.href = topic.videoHref;
+      else videoLink.removeAttribute("href");
+    }
 
     const track = root.querySelector(".hcop-help-tour__progress-track");
     const progress = root.querySelector(".hcop-help-tour__progress-bar");

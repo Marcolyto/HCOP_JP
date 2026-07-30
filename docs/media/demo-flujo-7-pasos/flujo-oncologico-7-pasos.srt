@@ -1,0 +1,27 @@
+1
+00:00:00,650 --> 00:00:09,500
+Paso 1. Prescribir: diagnóstico, protocolo, ciclos, días, peso, superficie corporal y dosis.
+
+2
+00:00:10,650 --> 00:00:19,500
+Paso 2. Farmacia: validar orden, procedencia, disponibilidad, reserva y responsable.
+
+3
+00:00:20,650 --> 00:00:29,500
+Paso 3. Agendar: fecha, hora, sillón y duración de cada aplicación.
+
+4
+00:00:30,650 --> 00:00:39,500
+Paso 4. Triaje: laboratorio, signos vitales, peso, toxicidad y decisión PASS o FAIL.
+
+5
+00:00:40,650 --> 00:00:49,500
+Paso 5. Preparar: droga, lote, vencimiento, dilución, concentración, TTL y doble control.
+
+6
+00:00:50,650 --> 00:00:59,500
+Paso 6. Administrar: QR, paciente, etiqueta, droga, dosis, vía, velocidad y segundo control.
+
+7
+00:01:00,650 --> 00:01:09,500
+Paso 7. Cerrar: horas reales, dosis administrada, reacción, observación y próxima aplicación.

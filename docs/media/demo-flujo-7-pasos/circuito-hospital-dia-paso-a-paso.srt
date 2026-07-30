@@ -1,0 +1,127 @@
+1
+00:00:00,450 --> 00:00:08,700
+Este recorrido sigue una aplicación real: prescripción, Farmacia, turno, triaje, preparación, administración y cierre.
+
+2
+00:00:09,450 --> 00:00:16,700
+Con el paciente abierto, entre en H. de día y pulse Nuevo tratamiento. El sistema no modifica tratamientos anteriores.
+
+3
+00:00:17,450 --> 00:00:26,700
+Seleccione diagnóstico y protocolo. Confirme ciclos y días de aplicación, peso, talla en centímetros, superficie corporal, dosis y requisitos.
+
+4
+00:00:27,450 --> 00:00:34,700
+Al guardar, el tratamiento conserva su árbol ciclo, día y aplicación. Cada día con medicación tendrá su propia Farmacia y su propio turno.
+
+5
+00:00:35,450 --> 00:00:44,700
+Desde cada fila consulte consentimiento, prescripción, hoja de tratamiento y QR. Azul indica documento disponible; rojo, ausente. Actualizar recupera el detalle vigente.
+
+6
+00:00:45,450 --> 00:00:53,700
+Farmacia filtra por procedencia y busca por nombre, DNI, esquema o diagnóstico. La fila identifica ciclo, día, fecha y medicación.
+
+7
+00:00:54,450 --> 00:01:04,700
+Marque si la medicación pertenece al stock del centro, ya fue recibida o la traerá el paciente. Si todavía falta, permanece pendiente y no habilita el turno.
+
+8
+00:01:05,450 --> 00:01:14,700
+Revise drogas, dosis y cantidad física. Al confirmar, el stock queda reservado para esta aplicación y el sistema registra al responsable.
+
+9
+00:01:15,450 --> 00:01:24,700
+Si la orden es inconsistente, Farmacia la rechaza con motivo. Tras corregir procedencia u observaciones, Revalidar orden la devuelve al circuito.
+
+10
+00:01:25,450 --> 00:01:31,700
+El icono QR imprime la identificación de esta aplicación, no del tratamiento completo. Se usará luego para abrirla en Sala.
+
+11
+00:01:32,450 --> 00:01:41,700
+Seleccione la fecha con el calendario. Aquí aparecen las aplicaciones habilitadas; el buscador encuentra por paciente, DNI, esquema o diagnóstico y también resalta turnos ya ubicados.
+
+12
+00:01:42,450 --> 00:01:50,700
+Haga clic en una tarjeta de espera. Si falta prescripción o medicación, queda bloqueada y no habilita ningún lugar. Cuando está lista, las posiciones donde cabe se muestran en celeste.
+
+13
+00:01:51,450 --> 00:02:00,700
+Cuando la aplicación ya está habilitada, tome su tarjeta y arrástrela al sillón y hora deseados. Durante el movimiento sólo se iluminan en verde los bloques donde cabe toda la duración.
+
+14
+00:02:01,450 --> 00:02:09,700
+El turno muestra paciente, DNI, esquema, ciclo, día y franja horaria. Abra la hoja para confirmar: azul es pendiente y rojo es confirmado.
+
+15
+00:02:10,450 --> 00:02:18,700
+La hoja muestra nombre, DNI, obra social y número, diagnóstico, esquema, sillón, horario, ciclo, día, duración, prescripción y medicación.
+
+16
+00:02:19,450 --> 00:02:28,700
+La cruz quita el turno y devuelve la aplicación a espera. El icono de mover permite recolocarla; la hoja abre toda la información sin alterar la agenda.
+
+17
+00:02:29,450 --> 00:02:40,700
+Desde Gestionar puede suspender, solicitar una prescripción o pedir continuidad a un médico. Una suspensión transitoria puede reanudarse; la definitiva exige una nueva decisión clínica.
+
+18
+00:02:41,450 --> 00:02:49,700
+El sistema rechaza un turno superpuesto, fuera de la jornada o sin espacio continuo. Use las flechas para otros sillones y la lupa para ajustar la vista.
+
+19
+00:02:50,450 --> 00:02:59,700
+Antes de preparar, registre laboratorio, peso, presión, temperatura, saturación, ECOG, toxicidad y observaciones clínicas.
+
+20
+00:03:00,450 --> 00:03:07,700
+Si el paciente está apto, pulse Autorizar PASS. La aplicación queda habilitada para Preparación y conserva quién tomó la decisión.
+
+21
+00:03:08,450 --> 00:03:18,700
+Si no está apto, escriba el motivo y proponga una nueva fecha. Postergar libera la reserva, quita el turno y devuelve la aplicación al circuito sin perderla.
+
+22
+00:03:19,450 --> 00:03:29,700
+Para cada droga cargue lote, vencimiento, cantidad usada, unidad, diluyente, volumen final, concentración y vida útil o TTL.
+
+23
+00:03:30,450 --> 00:03:38,700
+Registre preparador y segundo control, imprima la etiqueta y recién entonces libere la mezcla a Sala. Las acciones quedan auditadas.
+
+24
+00:03:39,450 --> 00:03:48,700
+El TTL comienza al preparar. Si vence antes de administrarse, se marca Mezcla vencida: hay que descartarla y repetir la preparación.
+
+25
+00:03:49,450 --> 00:03:56,700
+Escanee el QR desde la cabecera o pulse Abrir QR de identificación. Se abre la aplicación exacta que se administrará.
+
+26
+00:03:57,450 --> 00:04:06,700
+Confirme nombre, DNI y pulsera; después droga, dosis, vía, lote, vencimiento y velocidad. El segundo verificador debe ser otro profesional.
+
+27
+00:04:07,450 --> 00:04:14,700
+Registre la hora real de inicio y comience la administración. La ficha mantiene separadas las drogas y su dosis efectivamente administrada.
+
+28
+00:04:15,450 --> 00:04:25,700
+Ante una reacción, interrumpa la droga y registre motivo, signos y dosis parcial. Luego puede reanudar la misma aplicación o cerrarla como no administrada por completo.
+
+29
+00:04:26,450 --> 00:04:35,700
+Si se reanuda, continúe sobre la misma aplicación. Si se suspende definitivamente, conserve la dosis administrada y cierre con la causa clínica.
+
+30
+00:04:36,450 --> 00:04:45,700
+Confirme hora final, dosis administrada, observaciones y cualquier reacción. Al completar, el estado queda Finalizada y ya no puede confundirse con una pendiente.
+
+31
+00:04:46,450 --> 00:04:54,700
+La próxima aplicación aparece según los días del protocolo. Vuelve a Farmacia y a la lista de espera con su fecha, sin duplicar ni adelantar ciclos.
+
+32
+00:04:55,450 --> 00:05:04,700
+La línea superior resume los siete controles. Reserva, turno, PASS o FAIL, preparación, administración, interrupciones y cierre quedan documentados en la historia clínica.

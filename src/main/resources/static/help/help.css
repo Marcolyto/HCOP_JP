@@ -206,6 +206,7 @@
 
 .hcop-help-primary,
 .hcop-help-secondary,
+.hcop-help-video,
 .hcop-help-topic-button,
 .hcop-help-tour__button {
   display: inline-flex;
@@ -231,6 +232,22 @@
 .hcop-help-tour__button {
   background: #fff;
   color: var(--hcop-help-blue-strong);
+}
+
+.hcop-help-video {
+  border-color: #b8d9e9;
+  background: var(--hcop-help-blue-soft);
+  color: var(--hcop-help-blue-strong);
+}
+
+.hcop-help-video svg {
+  width: 15px;
+  height: 15px;
+}
+
+.hcop-help-tour__video {
+  width: fit-content;
+  min-height: 32px;
 }
 
 .hcop-help-menu__topics {

@@ -1,6 +1,8 @@
 (function exposeHcopHelpContent(global) {
   "use strict";
 
+  const ONCOLOGY_WORKFLOW_VIDEO = "/help/media/circuito-hospital-dia-paso-a-paso.mp4";
+
   const topics = [
     {
       id: "overview",
@@ -185,8 +187,9 @@
       page: "main",
       category: "Tratamientos",
       label: "Tratamientos y aplicaciones",
-      summary: "Consultar planes, ciclos, aplicaciones y documentos.",
+      summary: "Consultar el plan longitudinal y recorrer, paso a paso, todas las alternativas del circuito operativo.",
       docsHref: "/docs/manual-usuario.html#hospital",
+      videoHref: ONCOLOGY_WORKFLOW_VIDEO,
       prepare: [
         { adapter: "rightTab", value: "care" },
         { adapter: "careView", value: "treatments" }
@@ -220,7 +223,7 @@
           id: "wide",
           target: "#openCareInfusionManagerBtn",
           title: "Hospital de día",
-          body: "Abre el único modal en el orden Nuevo tratamiento, Farmacia, Sillones y Tratamientos. Farmacia y Sillones funcionan aunque no haya un paciente abierto."
+          body: "Abre un único modal con Nuevo tratamiento, Farmacia, Turnos y sala, Triaje, Preparación y Tratamientos. El trabajo avanza por aplicación: prescripción, farmacia, turno, triaje, preparación, sala y cierre."
         }
       ]
     },
@@ -229,15 +232,19 @@
       page: "main",
       category: "Tratamientos",
       label: "Prescribir un tratamiento",
-      summary: "Elegir diagnóstico, protocolo, ciclos y fecha inicial.",
+      summary: "Paso 1: indicar diagnóstico, protocolo, ciclos, días y dosis.",
       docsHref: "/docs/manual-usuario.html#tratamientos",
+      videoHref: ONCOLOGY_WORKFLOW_VIDEO,
+      prepare: [
+        { adapter: "modal", value: "careTreatmentManagerModal" },
+        { adapter: "hospitalTab", value: "new-treatment" }
+      ],
       steps: [
         {
-          id: "dialog",
-          target: "#careTreatmentModal",
-          title: "Nuevo tratamiento",
-          body: "Este formulario reúne el diagnóstico, el esquema, el profesional, la cantidad de ciclos y la fecha del primer ciclo.",
-          optional: true
+          id: "tab",
+          target: "[data-care-hospital-tab=\"new-treatment\"]",
+          title: "1. Prescripción médica",
+          body: "Seleccione un paciente y abra Nuevo tratamiento. El plan queda asociado a su diagnóstico y genera las aplicaciones previstas del protocolo; la ayuda no abre ni guarda el formulario."
         },
         {
           id: "projection",
@@ -255,7 +262,7 @@
           id: "save",
           target: "#saveCareTreatmentBtn",
           title: "Guardar tratamiento",
-          body: "Valida y registra el plan. También agrega a la hoja izquierda una evolución inmutable con diagnóstico, esquema, ciclos, peso, talla en cm y cálculos disponibles. La demostración nunca lo presiona."
+          body: "Valida y registra el plan y agrega una evolución inmutable con diagnóstico, esquema, ciclos, peso, talla en cm y cálculos disponibles. La demostración nunca presiona Guardar."
         }
       ]
     },
@@ -264,8 +271,9 @@
       page: "main",
       category: "Tratamientos",
       label: "Detalle de tratamiento",
-      summary: "Drogas, aplicaciones, Farmacia, consentimiento y documentos.",
+      summary: "Consulta de ciclos, días, drogas, aplicaciones, consentimiento y documentos.",
       docsHref: "/docs/manual-usuario.html#detalle-tratamiento",
+      videoHref: ONCOLOGY_WORKFLOW_VIDEO,
       steps: [
         {
           id: "modal",
@@ -284,14 +292,14 @@
           id: "detail",
           target: "#careTreatmentManagerDetail",
           title: "Detalle completo",
-          body: "Aquí aparecen ciclos, drogas, aplicaciones, Farmacia y documentos disponibles.",
+          body: "Aquí aparecen ciclos, días de aplicación, drogas, turnos reales, estados del circuito y documentos disponibles. Es una consulta longitudinal; los cambios operativos se realizan en las pestañas principales.",
           optional: true
         },
         {
-          id: "chairs-shortcut",
-          target: "[data-care-manager-detail-action=\"schedule\"]",
-          title: "Continuar en Sillones",
-          body: "El atajo lleva el ciclo seleccionado a la agenda integrada. Resalta su tarjeta pendiente o el turno ya asignado, sin abrir otro formulario.",
+          id: "cycles",
+          target: ".care-treatment-cycles",
+          title: "Ciclo, día y aplicación",
+          body: "Un ciclo puede contener varios días de medicación. Cada día genera su propia aplicación y, cuando corresponde, su propio paso por Farmacia, Agenda, Triaje, Preparación y Sala.",
           optional: true,
           dynamic: true
         }
@@ -302,8 +310,9 @@
       page: "main",
       category: "Hospital de día",
       label: "Hospital de día · Farmacia",
-      summary: "Confirmar dónde está la medicación antes de asignar sillón.",
+      summary: "Paso 2: auditar la orden, definir custodia y reservar el stock que corresponda.",
       docsHref: "/docs/manual-usuario.html#hospital",
+      videoHref: ONCOLOGY_WORKFLOW_VIDEO,
       prepare: [
         { adapter: "modal", value: "careTreatmentManagerModal" },
         { adapter: "hospitalTab", value: "pharmacy" }
@@ -312,8 +321,8 @@
         {
           id: "mode",
           target: "[data-care-hospital-tab=\"pharmacy\"]",
-          title: "Etapa de Farmacia",
-          body: "Antes del turno se registra si la medicación está pendiente, fue recibida o la llevará el paciente. Esta vista general no requiere una historia abierta."
+          title: "2. Farmacia oncológica",
+          body: "La cola general muestra todas las aplicaciones que requieren revisión. No necesita una historia abierta y se puede filtrar por paciente, DNI, esquema, diagnóstico o disponibilidad."
         },
         {
           id: "search",
@@ -324,8 +333,15 @@
         {
           id: "rows",
           target: "#careSchedulePharmacyRows",
-          title: "Estado de la medicación",
-          body: "Cada fila permite elegir un único estado. La ayuda no cambia ninguna selección.",
+          title: "Auditar orden y procedencia",
+          body: "Abra la fila para validar la orden y definir si usa stock del centro, si debe traerla el paciente, si ya la tiene, si fue recibida o si continúa pendiente del proveedor. La ayuda no modifica estos datos.",
+          dynamic: true
+        },
+        {
+          id: "stock",
+          target: "#careSchedulePharmacyRows",
+          title: "Reserva que habilita el turno",
+          body: "Cuando la medicación proviene del centro, Farmacia reserva el stock para esa aplicación. Si la trae el paciente, debe confirmar su disponibilidad antes de que Agenda permita asignar el sillón.",
           dynamic: true
         }
       ]
@@ -335,8 +351,9 @@
       page: "main",
       category: "Hospital de día",
       label: "Hospital de día · Escanear QR",
-      summary: "Identificar la aplicación exacta, abrir su administración y documentar la lectura.",
+      summary: "Paso 6: identificar la aplicación exacta y abrir el doble chequeo de Sala.",
       docsHref: "/docs/manual-usuario.html#escanear-qr",
+      videoHref: ONCOLOGY_WORKFLOW_VIDEO,
       prepare: [
         { adapter: "modal", value: "careTreatmentManagerModal" }
       ],
@@ -351,31 +368,31 @@
           id: "qr-capture",
           target: "#careQrScannerModal",
           title: "Verificar identidad",
-          body: "El sistema valida paciente, tratamiento, ciclo y aplicación y muestra primero su resumen. Revíselo y pulse Abrir ficha de administración; hasta confirmarlo no cambia el paciente activo. La lectura deja una evolución inmutable, pero no cambia ningún estado.",
+          body: "El sistema valida paciente, tratamiento, ciclo y día de aplicación. Revise el resumen y pulse Abrir ficha de administración; la lectura queda auditada, pero por sí sola no inicia ni completa la medicación.",
           optional: true,
           dynamic: true
         },
         {
-          id: "qr-treatment",
-          target: "[data-care-qr-open-treatment]",
-          title: "Abrir tratamiento completo",
-          body: "Desde la ficha identificada abre el tratamiento y el ciclo exactos sin marcar la administración como realizada.",
+          id: "qr-check",
+          target: "#careApplicationWorkflowContent",
+          title: "Doble chequeo a pie de cama",
+          body: "Confirme paciente, pulsera, etiqueta, droga, dosis, vía, lote, vencimiento y velocidad. Debe intervenir un segundo profesional habilitado distinto del usuario activo.",
           optional: true,
           dynamic: true
         },
         {
-          id: "qr-next-step",
-          target: "[data-care-qr-next-step]",
-          title: "Un solo siguiente paso",
-          body: "La ficha resume Estado clínico, Farmacia, Administración y Drogas. Ofrece únicamente el siguiente paso válido según lo que todavía falta completar.",
+          id: "qr-start",
+          target: "#careApplicationWorkflowActions",
+          title: "Iniciar administración",
+          body: "Sólo se habilita si Triaje autorizó la aplicación y Preparación la liberó a Sala. Registre el inicio real y las observaciones iniciales antes de comenzar.",
           optional: true,
           dynamic: true
         },
         {
           id: "qr-finalize",
-          target: "#careQrAdministrationCompletionForm",
-          title: "Finalización separada",
-          body: "Sólo se habilita en Observación, con Farmacia liberada o no requerida y todas las drogas resueltas. Exige confirmar y escribir una observación; ningún avance general reemplaza este cierre dedicado, que registra usuario, evolución y auditoría.",
+          target: "#careApplicationWorkflowActions",
+          title: "7. Completar y cerrar",
+          body: "Registre hora final, dosis efectivamente administrada, reacción o incidencia y observación de cierre. Completar la aplicación actualiza el ciclo y crea la evolución clínica auditada.",
           optional: true,
           dynamic: true
         }
@@ -385,52 +402,207 @@
       id: "scheduler-chairs",
       page: "main",
       category: "Hospital de día",
-      label: "Hospital de día · Sillones",
-      summary: "Asignar, mover y retirar turnos sin superposición.",
+      label: "Hospital de día · Circuito de 7 pasos",
+      summary: "Recorrer el flujo completo, sus decisiones y sus alternativas, desde la prescripción hasta el cierre.",
       docsHref: "/docs/manual-usuario.html#hospital",
+      videoHref: ONCOLOGY_WORKFLOW_VIDEO,
       prepare: [
         { adapter: "modal", value: "careTreatmentManagerModal" },
         { adapter: "hospitalTab", value: "chairs" }
       ],
       steps: [
         {
-          id: "mode",
-          target: "[data-care-hospital-tab=\"chairs\"]",
-          title: "Agenda por sillón",
-          body: "Cada sillón es una columna y cada celda representa la fracción configurada de tiempo. La agenda general no requiere un paciente activo."
+          id: "prescription",
+          target: "[data-care-hospital-tab=\"new-treatment\"]",
+          prepare: { adapter: "hospitalTab", value: "new-treatment" },
+          title: "1. Prescripción",
+          body: "El oncólogo selecciona diagnóstico y protocolo. El sistema crea los ciclos y cada día de medicación como una aplicación independiente."
         },
+        {
+          id: "pharmacy",
+          target: "[data-care-hospital-tab=\"pharmacy\"]",
+          prepare: { adapter: "hospitalTab", value: "pharmacy" },
+          title: "2. Farmacia",
+          body: "Farmacia valida la orden, define la procedencia y custodia de la medicación y reserva el stock del centro cuando corresponde."
+        },
+        {
+          id: "appointment",
+          target: "#careScheduleGrid",
+          prepare: { adapter: "hospitalTab", value: "chairs" },
+          title: "3. Turno",
+          body: "Agenda muestra sólo aplicaciones habilitadas por Farmacia. El video remarca la lista de pacientes, enseña a seleccionar y arrastrar una tarjeta, y diferencia destino válido, superposición, mover y quitar turno. La ayuda no genera un turno."
+        },
+        {
+          id: "triage",
+          target: "[data-care-hospital-tab=\"triage\"]",
+          prepare: { adapter: "hospitalTab", value: "triage" },
+          title: "4. Triaje",
+          body: "La cola diaria se ordena por hora. Se registran laboratorio, signos vitales, peso, toxicidad y evaluación para autorizar PASS o postergar con motivo y nueva fecha."
+        },
+        {
+          id: "preparation",
+          target: "[data-care-hospital-tab=\"preparation\"]",
+          prepare: { adapter: "hospitalTab", value: "preparation" },
+          title: "5. Preparación",
+          body: "Sólo recibe aplicaciones con PASS. Registra por droga lote, vencimiento, cantidad, diluyente, volumen, concentración, vida útil y segundo control antes de imprimir la etiqueta y liberar a Sala."
+        },
+        {
+          id: "room",
+          target: "[data-care-chair-mode=\"room\"]",
+          prepare: { adapter: "hospitalTab", value: "chairs" },
+          title: "6. Sala",
+          body: "En Turnos y sala, cambie a Sala de hoy. Abra la aplicación o escanee su QR para verificar identidad y etiqueta, elegir un segundo verificador e iniciar la administración."
+        },
+        {
+          id: "close",
+          target: "#openCareQrScannerBtn",
+          title: "7. Cierre",
+          body: "Al finalizar registre dosis real, horario, tolerancia y cualquier reacción. El cierre deja trazabilidad y una evolución en la historia clínica; la ayuda nunca ejecuta esta acción."
+        }
+      ]
+    },
+    {
+      id: "scheduler-agenda",
+      page: "main",
+      category: "Hospital de día",
+      label: "Hospital de día · Agenda",
+      summary: "Paso 3: buscar pacientes y asignar, confirmar, mover o retirar turnos sin superposición.",
+      docsHref: "/docs/manual-usuario.html#agenda",
+      videoHref: ONCOLOGY_WORKFLOW_VIDEO,
+      prepare: [
+        { adapter: "modal", value: "careTreatmentManagerModal" },
+        { adapter: "hospitalTab", value: "chairs" }
+      ],
+      steps: [
         {
           id: "filter",
           target: "#careScheduleCandidateFilter",
-          title: "Lista de espera",
-          body: "Puede mostrar pacientes prescriptos, con medicación confirmada o que llevan la medicación."
+          title: "Lista de espera habilitada",
+          body: "Filtre todos los ciclos, los que tienen prescripción, los que aún la necesitan y la disponibilidad de medicación. El video remarca este cuadro y muestra qué significa cada alternativa; un bloqueo explica qué falta antes de turnar."
         },
         {
           id: "candidate",
           target: "#careScheduleCandidates",
-          title: "Tratamientos pendientes",
-          body: "Los ciclos aparecen por fecha prevista, primero el más próximo. Seleccione un paciente para ver en celeste todos los espacios libres donde entra.",
-          dynamic: true
-        },
-        {
-          id: "manage",
-          target: ".care-schedule-candidate-manage",
-          title: "Gestionar el ciclo",
-          body: "Abre suspensión transitoria o definitiva con motivo, o dirige una solicitud a un médico habilitado. Para una suspensión transitoria, el mismo botón guía dos pasos: solicitar la prescripción del ciclo suspendido y, cuando esté confirmada, reanudar ese mismo tratamiento sin reiniciar los ciclos. Cada envío, decisión y cambio queda como evolución auditada e inmutable en la hoja clínica.",
+          title: "Próxima aplicación",
+          body: "Cada día con medicación aparece por separado y se ordena por fecha prevista. Seleccione una tarjeta para ver en celeste todos los lugares donde entra; el buscador también localiza turnos ya asignados.",
           dynamic: true
         },
         {
           id: "board",
           target: "#careScheduleGrid",
-          title: "Asignación visual",
-          body: "Arrastre el tratamiento al horario deseado. La X libera el sillón incluso si el tratamiento fue suspendido; quitar el turno no reactiva ni modifica esa suspensión. El recorrido anima el cursor como ejemplo, pero no genera un turno.",
+          title: "Asignar sin superposición",
+          body: "Arrastre a un sillón y horario válidos: verde anticipa dónde cabe y rojo rayado impide una superposición. El bloque queda azul sin confirmar y rojo al confirmarlo; la hoja abre el detalle, mover permite reprogramar y la X, con motivo, devuelve la aplicación a espera.",
           cursor: { from: "left", to: "center", gesture: "drag" }
         },
         {
           id: "viewport",
           target: ".care-schedule-chair-viewport-controls",
-          title: "Más sillones o mayor detalle",
+          title: "Ver más sillones",
           body: "Las flechas recorren grupos de sillones y las lupas cambian cuántos se ven al mismo tiempo."
+        }
+      ]
+    },
+    {
+      id: "scheduler-triage",
+      page: "main",
+      category: "Hospital de día",
+      label: "Hospital de día · Triaje",
+      summary: "Paso 4: evaluar cada aplicación del día y decidir PASS o postergación.",
+      docsHref: "/docs/manual-usuario.html#triaje",
+      videoHref: ONCOLOGY_WORKFLOW_VIDEO,
+      prepare: [
+        { adapter: "modal", value: "careTreatmentManagerModal" },
+        { adapter: "hospitalTab", value: "triage" }
+      ],
+      steps: [
+        {
+          id: "tab",
+          target: "[data-care-hospital-tab=\"triage\"]",
+          title: "Cola diaria de Triaje",
+          body: "Las aplicaciones se ordenan por hora del turno. Busque por paciente, DNI, esquema o sillón y filtre pendientes o aptos."
+        },
+        {
+          id: "queue",
+          target: "#careTriageRows",
+          title: "Evaluar una aplicación",
+          body: "Abra Evaluar para completar laboratorio, signos vitales, peso, ECOG, toxicidad y observaciones. La ayuda no abre ni guarda la evaluación.",
+          dynamic: true
+        },
+        {
+          id: "decision",
+          target: "#careTriageRows",
+          title: "PASS o postergación",
+          body: "Autorizar PASS habilita Preparación. Postergar exige motivo, admite una nueva fecha y libera la aplicación del circuito del día para que pueda reprogramarse.",
+          dynamic: true
+        }
+      ]
+    },
+    {
+      id: "scheduler-preparation",
+      page: "main",
+      category: "Hospital de día",
+      label: "Hospital de día · Preparación",
+      summary: "Paso 5: preparar con trazabilidad, segundo control, etiqueta y liberación.",
+      docsHref: "/docs/manual-usuario.html#preparacion",
+      videoHref: ONCOLOGY_WORKFLOW_VIDEO,
+      prepare: [
+        { adapter: "modal", value: "careTreatmentManagerModal" },
+        { adapter: "hospitalTab", value: "preparation" }
+      ],
+      steps: [
+        {
+          id: "tab",
+          target: "[data-care-hospital-tab=\"preparation\"]",
+          title: "Cola autorizada",
+          body: "Sólo aparecen aplicaciones con PASS clínico vigente. Puede buscar por paciente, droga, protocolo o sillón y filtrar por estado."
+        },
+        {
+          id: "queue",
+          target: "#carePreparationRows",
+          title: "Trazabilidad de la mezcla",
+          body: "Por cada droga registre lote, vencimiento, cantidad, unidad, diluyente, volumen final, concentración y vida útil. El preparador es el usuario activo y el segundo control debe ser otro profesional.",
+          dynamic: true
+        },
+        {
+          id: "release",
+          target: "#carePreparationRows",
+          title: "Etiqueta y liberación",
+          body: "El flujo ofrece una sola acción válida: iniciar, registrar mezcla lista, imprimir etiqueta o liberar a Sala. Si la vida útil venció, documente el descarte y repita la preparación.",
+          dynamic: true
+        }
+      ]
+    },
+    {
+      id: "scheduler-room",
+      page: "main",
+      category: "Hospital de día",
+      label: "Hospital de día · Sala y cierre",
+      summary: "Pasos 6 y 7: doble chequeo, administración y cierre clínico.",
+      docsHref: "/docs/manual-usuario.html#sala",
+      videoHref: ONCOLOGY_WORKFLOW_VIDEO,
+      prepare: [
+        { adapter: "modal", value: "careTreatmentManagerModal" },
+        { adapter: "hospitalTab", value: "chairs" }
+      ],
+      steps: [
+        {
+          id: "room",
+          target: "[data-care-chair-mode=\"room\"]",
+          title: "Sala de hoy",
+          body: "En Turnos y sala, elija Sala de hoy. La cola muestra aplicaciones por hora y sillón; sólo las preparaciones liberadas pueden administrarse."
+        },
+        {
+          id: "qr",
+          target: "#openCareQrScannerBtn",
+          title: "Identificación por QR",
+          body: "Escanee para abrir exactamente el paciente, tratamiento, ciclo y día de aplicación. La lectura queda auditada y no administra por sí sola."
+        },
+        {
+          id: "finish",
+          target: "#careRoomRows",
+          title: "Administrar y cerrar",
+          body: "Realice el doble chequeo con otro profesional, registre inicio, dosis real, incidencias y observación final. Completar deja la aplicación cerrada y la evolución clínica documentada.",
+          dynamic: true
         }
       ]
     },

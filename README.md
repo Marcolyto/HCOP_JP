@@ -4,9 +4,46 @@ HCOP JP reúne en un único sistema la historia clínica oncológica, diagnósti
 prescripciones, protocolos, farmacia, Hospital de Día, turnero por sillón,
 estudios, investigación, herramientas, usuarios y auditoría.
 
+Hospital de Día opera cada aplicación real —ciclo y día— mediante un circuito
+único: prescripción, validación y disponibilidad de medicación, turno, triaje,
+preparación trazable con TTL, administración con doble control y cierre. Cada
+rol trabaja en su propia cola sin poder adelantar estados.
+
 La interfaz conserva el producto HCOP/Lira construido hasta ahora. El servidor
 fue migrado a Java 21 con Spring MVC y la persistencia a PostgreSQL. No necesita
 Lira, Node.js ni MySQL para funcionar.
+
+## Ejecutar directamente con Docker Desktop, sin clonar
+
+Si Docker Desktop ya está instalado y abierto, descargue únicamente
+[`EJECUTAR-DOCKER-DESDE-GITHUB.ps1`](EJECUTAR-DOCKER-DESDE-GITHUB.ps1) y
+ejecútelo. No necesita clonar el repositorio, Java ni Maven.
+
+Esta línea descarga primero el archivo a la carpeta temporal y recién después
+lo ejecuta; no canaliza código de Internet directamente al intérprete:
+
+```powershell
+$hcopScript = Join-Path $env:TEMP "EJECUTAR-DOCKER-DESDE-GITHUB.ps1"; Invoke-WebRequest "https://raw.githubusercontent.com/Marcolyto/HCOP_JP/main/EJECUTAR-DOCKER-DESDE-GITHUB.ps1" -OutFile $hcopScript; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $hcopScript
+```
+
+En la primera ejecución solicita las credenciales iniciales sin mostrarlas,
+genera los demás secretos una sola vez y guarda todo en
+`%LOCALAPPDATA%\HCOP_JP-Docker`. Los datos clínicos quedan en volúmenes Docker
+persistentes. Si el repositorio todavía es privado, descargue el script desde
+GitHub después de iniciar sesión; el propio ejecutor resuelve por separado el
+acceso a la imagen privada.
+
+Modos disponibles:
+
+```powershell
+# Usa las imágenes locales y sólo descarga si todavía faltan
+powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Mode Start
+
+# Busca y aplica explícitamente la versión latest
+powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Mode Update
+powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Mode Status
+powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Mode Stop
+```
 
 ## Instalación más simple desde GitHub
 
@@ -68,6 +105,11 @@ Empiece por el [índice de documentación](docs/README.md).
 - [Instalar desde GitHub](docs/00-inicio/INSTALACION-DESDE-GITHUB.md)
 - [Manual de uso](docs/01-uso/MANUAL-DE-USO.md)
 - [Flujo clínico](docs/01-uso/FLUJO-TRATAMIENTO.md)
+- [Circuito de Hospital de día en 7 pasos](docs/01-uso/CIRCUITO-HOSPITAL-DE-DIA-7-PASOS.md)
+- [Guía operativa por roles](docs/01-uso/GUIA-POR-ROLES-HOSPITAL-DE-DIA.md)
+- [Video detallado del circuito, paso a paso](src/main/resources/static/help/media/circuito-hospital-dia-paso-a-paso.mp4)
+- [Guía de capítulos, alternativas y diagrama del video](docs/01-uso/VIDEO-CIRCUITO-HOSPITAL-DIA-PASO-A-PASO.md)
+- [Video resumen de 70 segundos](docs/media/demo-flujo-7-pasos/flujo-oncologico-7-pasos.mp4)
 - [Arquitectura MVC](docs/02-arquitectura/MVC.md)
 - [Swagger y API](docs/02-arquitectura/SWAGGER-OPENAPI.md)
 - [Todos los endpoints](docs/02-arquitectura/ENDPOINTS.md)
@@ -88,8 +130,15 @@ GitHub Actions compila Java, ejecuta pruebas y levanta el producto completo con
 Docker y PostgreSQL. En una instalación local:
 
 ```powershell
-.\scripts\integration-test.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\integration-test.ps1
 ```
 
-La prueba recorre login, paciente, diagnóstico, tratamiento, turno, QR,
-administración, hoja de tratamiento y evoluciones.
+La prueba integral recorre login, paciente, diagnóstico, tratamiento
+multidroga, Farmacia, reserva, turno, triaje, preparación, QR, interrupción,
+reanudación, administración, hoja de tratamiento y evoluciones. Además existe
+una [matriz reproducible de Hospital de día](docs/08-auditoria/HOSPITAL-DIA-100-CASOS.md);
+su última ejecución obtuvo
+[100 PASS de 100](docs/08-auditoria/resultados/hospital-dia-100-casos-20260730-100711.md).
+La verificación final incluyó además **101 pruebas Java aprobadas** y el E2E
+multidroga con cuatro componentes: Carboplatino se interrumpió al 50 %, se
+reanudó y la aplicación terminó completada sin perder la reacción.

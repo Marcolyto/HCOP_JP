@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "canvas": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "background": "#EEF5F9"
+  },
+  "defaults": {
+    "duration_seconds": 10,
+    "transition_seconds": 0.45,
+    "title_duration_seconds": 3.2,
+    "cursor": {
+      "size": 34,
+      "halo_radius": 34,
+      "halo_color": "#37A8E6"
+    }
+  },
+  "scenes": [
+    {
+      "id": "01-prescripcion",
+      "step": 1,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/01-prescripcion.png",
+      "title": "Prescripción médica",
+      "caption": "El oncólogo define protocolo, ciclos, días, dosis y requisitos.",
+      "cursor_path": [
+        { "t": 0.6, "x": 1450, "y": 152 },
+        { "t": 2.8, "x": 1390, "y": 416, "click": true },
+        { "t": 6.5, "x": 1538, "y": 902, "click": true }
+      ]
+    },
+    {
+      "id": "02-farmacia-reserva",
+      "step": 2,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/02-farmacia-reserva.png",
+      "title": "Validación y reserva de Farmacia",
+      "caption": "Farmacia audita la próxima aplicación y asegura su medicación.",
+      "cursor_path": [
+        { "t": 0.6, "x": 470, "y": 174 },
+        { "t": 3.1, "x": 532, "y": 388, "click": true },
+        { "t": 7.0, "x": 1530, "y": 854, "click": true }
+      ]
+    },
+    {
+      "id": "03-agendamiento",
+      "step": 3,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/03-agendamiento.png",
+      "title": "Agendamiento en sillón",
+      "caption": "La aplicación se ubica en fecha, horario y sillón según su duración.",
+      "cursor_path": [
+        { "t": 0.6, "x": 300, "y": 410 },
+        { "t": 3.2, "x": 870, "y": 468 },
+        { "t": 6.8, "x": 1320, "y": 468, "click": true }
+      ]
+    },
+    {
+      "id": "04-triaje",
+      "step": 4,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/04-triaje.png",
+      "title": "Triaje y autorización clínica",
+      "caption": "Se revisan laboratorio, signos vitales, peso, toxicidad y aptitud.",
+      "cursor_path": [
+        { "t": 0.6, "x": 566, "y": 246 },
+        { "t": 3.0, "x": 995, "y": 516, "click": true },
+        { "t": 7.2, "x": 1510, "y": 910, "click": true }
+      ]
+    },
+    {
+      "id": "05-preparacion",
+      "step": 5,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/05-preparacion.png",
+      "title": "Preparación estéril",
+      "caption": "Tras el PASS se registran lotes, vencimientos, dilución y estabilidad.",
+      "cursor_path": [
+        { "t": 0.6, "x": 472, "y": 260 },
+        { "t": 3.2, "x": 1020, "y": 558, "click": true },
+        { "t": 7.1, "x": 1540, "y": 902, "click": true }
+      ]
+    },
+    {
+      "id": "06-administracion",
+      "step": 6,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/06-administracion.png",
+      "title": "Administración segura",
+      "caption": "El QR abre la aplicación exacta y guía el doble control de Enfermería.",
+      "cursor_path": [
+        { "t": 0.6, "x": 550, "y": 205 },
+        { "t": 3.4, "x": 910, "y": 488, "click": true },
+        { "t": 7.0, "x": 1496, "y": 872, "click": true }
+      ]
+    },
+    {
+      "id": "07-cierre",
+      "step": 7,
+      "capture": "../../docs/media/demo-flujo-7-pasos/capturas/07-cierre.png",
+      "title": "Cierre y próxima aplicación",
+      "caption": "Se documenta lo administrado y se proyecta el siguiente día del ciclo.",
+      "cursor_path": [
+        { "t": 0.6, "x": 615, "y": 252 },
+        { "t": 3.3, "x": 1110, "y": 574, "click": true },
+        { "t": 7.3, "x": 1536, "y": 910, "click": true }
+      ]
+    }
+  ]
+}

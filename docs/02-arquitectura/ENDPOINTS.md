@@ -337,19 +337,7 @@ Entrega el archivo de consentimiento guardado; un estado firmado sin archivo se 
 
 ## Hospital de Día
 
-La unidad operativa es siempre una aplicación:
-`patientId + treatmentId + cycleNumber + applicationDay`. `applicationDay`
-admite valores de **1 a 3650** en planificación, persistencia, agenda, workflow
-y QR. No existe un endpoint heredado para **Programar ciclo**: el único alta de
-turno es `POST /api/clinical/infusions` sobre una aplicación HDD ya
-materializada. Los componentes exclusivamente orales o domiciliarios permanecen
-en el tratamiento, pero no generan workflow, turno ni QR de Hospital de Día.
-
 ### `GET /api/clinical/application-workflows` - Listar una cola operativa por aplicación
-
-En Farmacia, la interfaz omite la ventana temporal cuando existe una búsqueda
-textual para poder encontrar paciente, HC, ciclo o día fuera del período
-visible. Si el cliente envía `date`, la API lo conserva como filtro estricto.
 
 Devuelve una fila por ciclo y día real con medicación. `pharmacy` permite filtrar
 `patient_to_bring`; `triage`, `preparation` y `administration` usan por defecto la
@@ -385,12 +373,35 @@ La aplicación completada queda inmutable y sale de las colas operativas.
 - **Cuerpo:** `application/json`
 - **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `409` Conflicto de revisión, estado, superposición o integridad.; `500` Error interno sin exposición de detalles sensibles.
 
+### `POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/administration/interrupt` - Interrumpir una administración en curso
+
+Detiene inmediatamente la aplicación y registra hora, dosis parcial, motivo,
+medidas adoptadas, condición del paciente y destino clínico. La interrupción
+queda pendiente de una resolución explícita y genera una evolución inmutable.
+
+- **Controlador MVC:** `InfusionApplicationWorkflowController`
+- **Operación Java/OpenAPI:** `administrationInterrupt`
+- **Acceso requerido:** `application.administration.manage`
+- **Parámetros:** `patientId` (path, obligatorio): Identificador local inmutable del paciente.; `treatmentId` (path, obligatorio): Identificador local o importado del tratamiento.; `cycleNumber` (path, obligatorio): Número de ciclo, comenzando en 1.; `applicationDay` (path, obligatorio): Día del ciclo en el que se administra esta aplicación.
+- **Cuerpo:** `application/json`
+- **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `409` Conflicto de revisión, estado, superposición o integridad.; `500` Error interno sin exposición de detalles sensibles.
+
+### `POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/administration/resolve` - Resolver una administración interrumpida
+
+Permite reanudar bajo una decisión documentada o cerrar la aplicación sin
+completarla. Ambas decisiones preservan la trazabilidad y generan una evolución.
+
+- **Controlador MVC:** `InfusionApplicationWorkflowController`
+- **Operación Java/OpenAPI:** `administrationResolve`
+- **Acceso requerido:** `application.administration.manage`
+- **Parámetros:** `patientId` (path, obligatorio): Identificador local inmutable del paciente.; `treatmentId` (path, obligatorio): Identificador local o importado del tratamiento.; `cycleNumber` (path, obligatorio): Número de ciclo, comenzando en 1.; `applicationDay` (path, obligatorio): Día del ciclo en el que se administra esta aplicación.
+- **Cuerpo:** `application/json`
+- **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `409` Conflicto de revisión, estado, superposición o integridad.; `500` Error interno sin exposición de detalles sensibles.
+
 ### `POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/administration/start` - Iniciar administración con doble control
 
 Exige PASS, preparación liberada, paciente y etiqueta confirmados, y un segundo
-profesional habilitado distinto del usuario activo. El usuario activo declara
-esa segunda identidad; el comando no reautentica al segundo profesional y el
-registro no constituye una firma o cofirma electrónica.
+profesional habilitado distinto del usuario activo.
 
 - **Controlador MVC:** `InfusionApplicationWorkflowController`
 - **Operación Java/OpenAPI:** `administrationStart`
@@ -398,36 +409,6 @@ registro no constituye una firma o cofirma electrónica.
 - **Parámetros:** `patientId` (path, obligatorio): Identificador local inmutable del paciente.; `treatmentId` (path, obligatorio): Identificador local o importado del tratamiento.; `cycleNumber` (path, obligatorio): Número de ciclo, comenzando en 1.; `applicationDay` (path, obligatorio): Día del ciclo en el que se administra esta aplicación.
 - **Cuerpo:** `application/json`
 - **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `409` Conflicto de revisión, estado, superposición o integridad.; `500` Error interno sin exposición de detalles sensibles.
-
-### `POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/administration/interrupt` - Interrumpir una administración en curso
-
-Detiene la administración sin marcar la aplicación como completada. Registra
-hora, causa, dosis administrada hasta ese momento, medidas adoptadas, condición
-del paciente y destino clínico (`observation`, `medical_review` o
-`emergency_transfer`). La interrupción genera una evolución clínica inmutable y
-deja la aplicación pendiente de una resolución explícita.
-
-- **Controlador MVC:** `InfusionApplicationWorkflowController`
-- **Operación Java/OpenAPI:** `administrationInterrupt`
-- **Acceso requerido:** `application.administration.manage`
-- **Parámetros:** `patientId` (path, obligatorio): Identificador local inmutable del paciente.; `treatmentId` (path, obligatorio): Identificador local o importado del tratamiento.; `cycleNumber` (path, obligatorio): Número de ciclo, comenzando en 1.; `applicationDay` (path, obligatorio): Día del ciclo en el que se administra esta aplicación.
-- **Cuerpo:** `application/json` con `expectedRevision`, `idempotencyKey`, `interruptedAt`, `reason`, `actualDose`, `measures`, `patientCondition` y `disposition`.
-- **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `409` Conflicto de revisión, estado o interrupción ya resuelta.; `500` Error interno sin exposición de detalles sensibles.
-
-### `POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/administration/resolve` - Resolver una administración interrumpida
-
-Permite `resume` para reanudar o `terminate` para cerrar sin completar. Ambas
-decisiones exigen documentar la condición del paciente y el fundamento; al
-cerrar también se exige la dosis total administrada. La resolución conserva la
-trazabilidad y genera una evolución clínica inmutable. `resume` se rechaza si
-el TTL de la preparación venció durante la interrupción.
-
-- **Controlador MVC:** `InfusionApplicationWorkflowController`
-- **Operación Java/OpenAPI:** `administrationResolve`
-- **Acceso requerido:** `application.administration.manage`
-- **Parámetros:** `patientId` (path, obligatorio): Identificador local inmutable del paciente.; `treatmentId` (path, obligatorio): Identificador local o importado del tratamiento.; `cycleNumber` (path, obligatorio): Número de ciclo, comenzando en 1.; `applicationDay` (path, obligatorio): Día del ciclo en el que se administra esta aplicación.
-- **Cuerpo:** `application/json` con `expectedRevision`, `idempotencyKey`, `resolvedAt`, `decision`, `notes`, `actualDose` y `patientCondition`.
-- **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `409` Conflicto de revisión, estado o interrupción ya resuelta.; `500` Error interno sin exposición de detalles sensibles.
 
 ### `POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/clinical-authorization` - Registrar triaje y emitir PASS o FAIL
 
@@ -444,8 +425,7 @@ activo y mantiene la aplicación disponible para reprogramación.
 ### `POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/pharmacy-validation` - Validar la orden en Farmacia
 
 Aprueba o rechaza dosis, vía, intervalo y premedicación y fija la procedencia/custodia.
-Cada droga debe tener nombre, dosis, unidad explícita y vía. No crea
-disponibilidad ficticia ni reserva stock.
+No crea disponibilidad ficticia ni reserva stock.
 
 - **Controlador MVC:** `InfusionApplicationWorkflowController`
 - **Operación Java/OpenAPI:** `pharmacyValidation`
@@ -456,16 +436,8 @@ disponibilidad ficticia ni reserva stock.
 
 ### `POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/preparation/complete` - Registrar mezcla, lotes, etiqueta y TTL
 
-Guarda exactamente una traza por cada componente prescripto, incluidas todas
-las apariciones de una droga repetida. Para stock del centro debe vincular todas
-las reservas activas y consume las cantidades correspondientes sin perder el
-historial; rechaza trazas faltantes, extras o con multiplicidad diferente. Cada
-elemento de `preparations[]` lleva el `componentKey` canónico y debe coincidir
-con la droga, cantidad y unidad de la orden. La interfaz mantiene cantidad y
-unidad como no editables cuando la prescripción ya las informa; la validación
-del servidor impide alterarlas aunque otro cliente construya el cuerpo a mano.
-`V011__preparation_component_trace.sql` persiste esa clave y restringe a una
-traza activa por componente y aplicación.
+Guarda trazabilidad por droga. Para stock del centro debe vincular todas las reservas
+activas y consume las cantidades correspondientes sin perder el historial.
 
 - **Controlador MVC:** `InfusionApplicationWorkflowController`
 - **Operación Java/OpenAPI:** `preparationComplete`
@@ -487,11 +459,10 @@ Rechaza automáticamente preparaciones cuyo TTL ya venció.
 
 ### `POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/preparation/restart` - Descartar y repetir una preparación
 
-Permite descartar una mezcla preparada o liberada por vencimiento, error,
-rotura o contaminación, incluso si todavía está vigente. Exige motivo, sólo se
-habilita antes de comenzar la administración, conserva los lotes anteriores
-como descartados y devuelve la aplicación a Farmacia para obtener o reservar
-nuevamente la medicación.
+Permite descartar una mezcla preparada o liberada por vencimiento, error, rotura o
+contaminación, siempre con un motivo documentado y antes de iniciar la administración.
+Conserva los lotes anteriores como descartados y devuelve la aplicación a Farmacia para
+obtener o reservar nuevamente la medicación y realizar un nuevo control clínico.
 
 - **Controlador MVC:** `InfusionApplicationWorkflowController`
 - **Operación Java/OpenAPI:** `preparationRestart`
@@ -528,14 +499,7 @@ declarado, TTL y enlace al QR de identificación.
 
 La reserva blanda sólo admite `center_stock`. Puede respaldarse con un lote cuantificado
 del inventario (evita sobre-reserva de forma atómica) o mediante verificación manual
-explícita y documentada cuando aún no existe inventario electrónico. La reserva
-manual exige una nota verificable. En ambos modos, `components[]` debe coincidir
-exactamente con todos los componentes prescriptos: rechaza faltantes, extras,
-duplicados y diferencias de nombre, ID de droga, dosis o unidad. La identidad
-canónica es `sourceItemRef`; si el protocolo no la provee se usa
-`<drugId/nombre>-<ordinal>`, lo que permite distinguir drogas repetidas.
-**La modalidad manual no descuenta ni bloquea existencias de un inventario
-electrónico y no debe interpretarse como una reserva atómica.**
+explícita y documentada cuando aún no existe inventario electrónico.
 
 - **Controlador MVC:** `InfusionApplicationWorkflowController`
 - **Operación Java/OpenAPI:** `stockReservation`
@@ -551,7 +515,7 @@ Ordena por fecha cada ciclo y día con medicación que todavía no tiene turno.
 - **Controlador MVC:** `InfusionController`
 - **Operación Java/OpenAPI:** `candidates`
 - **Acceso requerido:** `section.day-hospital.view`
-- **Parámetros:** `q` (query, opcional): Texto de búsqueda; admite coincidencia parcial.; `includeScheduled` (query, opcional): Incluye aplicaciones que ya poseen un turno activo; se usa en Farmacia.
+- **Parámetros:** `q` (query, opcional): Texto de búsqueda; admite coincidencia parcial.; `includeScheduled` (query, opcional): Incluye aplicaciones que ya poseen un turno activo; se usa en Farmacia.; `onlySchedulingEligible` (query, opcional): Si es true, devuelve sólo aplicaciones que ya cumplen los requisitos de Farmacia para recibir un turno; false también incluye las bloqueadas para seguimiento.
 - **Cuerpo:** Sin cuerpo.
 - **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `500` Error interno sin exposición de detalles sensibles.
 
@@ -568,9 +532,7 @@ Lista turnos por paciente y/o fecha con farmacia, administración y medicación.
 
 ### `POST /api/clinical/infusions` - Asignar aplicación a sillón
 
-Reserva el bloque de un ciclo y día HDD concretos, ya presentes en la logística
-por aplicación. Es el único comando de programación; PostgreSQL rechaza
-duplicados y superposiciones concurrentes.
+Reserva el bloque de un ciclo y día de aplicación concretos; PostgreSQL rechaza duplicados y superposiciones concurrentes.
 
 - **Controlador MVC:** `InfusionController`
 - **Operación Java/OpenAPI:** `create_5`
@@ -592,10 +554,7 @@ Mueve, cancela o avanza un turno usando control de versión.
 
 ### `GET /api/clinical/patients/{patientId}/treatments/{treatmentId}/documents/qr` - Imprimir QR
 
-Genera un QR firmado para identificar paciente, tratamiento, ciclo y día de
-aplicación sin texto clínico abierto. Exige que ese ciclo y día posean logística
-real con al menos un componente de Hospital de Día; una pauta exclusivamente
-oral o domiciliaria responde conflicto y no obtiene QR HDD.
+Genera un QR firmado para identificar paciente, tratamiento, ciclo y día de aplicación sin texto clínico abierto.
 
 - **Controlador MVC:** `QrWorkflowController`
 - **Operación Java/OpenAPI:** `document`

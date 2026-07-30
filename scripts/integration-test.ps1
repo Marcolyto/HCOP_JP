@@ -60,12 +60,15 @@ function Invoke-HcopJson {
   } catch {
     $response = $_.Exception.Response
     $status = if ($null -eq $response) { "sin estado HTTP" } else { [int]$response.StatusCode }
-    $detail = ""
-    if ($null -ne $response) {
+    $detail = [string]$_.ErrorDetails.Message
+    if ([string]::IsNullOrWhiteSpace($detail) -and $null -ne $response) {
       try {
-        $reader = New-Object System.IO.StreamReader($response.GetResponseStream())
-        $detail = $reader.ReadToEnd()
-        $reader.Dispose()
+        if ($null -ne $response.Content) {
+          $detail = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+        } else {
+          $reader = New-Object System.IO.StreamReader($response.GetResponseStream())
+          try { $detail = $reader.ReadToEnd() } finally { $reader.Dispose() }
+        }
       } catch {
         $detail = ""
       }

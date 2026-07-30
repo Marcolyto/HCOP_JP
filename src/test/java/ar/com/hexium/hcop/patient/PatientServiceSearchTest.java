@@ -21,13 +21,13 @@ class PatientServiceSearchTest {
 
   @Test
   void returnsRecentPatientsWhenTheSearchIsBlank() {
-    when(repository.recent()).thenReturn(List.of(patient(12, "DURAN", "LUIS")));
+    when(repository.recent()).thenReturn(List.of(patient(12, "PACIENTE", "PRUEBA")));
 
     var result = service.search("");
 
     assertThat(result).singleElement().satisfies(item -> {
       assertThat(item.get("id")).isEqualTo("12");
-      assertThat(item.get("fullName")).isEqualTo("DURAN, LUIS");
+      assertThat(item.get("fullName")).isEqualTo("PACIENTE, PRUEBA");
     });
     verify(repository).recent();
     verify(repository, never()).search("");
@@ -35,18 +35,18 @@ class PatientServiceSearchTest {
 
   @Test
   void allowsFilteringWithOneCharacter() {
-    when(repository.search("d")).thenReturn(List.of(patient(12, "DURAN", "LUIS")));
+    when(repository.search("p")).thenReturn(List.of(patient(12, "PACIENTE", "PRUEBA")));
 
-    assertThat(service.search("d")).hasSize(1);
+    assertThat(service.search("p")).hasSize(1);
 
-    verify(repository).search("d");
+    verify(repository).search("p");
     verify(repository, never()).recent();
   }
 
   private Patient patient(long id, String lastName, String firstName) {
     return new Patient(
         id,
-        "30111222",
+        "00000000",
         "HC-" + id,
         firstName,
         lastName,

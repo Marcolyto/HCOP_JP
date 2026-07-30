@@ -281,11 +281,23 @@ $startParts = ([string]$(if ($settings.startTime) { $settings.startTime } else {
 $endParts = ([string]$(if ($settings.endTime) { $settings.endTime } else { "16:00" })).Split(":")
 $startMinute = ([int]$startParts[0] * 60) + [int]$startParts[1]
 $endMinute = ([int]$endParts[0] * 60) + [int]$endParts[1]
+$clinicalTimeZone = $null
+foreach ($timeZoneId in @("America/Argentina/Buenos_Aires", "Argentina Standard Time")) {
+  try {
+    $clinicalTimeZone = [TimeZoneInfo]::FindSystemTimeZoneById($timeZoneId)
+    break
+  } catch {
+    $clinicalTimeZone = $null
+  }
+}
+Assert-True ($null -ne $clinicalTimeZone) "No se encontro la zona horaria clinica de Argentina."
+$nowUtc = [DateTimeOffset]::UtcNow
+$todayInClinicalTimeZone = [TimeZoneInfo]::ConvertTime($nowUtc, $clinicalTimeZone).Date
 $localScheduledAt = $null
 $selectedChair = ""
 
 for ($dayOffset = 0; $dayOffset -le 7 -and $null -eq $localScheduledAt; $dayOffset++) {
-  $scheduleDate = (Get-Date).Date.AddDays($dayOffset)
+  $scheduleDate = $todayInClinicalTimeZone.AddDays($dayOffset)
   $existingPayload = Invoke-HcopJson -Path "/api/clinical/infusions?date=$($scheduleDate.ToString('yyyy-MM-dd'))"
   $existing = @($existingPayload.infusions | Where-Object {
     [string]$_.clinicalStatus -ne "cancelled" -and
@@ -293,12 +305,19 @@ for ($dayOffset = 0; $dayOffset -le 7 -and $null -eq $localScheduledAt; $dayOffs
   })
   for ($chairNumber = 1; $chairNumber -le $chairCount -and $null -eq $localScheduledAt; $chairNumber++) {
     for ($minute = $startMinute; $minute + $durationForSchedule -le $endMinute; $minute += $slotMinutes) {
-      $candidateStart = $scheduleDate.AddMinutes($minute)
-      if ($candidateStart -lt (Get-Date).AddMinutes(1)) { continue }
+      $candidateLocal = [DateTime]::SpecifyKind(
+        $scheduleDate.AddMinutes($minute),
+        [DateTimeKind]::Unspecified
+      )
+      $candidateStart = [DateTimeOffset]::new(
+        $candidateLocal,
+        $clinicalTimeZone.GetUtcOffset($candidateLocal)
+      )
+      if ($candidateStart -lt $nowUtc.AddMinutes(1)) { continue }
       $candidateEnd = $candidateStart.AddMinutes($durationForSchedule)
       $overlap = @($existing | Where-Object {
         if ([string]$_.chair -ne [string]$chairNumber) { return $false }
-        $existingStart = ([DateTimeOffset]::Parse([string]$_.scheduledAt)).LocalDateTime
+        $existingStart = [DateTimeOffset]::Parse([string]$_.scheduledAt)
         $existingDuration = if ([int]$_.durationMinutes -gt 0) { [int]$_.durationMinutes } else { $slotMinutes }
         $existingEnd = $existingStart.AddMinutes($existingDuration)
         return $candidateStart -lt $existingEnd -and $existingStart -lt $candidateEnd

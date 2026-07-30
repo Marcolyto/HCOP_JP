@@ -390,13 +390,17 @@ function Invoke-NativeLogged(
   [switch]$AllowFailure
 ) {
   Write-Info $Description
+  $result = Invoke-ProcessWithInput $FilePath $Arguments $null
   $lines = New-Object Collections.Generic.List[string]
-  & $FilePath @Arguments 2>&1 | ForEach-Object {
-    $line = $_.ToString()
-    $lines.Add($line)
-    Write-Host "    $line"
+  foreach ($stream in @($result.StandardOutput, $result.StandardError)) {
+    if ([string]::IsNullOrWhiteSpace($stream)) { continue }
+    foreach ($line in @($stream -split "\r?\n")) {
+      if ([string]::IsNullOrWhiteSpace($line)) { continue }
+      $lines.Add($line)
+      Write-Host "    $line"
+    }
   }
-  $exitCode = $LASTEXITCODE
+  $exitCode = $result.ExitCode
   if ($exitCode -ne 0 -and -not $AllowFailure) {
     throw "$Description falló (código $exitCode)."
   }
@@ -436,9 +440,14 @@ function Invoke-ProcessWithInput(
       $process.StandardInput.WriteLine($StandardInput)
     }
     $process.StandardInput.Close()
-    $stdout = $process.StandardOutput.ReadToEnd()
-    $stderr = $process.StandardError.ReadToEnd()
+    # Read both redirected streams concurrently. Docker Compose can write most
+    # pull/build progress to stderr even on success; sequential reads can fill
+    # one pipe and block the child process.
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
     $process.WaitForExit()
+    $stdout = $stdoutTask.Result
+    $stderr = $stderrTask.Result
     return [pscustomobject]@{
       ExitCode = $process.ExitCode
       StandardOutput = $stdout
@@ -570,6 +579,7 @@ function Pull-Images(
   [string]$EnvironmentPath
 ) {
   Write-Step "Descargando las imágenes publicadas"
+  Write-Info "La primera descarga puede tardar varios minutos. Espere hasta que Docker termine; el detalle aparecerá al completar cada intento."
   $arguments = Get-ComposeArguments $Root $ComposePath $EnvironmentPath @("pull")
   $pull = Invoke-NativeLogged $DockerPath $arguments `
     "Descargando $($script:ApplicationImage) y $($script:PostgresImage)" -AllowFailure

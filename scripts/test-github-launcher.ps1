@@ -15,6 +15,11 @@ if ($parseErrors.Count -gt 0) {
 
 foreach ($name in @(
   "Write-Info",
+  "Write-AtomicUtf8",
+  "ConvertTo-EnvLiteral",
+  "ConvertFrom-EnvLiteral",
+  "Get-EnvironmentValues",
+  "Set-EnvironmentValue",
   "ConvertTo-ProcessArgument",
   "Invoke-ProcessWithInput",
   "Invoke-NativeCapture",
@@ -74,6 +79,46 @@ if ($loggedText -notmatch "expected native progress") {
   throw "La ejecución no conservó el progreso emitido por stderr."
 }
 
+$sampleSecret = "ten\chars'plus"
+$encodedSecret = ConvertTo-EnvLiteral $sampleSecret
+$decodedSecret = ConvertFrom-EnvLiteral $encodedSecret
+if ($decodedSecret -ne $sampleSecret) {
+  throw "La codificación de secretos de .env no conserva barras y comillas."
+}
+
+$environmentTestRoot = Join-Path `
+  ([IO.Path]::GetTempPath()) `
+  ("hcop-launcher-env-test-" + [guid]::NewGuid().ToString("N"))
+$environmentTestPath = Join-Path $environmentTestRoot ".env"
+try {
+  New-Item -ItemType Directory -Path $environmentTestRoot -Force | Out-Null
+  [IO.File]::WriteAllText(
+    $environmentTestPath,
+    "HCOP_BOOTSTRAP_PASSWORD='short123'`r`nHCOP_PORT=5180`r`n",
+    (New-Object Text.UTF8Encoding($false)))
+  $beforeRepair = Get-EnvironmentValues $environmentTestPath
+  if (([string]$beforeRepair["HCOP_BOOTSTRAP_PASSWORD"]).Length -ge 10) {
+    throw "La prueba no detectó la contraseña corta preparada."
+  }
+
+  $replacementSecret = "corrected-10-plus"
+  Set-EnvironmentValue `
+    $environmentTestPath `
+    "HCOP_BOOTSTRAP_PASSWORD" `
+    (ConvertTo-EnvLiteral $replacementSecret)
+  $afterRepair = Get-EnvironmentValues $environmentTestPath
+  if ($afterRepair["HCOP_BOOTSTRAP_PASSWORD"] -ne $replacementSecret) {
+    throw "La reparación no guardó la nueva contraseña inicial."
+  }
+  if ($afterRepair["HCOP_PORT"] -ne "5180") {
+    throw "La reparación alteró otra variable del archivo .env."
+  }
+} finally {
+  if (Test-Path -LiteralPath $environmentTestRoot) {
+    Remove-Item -LiteralPath $environmentTestRoot -Recurse -Force
+  }
+}
+
 $validation = & $launcherPath -Mode ValidateOnly | ConvertFrom-Json
 if ($validation.ok -ne $true) {
   throw "La validación estática del lanzador no fue satisfactoria."
@@ -85,5 +130,7 @@ if ($validation.ok -ne $true) {
   expectedNativeExitCode = $capture.ExitCode
   nativeErrorCaptured = $true
   successfulProgressCaptured = $true
+  environmentSecretRoundTrip = $true
+  shortPasswordRepair = $true
   staticValidation = $validation.ok
 } | ConvertTo-Json -Depth 5

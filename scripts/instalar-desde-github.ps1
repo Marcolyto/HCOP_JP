@@ -196,7 +196,13 @@ function Ensure-Environment([string]$Root) {
     $values["HCOP_BOOTSTRAP_USERNAME"] = $username
     $changed = $true
   }
-  if (-not $values.ContainsKey("HCOP_BOOTSTRAP_PASSWORD")) {
+  $passwordRequiresRepair = (
+    -not $values.ContainsKey("HCOP_BOOTSTRAP_PASSWORD") -or
+    ([string]$values["HCOP_BOOTSTRAP_PASSWORD"]).Length -lt 10)
+  if ($passwordRequiresRepair) {
+    if ($values.ContainsKey("HCOP_BOOTSTRAP_PASSWORD")) {
+      Write-Warning "La contraseña inicial guardada tiene menos de 10 caracteres y debe reemplazarse."
+    }
     do {
       $securePassword = Read-Host "Contraseña inicial (mínimo 10 caracteres; no se mostrará)" -AsSecureString
       $password = Get-PlainText $securePassword

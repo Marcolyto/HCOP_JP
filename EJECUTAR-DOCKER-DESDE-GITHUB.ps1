@@ -207,22 +207,39 @@ function ConvertTo-EnvLiteral([string]$Value) {
   return "'$escaped'"
 }
 
-function Read-InitialCredentials {
-  Write-Step "Credenciales iniciales"
-  Write-Info "Se solicitarán una sola vez y se guardarán localmente. No se mostrarán en pantalla ni en el registro."
-  $username = Read-Host "Usuario administrador [marcolyto]"
-  if ([string]::IsNullOrWhiteSpace($username)) { $username = "marcolyto" }
-  if ($username -notmatch "^[A-Za-z0-9._-]{3,64}$") {
-    throw "El usuario debe tener entre 3 y 64 caracteres: letras, números, punto, guion o guion bajo."
+function ConvertFrom-EnvLiteral([string]$Literal) {
+  $trimmed = $Literal.Trim()
+  if ($trimmed.Length -lt 2 -or
+      $trimmed[0] -ne "'" -or
+      $trimmed[$trimmed.Length - 1] -ne "'") {
+    return $trimmed
   }
 
+  $inner = $trimmed.Substring(1, $trimmed.Length - 2)
+  $builder = New-Object Text.StringBuilder
+  for ($index = 0; $index -lt $inner.Length; $index++) {
+    $character = $inner[$index]
+    if ($character -eq "\" -and $index + 1 -lt $inner.Length) {
+      $next = $inner[$index + 1]
+      if ($next -eq "\" -or $next -eq "'") {
+        $null = $builder.Append($next)
+        $index++
+        continue
+      }
+    }
+    $null = $builder.Append($character)
+  }
+  return $builder.ToString()
+}
+
+function Read-InitialPassword([string]$Label = "Contraseña inicial") {
   while ($true) {
-    $firstSecure = Read-Host "Contraseña inicial (mínimo 8 caracteres)" -AsSecureString
+    $firstSecure = Read-Host "$Label (mínimo 10 caracteres)" -AsSecureString
     $secondSecure = Read-Host "Repita la contraseña" -AsSecureString
     $first = ConvertFrom-SecureStringPlain $firstSecure
     $second = ConvertFrom-SecureStringPlain $secondSecure
-    if ($first.Length -lt 8) {
-      Write-Warn "La contraseña debe tener al menos 8 caracteres."
+    if ($first.Length -lt 10) {
+      Write-Warn "La contraseña debe tener al menos 10 caracteres."
       $first = $null
       $second = $null
       continue
@@ -233,21 +250,55 @@ function Read-InitialCredentials {
       $second = $null
       continue
     }
-    return [pscustomobject]@{
-      Username = $username
-      Password = $first
-    }
+    return $first
   }
 }
 
-function Get-EnvironmentKeys([string]$Path) {
-  $keys = @{}
+function Read-InitialCredentials {
+  Write-Step "Credenciales iniciales"
+  Write-Info "Se solicitarán una sola vez y se guardarán localmente. No se mostrarán en pantalla ni en el registro."
+  $username = Read-Host "Usuario administrador [marcolyto]"
+  if ([string]::IsNullOrWhiteSpace($username)) { $username = "marcolyto" }
+  if ($username -notmatch "^[A-Za-z0-9._-]{3,64}$") {
+    throw "El usuario debe tener entre 3 y 64 caracteres: letras, números, punto, guion o guion bajo."
+  }
+
+  return [pscustomobject]@{
+    Username = $username
+    Password = (Read-InitialPassword)
+  }
+}
+
+function Get-EnvironmentValues([string]$Path) {
+  $values = @{}
   foreach ($line in [IO.File]::ReadAllLines($Path)) {
-    if ($line -match "^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=") {
-      $keys[$matches[1]] = $true
+    if ($line -match "^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$") {
+      $values[$matches[1]] = ConvertFrom-EnvLiteral $matches[2]
     }
   }
-  return $keys
+  return $values
+}
+
+function Set-EnvironmentValue(
+  [string]$Path,
+  [string]$Name,
+  [string]$Value
+) {
+  $lines = New-Object Collections.Generic.List[string]
+  $matched = $false
+  $pattern = "^\s*$([regex]::Escape($Name))\s*="
+  foreach ($line in [IO.File]::ReadAllLines($Path)) {
+    if ($line -match $pattern) {
+      $lines.Add("$Name=$Value")
+      $matched = $true
+    } else {
+      $lines.Add($line)
+    }
+  }
+  if (-not $matched) {
+    $lines.Add("$Name=$Value")
+  }
+  Write-AtomicUtf8 $Path (($lines -join "`r`n").TrimEnd() + "`r`n")
 }
 
 function Protect-EnvironmentFile([string]$Path) {
@@ -290,10 +341,26 @@ function Ensure-Environment([string]$Path, [string]$DockerPath) {
     "HCOP_PUBLIC_BASE_URL")
 
   if (Test-Path -LiteralPath $Path -PathType Leaf) {
-    $keys = Get-EnvironmentKeys $Path
-    $missing = @($required | Where-Object { -not $keys.ContainsKey($_) })
+    $values = Get-EnvironmentValues $Path
+    $missing = @($required | Where-Object { -not $values.ContainsKey($_) })
     if ($missing.Count -gt 0) {
       throw "El archivo .env existente está incompleto y no fue sobrescrito. Faltan: $($missing -join ', ')."
+    }
+    $bootstrapPassword = [string]$values["HCOP_BOOTSTRAP_PASSWORD"]
+    if ($bootstrapPassword.Length -lt 10) {
+      Write-Step "Reparar credenciales iniciales"
+      Write-Warn "La contraseña guardada tiene menos de 10 caracteres y la aplicación no puede iniciar."
+      $replacementPassword = Read-InitialPassword "Nueva contraseña inicial"
+      try {
+        Set-EnvironmentValue `
+          $Path `
+          "HCOP_BOOTSTRAP_PASSWORD" `
+          (ConvertTo-EnvLiteral $replacementPassword)
+        Write-Ok "La contraseña inicial fue actualizada sin modificar la base ni los demás secretos."
+      } finally {
+        $replacementPassword = $null
+        $bootstrapPassword = $null
+      }
     }
     Protect-EnvironmentFile $Path
     Write-Ok "Se conservaron la configuración y los secretos existentes."

@@ -22,6 +22,15 @@ env:
   HCOP_ENCRYPTION_SECRET: hcop-ci-encryption-${{ github.run_id }}-${{ github.run_attempt }}-not-production
 
 jobs:
+  launcher:
+    name: Lanzador Docker para Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar primer inicio y errores esperados de Docker
+        shell: powershell
+        run: .\scripts\test-github-launcher.ps1
+
   java:
     name: Compilacion y pruebas Java
     runs-on: ubuntu-latest
@@ -68,7 +77,7 @@ jobs:
     if: >-
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_dispatch' && inputs.publish_image)
-    needs: [java, docker]
+    needs: [launcher, java, docker]
     runs-on: ubuntu-latest
     permissions:
       contents: read

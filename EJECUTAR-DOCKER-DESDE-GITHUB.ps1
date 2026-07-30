@@ -366,9 +366,19 @@ function Invoke-NativeCapture(
   [string]$FilePath,
   [string[]]$Arguments
 ) {
-  $output = @(& $FilePath @Arguments 2>&1 | ForEach-Object { $_.ToString() })
+  # Windows PowerShell 5.1 can promote ordinary native stderr output (for
+  # example "no such volume" or "no such image") to a terminating error when
+  # ErrorActionPreference is Stop. Capture both streams outside PowerShell so
+  # callers can decide from ExitCode whether an absent resource is expected.
+  $result = Invoke-ProcessWithInput $FilePath $Arguments $null
+  $output = @(
+    @($result.StandardOutput, $result.StandardError) |
+      Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+      ForEach-Object { $_ -split "\r?\n" } |
+      Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+  )
   return [pscustomobject]@{
-    ExitCode = $LASTEXITCODE
+    ExitCode = $result.ExitCode
     Output = $output
   }
 }

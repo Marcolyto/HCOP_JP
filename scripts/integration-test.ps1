@@ -296,7 +296,9 @@ $todayInClinicalTimeZone = [TimeZoneInfo]::ConvertTime($nowUtc, $clinicalTimeZon
 $localScheduledAt = $null
 $selectedChair = ""
 
-for ($dayOffset = 0; $dayOffset -le 7 -and $null -eq $localScheduledAt; $dayOffset++) {
+# La prueba reproduce una jornada clínica completa en la fecha operativa actual.
+# Puede ejecutarse después del cierre, por lo que no exige que el casillero sea futuro.
+for ($dayOffset = 0; $dayOffset -le 0 -and $null -eq $localScheduledAt; $dayOffset++) {
   $scheduleDate = $todayInClinicalTimeZone.AddDays($dayOffset)
   $existingPayload = Invoke-HcopJson -Path "/api/clinical/infusions?date=$($scheduleDate.ToString('yyyy-MM-dd'))"
   $existing = @($existingPayload.infusions | Where-Object {
@@ -313,7 +315,6 @@ for ($dayOffset = 0; $dayOffset -le 7 -and $null -eq $localScheduledAt; $dayOffs
         $candidateLocal,
         $clinicalTimeZone.GetUtcOffset($candidateLocal)
       )
-      if ($candidateStart -lt $nowUtc.AddMinutes(1)) { continue }
       $candidateEnd = $candidateStart.AddMinutes($durationForSchedule)
       $overlap = @($existing | Where-Object {
         if ([string]$_.chair -ne [string]$chairNumber) { return $false }
@@ -330,7 +331,7 @@ for ($dayOffset = 0; $dayOffset -le 7 -and $null -eq $localScheduledAt; $dayOffs
     }
   }
 }
-Assert-True ($null -ne $localScheduledAt) "No se encontro un espacio libre de prueba en los proximos 8 dias."
+Assert-True ($null -ne $localScheduledAt) "No se encontro un espacio libre de prueba en la jornada operativa actual."
 $scheduledAt = ([DateTimeOffset]$localScheduledAt).ToUniversalTime().ToString("o")
 $createdInfusion = Invoke-HcopJson -Method POST -Path "/api/clinical/infusions" -Body @{
   patientId = $patientId

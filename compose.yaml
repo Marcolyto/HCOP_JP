@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_DB: ${HCOP_DB_NAME:-hcop_jp}
       POSTGRES_USER: ${HCOP_DB_USER:-hcop}
-      POSTGRES_PASSWORD: ${HCOP_DB_PASSWORD:-hcop_local_change_me}
+      POSTGRES_PASSWORD: ${HCOP_DB_PASSWORD:?Defina HCOP_DB_PASSWORD en .env}
     volumes:
       - hcop_postgres:/var/lib/postgresql
     healthcheck:
@@ -34,12 +34,12 @@ services:
     environment:
       HCOP_DB_URL: jdbc:postgresql://database:5432/${HCOP_DB_NAME:-hcop_jp}
       HCOP_DB_USER: ${HCOP_DB_USER:-hcop}
-      HCOP_DB_PASSWORD: ${HCOP_DB_PASSWORD:-hcop_local_change_me}
+      HCOP_DB_PASSWORD: ${HCOP_DB_PASSWORD:?Defina HCOP_DB_PASSWORD en .env}
       HCOP_BOOTSTRAP_USERNAME: ${HCOP_BOOTSTRAP_USERNAME:-marcolyto}
-      HCOP_BOOTSTRAP_PASSWORD: ${HCOP_BOOTSTRAP_PASSWORD:-colarse2}
+      HCOP_BOOTSTRAP_PASSWORD: ${HCOP_BOOTSTRAP_PASSWORD:?Defina HCOP_BOOTSTRAP_PASSWORD en .env}
       HCOP_BOOTSTRAP_SECOND_USERNAME: ${HCOP_BOOTSTRAP_SECOND_USERNAME:-marcolyto2}
-      HCOP_QR_SECRET: ${HCOP_QR_SECRET:-hcop-jp-local-qr-change-me}
-      HCOP_ENCRYPTION_SECRET: ${HCOP_ENCRYPTION_SECRET:-hcop-jp-local-encryption-change-me}
+      HCOP_QR_SECRET: ${HCOP_QR_SECRET:?Defina HCOP_QR_SECRET en .env}
+      HCOP_ENCRYPTION_SECRET: ${HCOP_ENCRYPTION_SECRET:?Defina HCOP_ENCRYPTION_SECRET en .env}
       HCOP_PUBLIC_BASE_URL: ${HCOP_PUBLIC_BASE_URL:-http://localhost:5180}
       HCOP_BIND_ADDRESS: 0.0.0.0
       HCOP_PORT: 5180

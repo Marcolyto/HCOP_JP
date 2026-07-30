@@ -197,9 +197,13 @@ function Ensure-Environment([string]$Root) {
     $changed = $true
   }
   if (-not $values.ContainsKey("HCOP_BOOTSTRAP_PASSWORD")) {
-    $securePassword = Read-Host "Contraseña inicial [colarse2; no se mostrará]" -AsSecureString
-    $password = Get-PlainText $securePassword
-    if ([string]::IsNullOrWhiteSpace($password)) { $password = "colarse2" }
+    do {
+      $securePassword = Read-Host "Contraseña inicial (mínimo 10 caracteres; no se mostrará)" -AsSecureString
+      $password = Get-PlainText $securePassword
+      if ($password.Length -lt 10) {
+        Write-Warning "La contraseña debe tener al menos 10 caracteres."
+      }
+    } while ($password.Length -lt 10)
     $values["HCOP_BOOTSTRAP_PASSWORD"] = $password
     $changed = $true
   }

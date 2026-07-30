@@ -69,12 +69,12 @@ la base de datos y abre el sistema.
 > Los pacientes y archivos clínicos nunca están en GitHub ni dentro de la
 > imagen. Se conservan en volúmenes Docker locales.
 
-## Prueba manual si ya tiene Docker
+## Ejecutar desde GitHub si ya tiene Docker
 
-```powershell
-Copy-Item .env.example .env
-docker compose up --build --detach --wait
-```
+Use `EJECUTAR-DOCKER-DESDE-GITHUB.ps1`. El lanzador solicita la contraseña
+inicial, genera los demás secretos, descarga las imágenes publicadas y conserva
+los datos en volúmenes Docker locales. El proyecto no incluye una contraseña
+predeterminada.
 
 Luego abra:
 
@@ -82,8 +82,8 @@ Luego abra:
 - Swagger: <http://localhost:5180/swagger-ui.html>
 - Salud: <http://localhost:5180/actuator/health>
 
-Los valores iniciales de desarrollo son `marcolyto` / `colarse2`. El
-autoinstalador permite cambiarlos y genera claves aleatorias.
+El usuario sugerido es `marcolyto`; la contraseña inicial siempre debe ser
+elegida durante la instalación.
 
 ## Arquitectura
 

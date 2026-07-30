@@ -15,6 +15,12 @@ on:
 permissions:
   contents: read
 
+env:
+  HCOP_DB_PASSWORD: hcop-ci-db-${{ github.run_id }}-${{ github.run_attempt }}
+  HCOP_BOOTSTRAP_PASSWORD: hcop-ci-login-${{ github.run_id }}-${{ github.run_attempt }}
+  HCOP_QR_SECRET: hcop-ci-qr-${{ github.run_id }}-${{ github.run_attempt }}-not-production
+  HCOP_ENCRYPTION_SECRET: hcop-ci-encryption-${{ github.run_id }}-${{ github.run_attempt }}-not-production
+
 jobs:
   java:
     name: Compilacion y pruebas Java

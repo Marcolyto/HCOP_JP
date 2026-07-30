@@ -1,10 +1,13 @@
 param(
   [string]$BaseUrl = "http://127.0.0.1:5180",
   [string]$Username = "marcolyto",
-  [string]$Password = "colarse2"
+  [string]$Password = $env:HCOP_BOOTSTRAP_PASSWORD
 )
 
 $ErrorActionPreference = "Stop"
+if ([string]::IsNullOrWhiteSpace($Password)) {
+  throw "Defina HCOP_BOOTSTRAP_PASSWORD o informe -Password para ejecutar la prueba."
+}
 
 function Assert-True {
   param([bool]$Condition, [string]$Message)

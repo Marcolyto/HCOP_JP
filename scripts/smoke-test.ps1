@@ -5,9 +5,13 @@ if ($health.status -ne "UP") {
   throw "El servicio no esta saludable."
 }
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+$testPassword = [string]$env:HCOP_BOOTSTRAP_PASSWORD
+if ([string]::IsNullOrWhiteSpace($testPassword)) {
+  throw "Defina HCOP_BOOTSTRAP_PASSWORD para ejecutar la prueba."
+}
 $loginBody = @{
   username = if ($env:HCOP_BOOTSTRAP_USERNAME) { $env:HCOP_BOOTSTRAP_USERNAME } else { "marcolyto" }
-  password = if ($env:HCOP_BOOTSTRAP_PASSWORD) { $env:HCOP_BOOTSTRAP_PASSWORD } else { "colarse2" }
+  password = $testPassword
 } | ConvertTo-Json
 $login = Invoke-RestMethod -Uri "$baseUrl/api/auth/login" -Method Post -ContentType "application/json" -Body $loginBody -WebSession $session
 if (-not $login.ok) {

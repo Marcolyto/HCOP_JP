@@ -35,7 +35,7 @@ public class AuthService {
       HcopProperties properties,
       Clock clock,
       @Value("${HCOP_BOOTSTRAP_USERNAME:${HCOP_BOOTSTRAP_USER:marcolyto}}") String bootstrapUsername,
-      @Value("${HCOP_BOOTSTRAP_PASSWORD:colarse2}") String bootstrapPassword,
+      @Value("${HCOP_BOOTSTRAP_PASSWORD:}") String bootstrapPassword,
       @Value("${HCOP_BOOTSTRAP_EMAIL:local@hcop.invalid}") String bootstrapEmail,
       @Value("${HCOP_BOOTSTRAP_SECOND_USERNAME:marcolyto2}") String secondaryUsername) {
     this.repository = repository;
@@ -43,6 +43,10 @@ public class AuthService {
     this.properties = properties;
     this.clock = clock;
     this.bootstrapUsername = bootstrapUsername;
+    if (bootstrapPassword == null || bootstrapPassword.length() < 10) {
+      throw new IllegalStateException(
+          "HCOP_BOOTSTRAP_PASSWORD es obligatorio y debe tener al menos 10 caracteres.");
+    }
     this.bootstrapPassword = bootstrapPassword;
     this.bootstrapEmail = bootstrapEmail;
     this.secondaryUsername = secondaryUsername;

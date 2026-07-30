@@ -27,7 +27,7 @@ existir una regla de firewall y una ruta de red. Consulte
 | `HCOP_DB_URL` | `jdbc:postgresql://127.0.0.1:5433/hcop_jp` | JDBC completo al ejecutar el JAR. | Sí |
 | `HCOP_DB_NAME` | `hcop_jp` | Base creada por Docker Compose. | Recrear sólo si cambia el volumen |
 | `HCOP_DB_USER` | `hcop` | Usuario de PostgreSQL. | Sí |
-| `HCOP_DB_PASSWORD` | valor de desarrollo | Contraseña de PostgreSQL. | Sí |
+| `HCOP_DB_PASSWORD` | obligatorio | Contraseña de PostgreSQL. | Sí |
 | `HCOP_DB_POOL_MAX` | `16` | Máximo de conexiones de HikariCP. | Sí |
 
 Cambiar `HCOP_DB_NAME` o credenciales no migra automáticamente un volumen
@@ -38,7 +38,7 @@ existente. Primero haga un backup, cree el destino y restaure.
 | Variable | Predeterminado de prueba | Uso |
 |---|---|---|
 | `HCOP_BOOTSTRAP_USERNAME` | `marcolyto` | Usuario administrador inicial. |
-| `HCOP_BOOTSTRAP_PASSWORD` | `colarse2` | Contraseña inicial. |
+| `HCOP_BOOTSTRAP_PASSWORD` | obligatorio, mínimo 10 caracteres | Contraseña inicial. |
 | `HCOP_BOOTSTRAP_SECOND_USERNAME` | `marcolyto2` | Segunda cuenta clínica para probar flujos. |
 
 Estas variables crean cuentas faltantes; no reemplazan silenciosamente la
@@ -48,8 +48,8 @@ contraseña de una cuenta ya persistida. Cambie las claves desde la interfaz.
 
 | Variable | Predeterminado de prueba | Uso |
 |---|---|---|
-| `HCOP_QR_SECRET` | cadena local incluida | Firma HMAC de códigos QR. |
-| `HCOP_ENCRYPTION_SECRET` | usa `HCOP_QR_SECRET` si falta | Cifrado de secretos como la API key del LLM. |
+| `HCOP_QR_SECRET` | obligatorio | Firma HMAC de códigos QR. |
+| `HCOP_ENCRYPTION_SECRET` | obligatorio | Cifrado de secretos como la API key del LLM. |
 
 En producción use dos cadenas aleatorias diferentes, largas y respaldadas en un
 gestor seguro. Si se pierde `HCOP_QR_SECRET`, los QR emitidos dejan de ser

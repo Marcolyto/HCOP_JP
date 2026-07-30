@@ -31,8 +31,43 @@ const ACCESS_PERMISSIONS = Object.freeze({
   roles: "admin.manage-roles",
   security: "admin.manage-security",
 });
+const CONFIGURATION_TABS = Object.freeze([
+  "protocols",
+  "diagnosis-equivalences",
+  "guides",
+  "study-templates",
+  "calculators",
+  "research",
+  "day-hospital",
+  "artificial-intelligence",
+  "access-control"
+]);
+const CONFIGURATION_TAB_LABELS = Object.freeze({
+  protocols: "Protocolos",
+  "diagnosis-equivalences": "Equivalencias diagnosticas",
+  guides: "Guias",
+  "study-templates": "Plantillas anatomicas",
+  calculators: "Calculadoras y scores",
+  research: "Formularios de investigacion",
+  "day-hospital": "Hospital de dia",
+  "artificial-intelligence": "Inteligencia artificial",
+  "access-control": "Usuarios y permisos"
+});
+const DIRTY_TRACKED_CONFIGURATION_FORMS = new Set([
+  "guideConfigForm",
+  "studyTemplateAdminForm",
+  "diagnosisEquivalenceConfigForm",
+  "calculatorConfigForm",
+  "researchConfigForm",
+  "dayHospitalSettingsForm",
+  "llmConfigurationForm",
+  "adminUserForm",
+  "adminRoleForm",
+  "adminSecuritySettingsForm"
+]);
 const state = {
   activeTab: "protocols",
+  dirtyTabs: new Set(),
   guides: [], studyTemplates: [], diagnosisEquivalences: [], calculators: [], researchForms: [], builtInTools: [], disabledBuiltInKeys: [],
   selectedGuide: null, selectedStudyTemplate: null, selectedDiagnosisEquivalence: null, selectedCalculator: null, selectedBuiltInKey: "", selectedResearch: null,
   diagnosisEquivalenceResults: { snomed: [], cie10: [], ajcc: [] },
@@ -84,6 +119,29 @@ function notifyConfigurationUpdated() { localStorage.setItem("hcop-configuration
 function isPersistedConfigurationItem(item) { return Boolean(String(item?.id ?? "").trim()); }
 function toast(message, type = "success") { const node = document.createElement("div"); node.className = `toast${type === "error" ? " error" : ""}`; node.innerHTML = `<i data-lucide="${type === "error" ? "triangle-alert" : "circle-check"}"></i><span>${escapeHtml(message)}</span>`; $("#toastRegion").append(node); icons(node); setTimeout(() => node.remove(), 4200); }
 
+function configurationTabForElement(element) {
+  return element?.closest?.("[data-config-panel]")?.dataset.configPanel || state.activeTab;
+}
+
+function markConfigurationPanelDirty(elementOrTab = state.activeTab) {
+  const tab = typeof elementOrTab === "string" ? elementOrTab : configurationTabForElement(elementOrTab);
+  if (CONFIGURATION_TABS.includes(tab)) state.dirtyTabs.add(tab);
+}
+
+function markConfigurationPanelClean(tab = state.activeTab) {
+  state.dirtyTabs.delete(tab);
+}
+
+function confirmConfigurationTabChange(nextTab) {
+  if (nextTab === state.activeTab || !state.dirtyTabs.has(state.activeTab)) return true;
+  const section = CONFIGURATION_TAB_LABELS[state.activeTab] || "esta seccion";
+  if (!window.confirm(`Hay cambios sin guardar en ${section}. Si cambia de seccion, se perderan. ¿Desea continuar?`)) {
+    return false;
+  }
+  markConfigurationPanelClean(state.activeTab);
+  return true;
+}
+
 function handleConfigurationAuthenticationFailure() {
   if (configurationAuthenticationRedirecting) return;
   configurationAuthenticationRedirecting = true;
@@ -119,7 +177,9 @@ async function checkStatus() {
 }
 
 function setTab(tab) {
-  state.activeTab = ["protocols", "diagnosis-equivalences", "guides", "study-templates", "calculators", "research", "day-hospital", "artificial-intelligence", "access-control"].includes(tab) ? tab : "protocols";
+  const nextTab = CONFIGURATION_TABS.includes(tab) ? tab : "protocols";
+  if (!confirmConfigurationTabChange(nextTab)) return false;
+  state.activeTab = nextTab;
   $$('[data-config-tab]').forEach((button) => button.classList.toggle("active", button.dataset.configTab === state.activeTab));
   $$('[data-config-panel]').forEach((panel) => panel.classList.toggle("active", panel.dataset.configPanel === state.activeTab));
   history.replaceState(null, "", `#${state.activeTab}`);
@@ -134,6 +194,7 @@ function setTab(tab) {
   if (state.activeTab === "day-hospital") loadDayHospitalSettings();
   if (state.activeTab === "artificial-intelligence") loadLlmConfiguration();
   if (state.activeTab === "access-control") loadAccessControl();
+  return true;
 }
 
 window.HcopConfigurationHelpNavigation = Object.freeze({
@@ -180,7 +241,7 @@ function guideDraft(active = $("#guideActive").checked) {
 
 async function saveGuide(event, forcedActive) {
   event?.preventDefault();
-  try { const draft = guideDraft(forcedActive ?? $("#guideActive").checked); if (!draft.name) throw new Error("Escriba el titulo de la guia."); const id = $("#guideConfigId").value; const payload = id ? await api(`/api/clinical/configuration/guide/${id}`, { method: "PUT", body: JSON.stringify(draft) }) : await api("/api/clinical/configuration/guide", { method: "POST", body: JSON.stringify(draft) }); toast(id ? "Guia actualizada" : "Guia incorporada"); await loadGuides(draft.definition.fileName); return payload.item; }
+  try { const draft = guideDraft(forcedActive ?? $("#guideActive").checked); if (!draft.name) throw new Error("Escriba el titulo de la guia."); const id = $("#guideConfigId").value; const payload = id ? await api(`/api/clinical/configuration/guide/${id}`, { method: "PUT", body: JSON.stringify(draft) }) : await api("/api/clinical/configuration/guide", { method: "POST", body: JSON.stringify(draft) }); markConfigurationPanelClean("guides"); toast(id ? "Guia actualizada" : "Guia incorporada"); await loadGuides(draft.definition.fileName); return payload.item; }
   catch (error) { toast(error.message, "error"); return null; }
 }
 
@@ -355,6 +416,7 @@ function beginStudyTemplateUpload(file) {
     toast("La plantilla no puede superar los 15 MB.", "error");
     return;
   }
+  markConfigurationPanelDirty("study-templates");
   clearPendingStudyTemplateFile();
   state.pendingStudyTemplateFile = file;
   studyTemplatePreviewObjectUrl = URL.createObjectURL(file);
@@ -517,6 +579,7 @@ function setStudyTemplateBusy(busy) {
 
 function cancelStudyTemplateUpload() {
   clearPendingStudyTemplateFile();
+  markConfigurationPanelClean("study-templates");
   state.selectedStudyTemplate = null;
   $("#studyTemplateAdminForm").hidden = true;
   $("#studyTemplateAdminEmpty").hidden = false;
@@ -582,6 +645,7 @@ async function saveStudyTemplate(event, forcedActive) {
       $("#studyTemplateAdminCategoryFilter").value = "";
       $("#showInactiveStudyTemplates").checked = false;
       notifyConfigurationUpdated();
+      markConfigurationPanelClean("study-templates");
       await loadStudyTemplateAdmin(selected);
       return payload.template || payload.item;
     }
@@ -592,6 +656,7 @@ async function saveStudyTemplate(event, forcedActive) {
     toast(draft.active ? "Plantilla actualizada" : "Plantilla desactivada");
     if (!draft.active) $("#showInactiveStudyTemplates").checked = true;
     notifyConfigurationUpdated();
+    markConfigurationPanelClean("study-templates");
     await loadStudyTemplateAdmin(payload.item?.id || id);
     return payload.item;
   } catch (error) {
@@ -616,6 +681,7 @@ async function toggleStudyTemplateActive() {
     $("#showInactiveStudyTemplates").checked = true;
     toast("Plantilla desactivada; el archivo se conserva");
     notifyConfigurationUpdated();
+    markConfigurationPanelClean("study-templates");
     await loadStudyTemplateAdmin(id);
   } catch (error) {
     toast(error.message, "error");
@@ -897,6 +963,7 @@ function fillDiagnosisEquivalenceConcept(system, value = {}) {
 }
 
 function newDiagnosisEquivalence() {
+  markConfigurationPanelDirty("diagnosis-equivalences");
   state.selectedDiagnosisEquivalence = null;
   renderDiagnosisEquivalenceList();
   $("#diagnosisEquivalenceEmpty").hidden = true;
@@ -996,6 +1063,7 @@ async function saveDiagnosisEquivalence(event, forcedActive) {
       ? await api(`/api/clinical/configuration/diagnosis-equivalence/${id}`, { method: "PUT", body: JSON.stringify(draft) })
       : await api("/api/clinical/configuration/diagnosis-equivalence", { method: "POST", body: JSON.stringify(draft) });
     notifyConfigurationUpdated();
+    markConfigurationPanelClean("diagnosis-equivalences");
     toast(id ? "Equivalencia actualizada" : "Equivalencia creada");
     await loadDiagnosisEquivalences(payload.item.id);
   } catch (error) {
@@ -1014,6 +1082,7 @@ async function toggleDiagnosisEquivalenceActive() {
     await api(`/api/clinical/configuration/diagnosis-equivalence/${item.id}`, { method: "DELETE" });
     $("#showInactiveDiagnosisEquivalences").checked = true;
     notifyConfigurationUpdated();
+    markConfigurationPanelClean("diagnosis-equivalences");
     toast("Equivalencia desactivada; se conservaron sus versiones");
     await loadDiagnosisEquivalences(item.id);
   } catch (error) {
@@ -1102,8 +1171,42 @@ function dayHospitalDraft() {
   };
 }
 
+function dayHospitalTimeInMinutes(value) {
+  const match = /^(\d{2}):(\d{2})$/.exec(String(value || ""));
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function validateDayHospitalHours({ report = false } = {}) {
+  const startInput = $("#dayHospitalStartTime");
+  const endInput = $("#dayHospitalEndTime");
+  const error = $("#dayHospitalTimeError");
+  const saveButton = $("#saveDayHospitalSettingsBtn");
+  const startMinutes = dayHospitalTimeInMinutes(startInput.value);
+  const endMinutes = dayHospitalTimeInMinutes(endInput.value);
+  const complete = startMinutes !== null && endMinutes !== null;
+  const valid = complete && endMinutes > startMinutes;
+  const message = complete
+    ? "El fin de atencion debe ser posterior al inicio."
+    : "Complete el horario de inicio y fin.";
+  startInput.setCustomValidity(valid ? "" : message);
+  endInput.setCustomValidity(valid ? "" : message);
+  error.textContent = message;
+  error.hidden = valid;
+  saveButton.disabled = !valid;
+  saveButton.setAttribute("aria-disabled", String(!valid));
+  if (report && !valid) endInput.reportValidity();
+  return valid;
+}
+
 function renderDayHospitalPreview() {
   const draft = dayHospitalDraft().definition;
+  if (!validateDayHospitalHours()) {
+    $("#schedulePreviewTitle").textContent = "Jornada invalida";
+    $("#dayHospitalSchedulePreview").textContent = "Corrija el horario para calcular los casilleros disponibles.";
+    $("#dayHospitalPreviewBars").innerHTML = "";
+    return;
+  }
   const [startHour, startMinute] = draft.startTime.split(":").map(Number);
   const [endHour, endMinute] = draft.endTime.split(":").map(Number);
   const totalMinutes = Math.max(0, endHour * 60 + endMinute - startHour * 60 - startMinute);
@@ -1130,12 +1233,14 @@ async function loadDayHospitalSettings() {
 
 async function saveDayHospitalSettings(event) {
   event.preventDefault();
+  if (!validateDayHospitalHours({ report: true })) return;
   try {
     const draft = dayHospitalDraft();
     const exists = isPersistedConfigurationItem(state.dayHospitalSettingsItem);
     const path = exists ? `/api/clinical/configuration/day-hospital-settings/${state.dayHospitalSettingsItem.id}` : "/api/clinical/configuration/day-hospital-settings";
     const payload = await api(path, { method: exists ? "PUT" : "POST", body: JSON.stringify(draft) });
     state.dayHospitalSettingsItem = payload.item; localStorage.setItem("hcop-configuration-updated", String(Date.now()));
+    markConfigurationPanelClean("day-hospital");
     renderDayHospitalPreview(); toast("Agenda de Hospital de dia actualizada");
   } catch (error) { toast(error.message, "error"); }
 }
@@ -1147,6 +1252,7 @@ function renderCalculatorList() {
 }
 
 function newCalculator() {
+  markConfigurationPanelDirty("calculators");
   state.selectedCalculator = null; renderCalculatorList(); $("#calculatorEmpty").hidden = true; $("#calculatorConfigForm").hidden = false; $("#calculatorConfigForm").reset(); $("#calculatorConfigId").value = ""; $("#calculatorConfigRevision").value = ""; $("#calculatorActive").checked = true; $("#calculatorDecimals").value = "2"; $("#calculatorResultLabel").value = "Resultado"; $("#calculatorEditorTitle").textContent = "Nueva calculadora"; $("#calculatorRevisionLabel").textContent = "Sin guardar"; $("#archiveCalculatorBtn").hidden = true; $("#calculatorVariables").innerHTML = ""; addCalculatorVariable({ label: "Peso", key: "peso", type: "number", unit: "kg", required: true }); addCalculatorVariable({ label: "Altura", key: "altura", type: "number", unit: "cm", required: true }); $("#calculatorExpression").value = "sqrt(peso * altura / 3600)"; renderCalculatorPreview();
 }
 
@@ -1165,7 +1271,7 @@ function calculatorFields() { return $$(".builder-card", $("#calculatorVariables
 function parseRanges() { return $("#calculatorRanges").value.split("\n").map((line) => line.split("|").map((part) => part.trim())).filter((parts) => parts[2]).map(([min, max, label, severity]) => ({ min: min === "" ? null : Number(min), max: max === "" ? null : Number(max), label, severity: severity || "info" })); }
 function calculatorDraft(active = $("#calculatorActive").checked) { return { name: $("#calculatorName").value.trim(), description: $("#calculatorDescription").value.trim(), active, expectedRevision: $("#calculatorConfigRevision").value || undefined, definition: { category: $("#calculatorCategory").value, source: $("#calculatorSource").value.trim(), clinicalUse: $("#calculatorDescription").value.trim(), fields: calculatorFields(), expression: $("#calculatorExpression").value.trim(), resultLabel: $("#calculatorResultLabel").value.trim(), resultUnit: $("#calculatorResultUnit").value.trim(), decimals: Number($("#calculatorDecimals").value), ranges: parseRanges() } }; }
 
-async function saveCalculator(event, forcedActive) { event?.preventDefault(); try { const draft = calculatorDraft(forcedActive ?? $("#calculatorActive").checked); if (!draft.name) throw new Error("Escriba el nombre de la calculadora."); window.SafeExpression.evaluate(draft.definition.expression, Object.fromEntries(draft.definition.fields.map((field) => [field.key, 1]))); const id = $("#calculatorConfigId").value; const payload = id ? await api(`/api/clinical/configuration/calculator/${id}`, { method: "PUT", body: JSON.stringify(draft) }) : await api("/api/clinical/configuration/calculator", { method: "POST", body: JSON.stringify(draft) }); toast(id ? "Calculadora actualizada" : "Calculadora creada"); localStorage.setItem("hcop-configuration-updated", String(Date.now())); await loadCalculators(payload.item.id); }
+async function saveCalculator(event, forcedActive) { event?.preventDefault(); try { const draft = calculatorDraft(forcedActive ?? $("#calculatorActive").checked); if (!draft.name) throw new Error("Escriba el nombre de la calculadora."); window.SafeExpression.evaluate(draft.definition.expression, Object.fromEntries(draft.definition.fields.map((field) => [field.key, 1]))); const id = $("#calculatorConfigId").value; const payload = id ? await api(`/api/clinical/configuration/calculator/${id}`, { method: "PUT", body: JSON.stringify(draft) }) : await api("/api/clinical/configuration/calculator", { method: "POST", body: JSON.stringify(draft) }); markConfigurationPanelClean("calculators"); toast(id ? "Calculadora actualizada" : "Calculadora creada"); localStorage.setItem("hcop-configuration-updated", String(Date.now())); await loadCalculators(payload.item.id); }
   catch (error) { toast(error.message, "error"); } }
 
 function renderCalculatorPreview() {
@@ -1179,12 +1285,12 @@ function calculatePreview() { const preview = $("#calculatorPreview"), resultNod
 
 async function loadResearchForms(selectId = "") { const list = $("#researchConfigList"); loading(list); try { const payload = await api(`/api/clinical/configuration/research-form?includeInactive=1&t=${Date.now()}`); state.researchForms = payload.items || []; renderResearchList(); const selected = state.researchForms.find((item) => item.id === String(selectId)) || state.researchForms.find((item) => item.id === state.selectedResearch?.id); if (selected) editResearchForm(selected); } catch (error) { list.innerHTML = `<div class="catalog-empty">${escapeHtml(error.message)}</div>`; } }
 function renderResearchList() { const query = $("#researchConfigSearch").value.trim().toLowerCase(), showInactive = $("#showInactiveResearch").checked; const rows = state.researchForms.filter((item) => (showInactive || item.active) && (!query || `${item.name} ${item.definition?.category}`.toLowerCase().includes(query))); $("#researchConfigList").innerHTML = rows.map((item) => catalogItem(item, item.id === state.selectedResearch?.id, `${(item.definition?.fields || []).filter((field) => field.type !== "section").length} campos · v${item.revision}`)).join("") || `<div class="catalog-empty">Todavia no hay formularios personalizados.</div>`; }
-function newResearchForm() { state.selectedResearch = null; renderResearchList(); $("#researchEmpty").hidden = true; $("#researchConfigForm").hidden = false; $("#researchConfigForm").reset(); $("#researchConfigId").value = ""; $("#researchConfigRevision").value = ""; $("#researchFormActive").checked = true; $("#researchFormCategory").value = "Investigacion"; $("#researchEditorTitle").textContent = "Nuevo formulario"; $("#researchRevisionLabel").textContent = "Sin guardar"; $("#archiveResearchBtn").hidden = true; $("#researchFormFields").innerHTML = ""; addResearchField({ type: "section", label: "Datos del evento", key: "datos_evento" }); addResearchField({ type: "date", label: "Fecha del evento", key: "fecha_evento", required: true }); addResearchField({ type: "text", label: "Codigo del participante", key: "codigo_participante", required: true }); }
+function newResearchForm() { markConfigurationPanelDirty("research"); state.selectedResearch = null; renderResearchList(); $("#researchEmpty").hidden = true; $("#researchConfigForm").hidden = false; $("#researchConfigForm").reset(); $("#researchConfigId").value = ""; $("#researchConfigRevision").value = ""; $("#researchFormActive").checked = true; $("#researchFormCategory").value = "Investigacion"; $("#researchEditorTitle").textContent = "Nuevo formulario"; $("#researchRevisionLabel").textContent = "Sin guardar"; $("#archiveResearchBtn").hidden = true; $("#researchFormFields").innerHTML = ""; addResearchField({ type: "section", label: "Datos del evento", key: "datos_evento" }); addResearchField({ type: "date", label: "Fecha del evento", key: "fecha_evento", required: true }); addResearchField({ type: "text", label: "Codigo del participante", key: "codigo_participante", required: true }); }
 function editResearchForm(item) { state.selectedResearch = item; renderResearchList(); $("#researchEmpty").hidden = true; $("#researchConfigForm").hidden = false; $("#researchConfigId").value = item.id; $("#researchConfigRevision").value = item.revision; $("#researchFormName").value = item.name; $("#researchFormCategory").value = item.definition?.category || "Investigacion"; $("#researchFormInstructions").value = item.definition?.instructions || item.description || ""; $("#researchFormActive").checked = item.active; $("#researchEditorTitle").textContent = item.name; $("#researchRevisionLabel").textContent = `Version ${item.revision} · ${item.active ? "activo" : "desactivado"}`; $("#archiveResearchBtn").hidden = false; $("#archiveResearchBtn").innerHTML = `<i data-lucide="${item.active ? "archive" : "rotate-ccw"}"></i>${item.active ? "Desactivar" : "Reactivar"}`; $("#researchFormFields").innerHTML = ""; (item.definition?.fields || []).forEach(addResearchField); icons($("#researchConfigForm")); }
 function addResearchField(field = {}) { const card = $("#researchFieldTemplate").content.firstElementChild.cloneNode(true); card.dataset.type = field.type || "text"; $(".builder-label", card).value = field.label || "Nuevo campo"; $(".builder-key", card).value = field.key || slug(field.label || "campo"); $(".builder-type", card).value = field.type || "text"; $(".builder-placeholder", card).value = field.placeholder || field.help || ""; $(".builder-options", card).value = optionsText(field.options); $(".builder-required", card).checked = Boolean(field.required); $("#researchFormFields").append(card); wireBuilderCard(card); icons(card); }
 function researchFields() { return $$(".builder-card", $("#researchFormFields")).map((card) => ({ label: $(".builder-label", card).value.trim(), key: $(".builder-key", card).value.trim(), type: $(".builder-type", card).value, placeholder: $(".builder-placeholder", card).value.trim(), required: $(".builder-required", card).checked, options: parseOptions($(".builder-options", card).value) })); }
 function researchDraft(active = $("#researchFormActive").checked) { return { name: $("#researchFormName").value.trim(), description: $("#researchFormInstructions").value.trim(), active, expectedRevision: $("#researchConfigRevision").value || undefined, definition: { category: $("#researchFormCategory").value.trim(), instructions: $("#researchFormInstructions").value.trim(), fields: researchFields() } }; }
-async function saveResearchForm(event, forcedActive) { event?.preventDefault(); try { const draft = researchDraft(forcedActive ?? $("#researchFormActive").checked); if (!draft.name) throw new Error("Escriba el nombre del formulario."); const id = $("#researchConfigId").value; const payload = id ? await api(`/api/clinical/configuration/research-form/${id}`, { method: "PUT", body: JSON.stringify(draft) }) : await api("/api/clinical/configuration/research-form", { method: "POST", body: JSON.stringify(draft) }); toast(id ? "Formulario actualizado" : "Formulario creado"); localStorage.setItem("hcop-configuration-updated", String(Date.now())); await loadResearchForms(payload.item.id); } catch (error) { toast(error.message, "error"); } }
+async function saveResearchForm(event, forcedActive) { event?.preventDefault(); try { const draft = researchDraft(forcedActive ?? $("#researchFormActive").checked); if (!draft.name) throw new Error("Escriba el nombre del formulario."); const id = $("#researchConfigId").value; const payload = id ? await api(`/api/clinical/configuration/research-form/${id}`, { method: "PUT", body: JSON.stringify(draft) }) : await api("/api/clinical/configuration/research-form", { method: "POST", body: JSON.stringify(draft) }); markConfigurationPanelClean("research"); toast(id ? "Formulario actualizado" : "Formulario creado"); localStorage.setItem("hcop-configuration-updated", String(Date.now())); await loadResearchForms(payload.item.id); } catch (error) { toast(error.message, "error"); } }
 
 function inferLlmProvider(config) {
   const provider = String(config?.provider || "").trim().toLowerCase();
@@ -1355,6 +1461,7 @@ async function saveLlmConfiguration(event) {
     $("#llmConfigApiKey").value = "";
     toast("Configuración de inteligencia artificial guardada");
     notifyConfigurationUpdated();
+    markConfigurationPanelClean("artificial-intelligence");
     await loadLlmConfiguration();
   } catch (error) {
     setLlmConnectionResult(error.message, "error");
@@ -1673,6 +1780,7 @@ async function saveAdminUser(event) {
     $("#adminUserTemporaryPassword").value = "";
     toast(id ? "Usuario actualizado" : "Usuario creado");
     notifyConfigurationUpdated();
+    markConfigurationPanelClean("access-control");
     state.access.selectedUserId = saved.id || id;
     await loadAdminUsers();
   } catch (error) {
@@ -1843,6 +1951,7 @@ async function saveAdminRole(event) {
     const saved = normalizeAdminRole(payload.item ?? payload.role ?? payload.data?.item ?? { ...body, id });
     toast(id ? "Rol actualizado" : "Rol creado");
     notifyConfigurationUpdated();
+    markConfigurationPanelClean("access-control");
     state.access.selectedRoleId = saved.id || id;
     await loadAdminRoles();
   } catch (error) {
@@ -1953,6 +2062,7 @@ async function saveAdminSecuritySettings(event) {
     state.access.security = normalizeSecuritySettings(payload.item ? payload : { item: body });
     toast("Configuración de seguridad guardada");
     notifyConfigurationUpdated();
+    markConfigurationPanelClean("access-control");
     await loadAdminSecuritySettings();
   } catch (error) {
     toast(error.message, "error");
@@ -2024,13 +2134,31 @@ function wireBuilderCard(card, onChange = () => {}) {
   $(".builder-label", card).addEventListener("input", (event) => { const key = $(".builder-key", card); if (!key.dataset.touched) key.value = slug(event.target.value); onChange(); });
   $(".builder-key", card).addEventListener("input", (event) => { event.target.dataset.touched = "1"; onChange(); });
   $$('input,select', card).forEach((control) => control.addEventListener("input", onChange));
-  $(".remove", card).addEventListener("click", () => { card.remove(); onChange(); });
-  card.addEventListener("dragstart", () => card.classList.add("dragging")); card.addEventListener("dragend", () => { card.classList.remove("dragging"); $$(".drag-over").forEach((node) => node.classList.remove("drag-over")); onChange(); });
+  $(".remove", card).addEventListener("click", () => { markConfigurationPanelDirty(card); card.remove(); onChange(); });
+  card.addEventListener("dragstart", () => card.classList.add("dragging")); card.addEventListener("dragend", () => { markConfigurationPanelDirty(card); card.classList.remove("dragging"); $$(".drag-over").forEach((node) => node.classList.remove("drag-over")); onChange(); });
   card.addEventListener("dragover", (event) => { event.preventDefault(); const dragging = $(".builder-card.dragging", card.parentElement); if (!dragging || dragging === card) return; card.classList.add("drag-over"); const rect = card.getBoundingClientRect(); card.parentElement.insertBefore(dragging, event.clientY < rect.top + rect.height / 2 ? card : card.nextSibling); });
   card.addEventListener("dragleave", () => card.classList.remove("drag-over"));
 }
 
+function wireConfigurationDirtyTracking() {
+  const content = $(".configuration-content");
+  if (!content) return;
+  const markFromControl = (event) => {
+    const form = event.target.closest?.("form");
+    if (form && DIRTY_TRACKED_CONFIGURATION_FORMS.has(form.id)) markConfigurationPanelDirty(form);
+  };
+  content.addEventListener("input", markFromControl);
+  content.addEventListener("change", markFromControl);
+  content.addEventListener("click", (event) => {
+    const mutationButton = event.target.closest?.(
+      "#addCalculatorVariableBtn, #addCalculatorRangeBtn, #insertFormulaVariableBtn, [data-formula-token], [data-formula-function], [data-add-research-field]"
+    );
+    if (mutationButton) markConfigurationPanelDirty(mutationButton);
+  });
+}
+
 function wireEvents() {
+  wireConfigurationDirtyTracking();
   $$('[data-config-tab]').forEach((button) => button.addEventListener("click", () => setTab(button.dataset.configTab)));
   $("#refreshAccessControlBtn").addEventListener("click", () => {
     state.access.loaded = false;
@@ -2045,8 +2173,12 @@ function wireEvents() {
     const button = event.target.closest("[data-admin-user-id]");
     if (button) editAdminUser(button.dataset.adminUserId);
   });
-  $("#newAdminUserBtn").addEventListener("click", resetAdminUserEditor);
+  $("#newAdminUserBtn").addEventListener("click", () => {
+    resetAdminUserEditor();
+    markConfigurationPanelDirty("access-control");
+  });
   $("#cancelAdminUserBtn").addEventListener("click", () => {
+    markConfigurationPanelClean("access-control");
     state.access.selectedUserId = "";
     $("#adminUserForm").hidden = true;
     $("#adminUserEmpty").hidden = false;
@@ -2060,8 +2192,12 @@ function wireEvents() {
     const button = event.target.closest("[data-admin-role-id]");
     if (button) editAdminRole(button.dataset.adminRoleId);
   });
-  $("#newAdminRoleBtn").addEventListener("click", resetAdminRoleEditor);
+  $("#newAdminRoleBtn").addEventListener("click", () => {
+    resetAdminRoleEditor();
+    markConfigurationPanelDirty("access-control");
+  });
   $("#cancelAdminRoleBtn").addEventListener("click", () => {
+    markConfigurationPanelClean("access-control");
     state.access.selectedRoleId = "";
     $("#adminRoleForm").hidden = true;
     $("#adminRoleEmpty").hidden = false;

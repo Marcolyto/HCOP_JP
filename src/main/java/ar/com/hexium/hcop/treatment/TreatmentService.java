@@ -21,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -42,6 +43,7 @@ public class TreatmentService {
   private final InfusionService infusions;
   private final TreatmentProtocolCompatibility compatibility;
   private final TreatmentCycleTimeline cycleTimeline;
+  private final LegacyDoseUnitResolver legacyDoseUnits;
 
   public TreatmentService(
       TreatmentRepository treatments,
@@ -52,7 +54,8 @@ public class TreatmentService {
       Clock clock,
       InfusionService infusions,
       TreatmentProtocolCompatibility compatibility,
-      TreatmentCycleTimeline cycleTimeline) {
+      TreatmentCycleTimeline cycleTimeline,
+      LegacyDoseUnitResolver legacyDoseUnits) {
     this.treatments = treatments;
     this.catalog = catalog;
     this.patients = patients;
@@ -62,6 +65,7 @@ public class TreatmentService {
     this.infusions = infusions;
     this.compatibility = compatibility;
     this.cycleTimeline = cycleTimeline;
+    this.legacyDoseUnits = legacyDoseUnits;
   }
 
   public List<Map<String, Object>> list(long patientId) {
@@ -160,6 +164,17 @@ public class TreatmentService {
     int initialCycle = boundedInt(input, 1, 500, 1, "cicloInicial", "initialCycle");
     int cycleDays = boundedInt(input, 0, 3650, Math.max(0, scheme.cycleDays()),
         "duracionCiclo", "cycleDays");
+    if ((long) initialCycle + cycleCount - 1 > 500) {
+      throw new ApiException(
+          HttpStatus.BAD_REQUEST,
+          "El ciclo inicial más la cantidad de ciclos no puede superar el ciclo 500.");
+    }
+    if (cycleCount > 1 && cycleDays < 1) {
+      throw new ApiException(
+          HttpStatus.BAD_REQUEST,
+          "Un tratamiento con más de un ciclo necesita un intervalo mayor a cero días.");
+    }
+    DosingContext dosing = dosingContext(input, scheme);
     LocalDate createdOn = date(input, LocalDate.now(clock), "fechaCreacion", "date", "createdDate");
     LocalDate firstCycle = date(input, createdOn, "fechaPrimerCiclo", "firstCycleDate");
     String id = "trt-" + UUID.randomUUID();
@@ -173,22 +188,44 @@ public class TreatmentService {
     ObjectNode payload = (ObjectNode) input.deepCopy();
     payload.put("clinicalEntryId", text(input, "clinicalEntryId", "treatmentEntryId"));
     payload.put("origenLocal", true);
-    payload.put("requirementsConfirmed", input.path("requirementsConfirmed").asBoolean(false));
+    payload.put("requirementsConfirmed", true);
+    payload.put("doseCalculated", true);
+    payload.put("doseCalculationStatus", "calculated_from_verified_inputs");
+    payload.put("pesoKg", dosing.weightKg());
+    payload.put("tallaCm", dosing.heightCm());
+    payload.put("supCorporal", dosing.bodySurface());
+    payload.put("tfg", dosing.gfr());
+    payload.put("targetAUC", dosing.targetAuc());
     payload.put("protocolDiagnosisGroup", protocolAssessment.diagnosisGroup());
     payload.put("protocolGroup", protocolAssessment.protocolGroup());
     payload.put("protocolMismatchConfirmed", protocolAssessment.mismatch() && protocolMismatchConfirmed);
     payload.put("protocolMismatchReason", protocolAssessment.mismatch() ? protocolMismatchReason : "");
-    ObjectNode detail = createDetail(id, patientId, scheme, initialCycle, cycleCount, firstCycle, cycleDays);
+    ObjectNode detail = createDetail(
+        id, patientId, scheme, initialCycle, cycleCount, firstCycle, cycleDays, dosing);
     NewTreatment value = new NewTreatment(
         id, patientId, diagnosisId, createdOn, firstCycle, initialCycle, cycleCount, cycleDays,
         text(input, "tipoOncologico", "treatmentType", "type"),
         text(input, "caracter", "character", "intent"),
         diagnosis, schemeId, scheme.name(), oncologist, "Iniciado", consent, consentAvailable,
         scheme.durationMinutes(), payload, detail);
-    Treatment treatment = treatments.insert(value, actor.userId());
+    var insertion = treatments.insert(value, actor.userId());
+    Treatment treatment = insertion.treatment();
+    if (!insertion.created()) {
+      StoredDocument currentDocument = documents.require(patientId);
+      ObjectNode existingEvolution = treatmentEvolutionFromDocument(
+          currentDocument.document(), treatment.id(), payload.path("clinicalEntryId").asText(""));
+      if (existingEvolution == null) {
+        existingEvolution = treatmentEvolution(treatment, treatment.payload(), actor);
+      }
+      return new Creation(
+          view(treatment), existingEvolution, currentDocument.revision(),
+          treatment.createdAt().toString(), true);
+    }
     ObjectNode evolution = treatmentEvolution(treatment, input, actor);
     EvolutionAppend append = documents.appendImmutableEvolution(patientId, evolution, actor.userId());
-    return new Creation(view(treatment), append.evolution(), append.revision(), treatment.createdAt().toString());
+    return new Creation(
+        view(treatment), append.evolution(), append.revision(),
+        treatment.createdAt().toString(), false);
   }
 
   public Map<String, Object> detail(long patientId, String treatmentId) {
@@ -355,6 +392,14 @@ public class TreatmentService {
   private ObjectNode createDetail(
       String treatmentId, long patientId, Scheme scheme, int initialCycle, int cycleCount,
       LocalDate firstCycle, int cycleDays) {
+    return createDetail(
+        treatmentId, patientId, scheme, initialCycle, cycleCount,
+        firstCycle, cycleDays, null);
+  }
+
+  private ObjectNode createDetail(
+      String treatmentId, long patientId, Scheme scheme, int initialCycle, int cycleCount,
+      LocalDate firstCycle, int cycleDays, DosingContext dosing) {
     ObjectNode detail = mapper.createObjectNode();
     detail.put("treatmentId", treatmentId);
     detail.put("patientId", Long.toString(patientId));
@@ -373,7 +418,7 @@ public class TreatmentService {
       LocalDate planned = cycleDays > 0 ? firstCycle.plusDays((long) (number - initialCycle) * cycleDays) : firstCycle;
       cycle.put("plannedDate", planned.toString());
       cycle.put("date", planned.toString());
-      cycle.set("drugs", extractDrugs(scheme.definition(), number));
+      cycle.set("drugs", extractDrugs(scheme.definition(), number, dosing));
       cycle.set("applications", mapper.createArrayNode());
       actionCycles.add(number);
     }
@@ -385,23 +430,56 @@ public class TreatmentService {
   }
 
   private ArrayNode extractDrugs(JsonNode definition, int cycleNumber) {
+    return extractDrugs(definition, cycleNumber, null);
+  }
+
+  private ArrayNode extractDrugs(
+      JsonNode definition, int cycleNumber, DosingContext dosing) {
     ArrayNode result = mapper.createArrayNode();
     JsonNode source = definition.path("drugs");
     if (!source.isArray()) source = definition.path("drogas");
     if (!source.isArray()) source = definition.path("components");
     if (!source.isArray()) return result;
+    int componentIndex = 0;
+    Set<String> sourceItemRefs = new java.util.HashSet<>();
     for (JsonNode item : source) {
       ObjectNode drug = result.addObject();
       drug.put("drugId", text(item, "drugId", "idDroga", "id"));
       drug.put("drugName", text(item, "drugName", "droga", "name", "nombre"));
-      String dose = text(item, "prescribedDoseText", "dosisDiaria", "dosis", "dose");
-      drug.put("calculationMethod", text(item, "calculationMethod", "calculoDosis", "doseCalculation"));
-      drug.put("calculatedDoseText", text(item, "calculatedDoseText", "dosisCalculada", "dosisDiaria", "dosis", "dose"));
-      drug.put("prescribedDoseText", dose);
+      String sourceItemRef = text(item, "sourceItemRef", "componentId", "id");
+      if (sourceItemRef.isBlank()) {
+        sourceItemRef = "component-" + (++componentIndex);
+      } else {
+        componentIndex++;
+      }
+      if (!sourceItemRefs.add(sourceItemRef)) {
+        sourceItemRef = sourceItemRef + "-" + componentIndex;
+        sourceItemRefs.add(sourceItemRef);
+      }
+      drug.put("sourceItemRef", sourceItemRef);
+      String baseDoseText = text(item, "prescribedDoseText", "dosisDiaria", "dosis", "dose");
+      String method = text(item, "calculationMethod", "calculoDosis", "doseCalculation");
+      String doseUnit = doseUnit(
+          baseDoseText, method, text(item, "doseUnit", "unidadDosis", "unidad"));
+      if (doseUnit.isBlank()) doseUnit = legacyDoseUnits.resolve(item);
+      if (doseUnit.isBlank()) {
+        throw new ApiException(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            "El componente " + text(item, "drugName", "droga", "name", "nombre")
+                + " no tiene unidad de dosis. Complete la unidad en Configuración > Protocolos.");
+      }
+      DoseCalculation calculation = calculateDose(baseDoseText, method, dosing);
+      drug.put("calculationMethod", method);
+      drug.put("baseDoseText", baseDoseText);
+      drug.put("calculatedDoseText", calculation.doseText());
+      drug.put("prescribedDoseText", calculation.doseText());
+      drug.put("doseUnit", doseUnit);
+      drug.put("doseCalculationStatus", calculation.status());
+      drug.put("calculationTrace", calculation.trace());
       drug.put("applicationDays", text(item, "applicationDays", "dia", "days"));
       drug.put("route", text(item, "route", "viaAdministracion", "via"));
       drug.put("administrationTime", text(item, "administrationTime", "tiempoAdministracion", "time"));
-      drug.put("totalDoseText", text(item, "totalDoseText", "cantidadTotal", "totalDose", "dosisDiaria"));
+      drug.put("totalDoseText", calculation.doseText());
       drug.put("cycleNumber", cycleNumber);
       drug.set("source", item.deepCopy());
     }
@@ -451,6 +529,22 @@ public class TreatmentService {
     evolution.put("createdAt", createdAt);
     evolution.put("updatedAt", createdAt);
     return evolution;
+  }
+
+  private ObjectNode treatmentEvolutionFromDocument(
+      JsonNode document, String treatmentId, String clinicalEntryId) {
+    JsonNode evolutions = document.path("evolutions");
+    if (!evolutions.isArray()) return null;
+    for (JsonNode item : evolutions) {
+      JsonNode source = item.path("sourceRef");
+      boolean sameTreatment = treatmentId.equals(source.path("treatmentId").asText(""));
+      boolean sameEntry = !clinicalEntryId.isBlank()
+          && clinicalEntryId.equals(source.path("clinicalEntryId").asText(""));
+      if ((sameTreatment || sameEntry) && item.isObject()) {
+        return (ObjectNode) item.deepCopy();
+      }
+    }
+    return null;
   }
 
   private List<Map<String, Object>> simpleOptions(String... values) {
@@ -521,6 +615,150 @@ public class TreatmentService {
         .replaceAll("\\p{M}", "").toLowerCase(Locale.ROOT).trim();
   }
 
+  private DosingContext dosingContext(JsonNode input, Scheme scheme) {
+    if (!input.path("requirementsConfirmed").asBoolean(false)) {
+      throw new ApiException(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          "Confirme que verificó los requisitos y datos de cálculo del esquema.");
+    }
+    String definition = normalize(scheme.definition().toString());
+    boolean calvert = definition.contains("calvert")
+        || normalize(scheme.name()).contains("carboplatino");
+    boolean surface = definition.contains("superficie corporal")
+        || definition.contains("mg/m2") || definition.contains("mg/m²");
+    boolean weight = surface || calvert
+        || definition.contains("\"calculoDosis\":\"Peso\"".toLowerCase(Locale.ROOT));
+    boolean calcium = normalize(scheme.name()).matches(".*(zoled|denosumab|bifosfonat).*");
+
+    double weightKg = weight ? requiredNumber(input, "Peso", "peso", "weight") : number(input, "peso", "weight");
+    if (weightKg > 500) {
+      throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "Revise el peso; debe expresarse en kg.");
+    }
+    double heightCm = surface ? requiredNumber(input, "Talla", "talla", "height") : number(input, "talla", "height");
+    if (surface && (heightCm < 20 || heightCm > 260)) {
+      throw new ApiException(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          "La talla debe expresarse en centímetros y estar entre 20 y 260 cm.");
+    }
+    double creatinine = calvert
+        ? requiredNumber(input, "Creatinina", "creatinina", "creatinine") : number(input, "creatinina", "creatinine");
+    double gfr = calvert
+        ? requiredNumber(input, "TFG", "tfg", "gfr") : number(input, "tfg", "gfr");
+    double targetAuc = calvert
+        ? requiredNumber(input, "Target AUC", "targetAUC", "targetAuc") : number(input, "targetAUC", "targetAuc");
+    if (calvert && (targetAuc < 1 || targetAuc > 12)) {
+      throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "Revise el Target AUC informado.");
+    }
+    double calciumValue = calcium
+        ? requiredNumber(input, "Calcio", "calcio", "calcium") : number(input, "calcio", "calcium");
+    double albumin = calcium
+        ? requiredNumber(input, "Albúmina", "albumina", "albumin") : number(input, "albumina", "albumin");
+    double bodySurface = surface
+        ? 0.007184 * Math.pow(weightKg, 0.425) * Math.pow(heightCm, 0.725)
+        : 0;
+    return new DosingContext(
+        weightKg, heightCm, roundDose(bodySurface), creatinine, gfr, targetAuc,
+        calciumValue, albumin);
+  }
+
+  private DoseCalculation calculateDose(
+      String baseDoseText, String method, DosingContext dosing) {
+    double base = parseNumber(baseDoseText);
+    String normalizedMethod = normalize(method);
+    if (!(base > 0)) {
+      return new DoseCalculation(baseDoseText, "missing_base_dose", "Dosis base no estructurada.");
+    }
+    if (normalizedMethod.contains("superficie")) {
+      if (dosing == null || !(dosing.bodySurface() > 0)) {
+        return new DoseCalculation(
+            baseDoseText, "calculation_pending",
+            "Requiere superficie corporal y confirmación médica.");
+      }
+      double dose = roundDose(base * dosing.bodySurface());
+      return new DoseCalculation(
+          formatDose(dose), "calculated_from_patient",
+          formatDose(base) + " × SC " + formatDose(dosing.bodySurface()) + " m²");
+    }
+    if (normalizedMethod.equals("peso") || normalizedMethod.contains("por peso")) {
+      if (dosing == null || !(dosing.weightKg() > 0)) {
+        return new DoseCalculation(
+            baseDoseText, "calculation_pending",
+            "Requiere peso y confirmación médica.");
+      }
+      double dose = roundDose(base * dosing.weightKg());
+      return new DoseCalculation(
+          formatDose(dose), "calculated_from_patient",
+          formatDose(base) + " × " + formatDose(dosing.weightKg()) + " kg");
+    }
+    if (normalizedMethod.contains("calvert")) {
+      if (dosing == null || !(dosing.gfr() > 0) || !(dosing.targetAuc() > 0)) {
+        return new DoseCalculation(
+            baseDoseText, "calculation_pending",
+            "Requiere TFG, Target AUC y confirmación médica.");
+      }
+      double dose = roundDose(dosing.targetAuc() * (dosing.gfr() + 25));
+      return new DoseCalculation(
+          formatDose(dose), "calculated_from_patient",
+          "Calvert: AUC " + formatDose(dosing.targetAuc())
+              + " × (TFG " + formatDose(dosing.gfr()) + " + 25)");
+    }
+    return new DoseCalculation(
+        formatDose(base), "fixed_protocol_dose", "Dosis fija indicada por el protocolo.");
+  }
+
+  private String doseUnit(String baseDoseText, String method, String configuredUnit) {
+    String unit = configuredUnit == null ? "" : configuredUnit.trim();
+    if (unit.isBlank()) {
+      unit = baseDoseText == null ? "" : baseDoseText
+          .replaceFirst("^[\\s+-]*\\d+(?:[\\.,]\\d+)?\\s*", "")
+          .trim();
+    }
+    if (unit.isBlank()) return "";
+    String normalizedMethod = normalize(method);
+    if (normalizedMethod.contains("superficie")) {
+      unit = unit.replaceFirst("(?i)\\s*/?\\s*m(?:²|2)\\s*$", "").trim();
+    } else if (normalizedMethod.equals("peso") || normalizedMethod.contains("por peso")) {
+      unit = unit.replaceFirst("(?i)\\s*/?\\s*kg\\s*$", "").trim();
+    }
+    return unit;
+  }
+
+  private double requiredNumber(JsonNode input, String label, String... keys) {
+    double value = number(input, keys);
+    if (!(value > 0)) {
+      throw new ApiException(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          "Complete " + label + " con un valor mayor a cero.");
+    }
+    return value;
+  }
+
+  private double number(JsonNode input, String... keys) {
+    for (String key : keys) {
+      JsonNode value = input.path(key);
+      if (value.isMissingNode() || value.isNull()) continue;
+      double parsed = parseNumber(value.asText(""));
+      if (Double.isFinite(parsed)) return parsed;
+    }
+    return 0;
+  }
+
+  private double parseNumber(String value) {
+    try {
+      return Double.parseDouble((value == null ? "" : value).trim().replace(',', '.'));
+    } catch (NumberFormatException invalid) {
+      return 0;
+    }
+  }
+
+  private double roundDose(double value) {
+    return Math.round(value * 1000d) / 1000d;
+  }
+
+  private String formatDose(double value) {
+    return java.math.BigDecimal.valueOf(roundDose(value)).stripTrailingZeros().toPlainString();
+  }
+
   private String durationText(Integer minutes) {
     if (minutes == null || minutes < 1) return "";
     return minutes < 60 ? minutes + " min"
@@ -535,6 +773,16 @@ public class TreatmentService {
       Map<String, Object> treatment,
       ObjectNode evolution,
       long documentRevision,
-      String createdAt) {
+      String createdAt,
+      boolean idempotentReplay) {
+  }
+
+  private record DosingContext(
+      double weightKg, double heightCm, double bodySurface,
+      double creatinine, double gfr, double targetAuc,
+      double calcium, double albumin) {
+  }
+
+  private record DoseCalculation(String doseText, String status, String trace) {
   }
 }

@@ -31,13 +31,13 @@
         <button type="button" data-config-tab="artificial-intelligence"><i data-lucide="brain-circuit"></i><span><b>Inteligencia artificial</b><small>LLM local o en la nube</small></span></button>
         <button type="button" data-config-tab="access-control"><i data-lucide="users-round"></i><span><b>Usuarios y permisos</b><small>Accesos, roles y seguridad</small></span></button>
       </nav>
-      <footer><i data-lucide="shield-check"></i><span><b>Cambios seguros</b><small>Cada guardado crea una version recuperable y una entrada de auditoria.</small></span></footer>
+      <footer><i data-lucide="shield-check"></i><span><b>Cambios seguros</b><small>Cada configuracion guardada queda versionada y auditada.</small></span></footer>
     </aside>
 
     <section class="configuration-content">
       <section class="config-panel active protocol-panel" data-config-panel="protocols">
         <header class="panel-heading"><div><span>Tratamientos</span><h1>Protocolos</h1><p>Cree y edite protocolos completos, vincule drogas y defina preparacion y tiempos.</p></div><button class="secondary-button hcop-context-help-button" type="button" data-help-trigger data-help-topic="config-protocols"><span aria-hidden="true">?</span><span>Ayuda</span></button></header>
-        <iframe src="/protocol-admin/?embedded=1" title="Editor de protocolos"></iframe>
+        <iframe src="/protocol-admin/index.html?embedded=1" title="Editor de protocolos"></iframe>
       </section>
 
       <section class="config-panel diagnosis-equivalence-panel" data-config-panel="diagnosis-equivalences" aria-labelledby="diagnosisEquivalencePanelTitle">
@@ -241,11 +241,11 @@
             <div class="field-grid settings-grid">
               <label><span>Cantidad de sillones</span><input id="dayHospitalChairCount" type="number" min="1" max="40" value="6" required></label>
               <label><span>Tiempo minimo por casillero</span><select id="dayHospitalSlotMinutes"><option value="5">5 minutos</option><option value="10" selected>10 minutos</option><option value="15">15 minutos</option><option value="20">20 minutos</option><option value="30">30 minutos</option></select></label>
-              <label><span>Inicio de atencion</span><input id="dayHospitalStartTime" type="time" value="08:00" required></label>
-              <label><span>Fin de atencion</span><input id="dayHospitalEndTime" type="time" value="16:00" required></label>
+              <label><span>Inicio de atencion</span><input id="dayHospitalStartTime" type="time" value="08:00" required aria-describedby="dayHospitalTimeError"></label>
+              <label><span>Fin de atencion</span><input id="dayHospitalEndTime" type="time" value="16:00" required aria-describedby="dayHospitalTimeError"><small class="diagnosis-visible-status is-error" id="dayHospitalTimeError" role="alert" hidden>El fin de atencion debe ser posterior al inicio.</small></label>
             </div>
             <section class="schedule-preview" aria-labelledby="schedulePreviewTitle"><div><span>Vista previa</span><strong id="schedulePreviewTitle">6 sillones</strong><small id="dayHospitalSchedulePreview">48 casilleros de 10 minutos por sillon, de 08:00 a 16:00.</small></div><div class="schedule-preview-bars" id="dayHospitalPreviewBars" aria-hidden="true"></div></section>
-            <div class="settings-actions"><button class="primary-button" type="submit"><i data-lucide="save"></i>Guardar configuracion</button></div>
+            <div class="settings-actions"><button class="primary-button" id="saveDayHospitalSettingsBtn" type="submit"><i data-lucide="save"></i>Guardar configuracion</button></div>
           </form>
         </div>
       </section>

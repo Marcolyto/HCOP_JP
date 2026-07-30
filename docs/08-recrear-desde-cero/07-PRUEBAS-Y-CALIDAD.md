@@ -100,10 +100,8 @@ En cada push:
 Valide:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File `
-  .\scripts\generate-api-docs.ps1 -Check
-powershell -NoProfile -ExecutionPolicy Bypass -File `
-  .\scripts\verify-documentation.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-api-docs.ps1 -Check
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-documentation.ps1
 ```
 
 La documentación rota debe fallar CI igual que una prueba.
@@ -141,11 +139,12 @@ Una copia limpia debe pasar:
 ```powershell
 mvn --batch-mode verify
 docker compose up --build --detach --wait
-.\scripts\integration-test.ps1
-.\scripts\generate-api-docs.ps1 -Check
-.\scripts\verify-documentation.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\integration-test.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-api-docs.ps1 -Check
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-documentation.ps1
 docker compose down --volumes
 ```
 
-En Windows con política restrictiva, ejecute los `.ps1` mediante PowerShell con
-`-ExecutionPolicy Bypass` sólo para ese proceso.
+En Windows, ejecute los `.ps1` como en el bloque anterior:
+`powershell.exe -NoProfile -ExecutionPolicy Bypass -File`. La excepción se
+aplica sólo a ese proceso.

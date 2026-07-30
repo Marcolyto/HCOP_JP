@@ -14,9 +14,12 @@ hasta PostgreSQL. Los nombres de rutas exactos y sus cuerpos están en
 | Plantillas anatómicas | `/api/study-templates/**` | `StudyTemplateController` → servicios de archivos/configuración | biblioteca local y `clinical_configuration_items` | ver estudios / gestionar configuración |
 | Nuevo tratamiento | `/api/clinical/patients/{id}/treatments` | `TreatmentController` → `TreatmentService` → `TreatmentRepository` | `clinical_treatments`, detalle, ciclos, evolución en hoja | `section.prescriptions.edit` |
 | Detalle/documentos | `/api/clinical/**/treatments/**` | `TreatmentController`, `TreatmentDocumentController` → servicios de tratamiento/documentos | tratamiento, detalle, turnos y archivos | `section.prescriptions.view` |
-| Farmacia y logística | rutas de logistics/infusions | `InfusionController` → `InfusionService` → `InfusionRepository` | `treatment_cycle_logistics`, sesiones y medicamentos | `section.day-hospital.view/edit` |
-| Turnero por sillón | `/api/clinical/infusions/**` | `InfusionController` → `InfusionService` → `InfusionRepository` | `unified_infusion_sessions`; trigger anti-superposición | `section.day-hospital.view/edit` |
-| QR y administración | `/api/clinical/qr/**` | `QrWorkflowController` → `QrWorkflowService` → `QrWorkflowRepository` | turnos, `clinical_qr_scan_events`, evolución y auditoría | `section.day-hospital.view/edit` |
+| Cola de Farmacia | `/api/clinical/application-workflows?queue=pharmacy` y comandos `pharmacy-validation`, `stock-reservation` | `InfusionApplicationWorkflowController` → `ApplicationWorkflowService` → `ApplicationWorkflowRepository` | logística, workflow, reservas e inventario por lote | ver: `section.day-hospital.view`; cambiar: `application.pharmacy.manage` |
+| Turnero por sillón | `/api/clinical/infusions/**` | `InfusionController` → `InfusionService` → `InfusionRepository` | `unified_infusion_sessions`; trigger anti-superposición | ver: `section.day-hospital.view`; cambiar: `application.schedule.manage` |
+| Triaje | `/api/clinical/application-workflows?queue=triage` y comando `clinical-authorization` | `InfusionApplicationWorkflowController` → `ApplicationWorkflowService` → `ApplicationWorkflowRepository` | evaluación clínica, PASS/FAIL, turno, reserva y evolución | `application.triage.manage` |
+| Preparación | cola `preparation`; comandos `preparation/start`, `complete`, `release`, `restart`; documento `preparation-label` | `InfusionApplicationWorkflowController` → `ApplicationWorkflowService` → `ApplicationWorkflowRepository` | workflow, lotes preparados, TTL y auditoría | `application.preparation.manage` |
+| Sala / administración | cola `administration`; comandos `administration/start`, `interrupt`, `resolve`, `complete` | `InfusionApplicationWorkflowController` → `ApplicationWorkflowService` → `ApplicationWorkflowRepository` | doble control declarado, horas, interrupción/resolución y resultado real | `application.administration.manage` |
+| QR de identificación | documento `/api/clinical/patients/{id}/treatments/{id}/documents/qr`; escaneo `/api/clinical/qr-scans` | `QrWorkflowController` → `QrWorkflowService` → `QrWorkflowRepository` | turno, `clinical_qr_scan_events` y evolución | imprimir: `section.day-hospital.view`; escanear: `application.administration.manage` |
 | Suspensión/continuidad | `/api/clinical/treatments/**/workflow/**` | `TreatmentWorkflowController` → `TreatmentWorkflowService` → `TreatmentWorkflowRepository` | estados, solicitudes, eventos y evolución | permisos `workflow.*` |
 | Protocolos | `/api/config/protocols/**` | `ProtocolController` → `ConfigurationService` → `ConfigurationRepository` | elementos/versiones + estimación de duración | `section.protocols.view/edit` |
 | Guías | `/api/guides/**` | `GuideCatalogController` → `GuideCatalogService` | catálogos/archivos locales y configuración | herramientas/configuración |
@@ -30,14 +33,26 @@ hasta PostgreSQL. Los nombres de rutas exactos y sus cuerpos están en
 1. La UI pide opciones y requisitos al `TreatmentController`.
 2. El usuario elige un diagnóstico existente y un esquema.
 3. `TreatmentService` valida diagnóstico, antropometría, ciclos y duración.
-4. Una transacción crea `clinical_treatments`, `treatment_details` y una fila
-   de `treatment_cycle_logistics` por ciclo.
+4. Una transacción crea `clinical_treatments`, `treatment_details`, la cabecera
+   de cada ciclo y una fila de `treatment_application_logistics` por cada día
+   con medicación.
 5. En la misma operación agrega una evolución a la hoja clínica.
-6. Los ciclos aptos aparecen en la lista de espera ordenados por fecha.
-7. Farmacia actualiza medicación/prescripción por ciclo.
-8. El turnero reserva fecha, hora, sillón y duración.
-9. El QR abre el ciclo correcto; iniciar/finalizar administración actualiza el
-   turno y documenta el hecho.
+6. Cada día con medicación obtiene una fila 1:1 en
+   `treatment_application_workflows` y aparece en la cola de Farmacia.
+7. Farmacia audita la orden y define la procedencia. Si usa stock del centro,
+   reserva cada componente; si la trae el paciente, la cola lo muestra
+   explícitamente.
+8. Sólo con medicación asegurada el turnero reserva fecha, hora, sillón y la
+   duración calculada para las drogas de ese día.
+9. El día del turno, triaje registra laboratorio, signos y toxicidad. PASS
+   habilita preparación; FAIL documenta la causa, libera reserva y turno.
+10. Farmacia registra mezcla, lotes y TTL, imprime la etiqueta y la libera a
+    sala. Una mezcla vencida se descarta y repite sin borrar su trazabilidad.
+11. El QR abre exactamente esa aplicación. Enfermería confirma paciente,
+    etiqueta y segundo profesional, inicia la administración y finalmente
+    registra dosis real, reacción y observación.
+12. El cierre marca la aplicación como inmutable, sincroniza el turno y agrega
+    una evolución clínica.
 
 Si cualquier paso transaccional falla, no debe quedar media prescripción.
 
@@ -65,7 +80,12 @@ No debe duplicarse una regla en ambos lados sin definir autoridad:
 - identidad: `patients`;
 - narrativa/diagnósticos/evoluciones: hoja JSON;
 - estado operativo de tratamiento: tablas de tratamiento;
+- logística por día: `treatment_application_logistics`;
 - turno real: `unified_infusion_sessions`;
+- estados y compuertas del circuito: `treatment_application_workflows`;
+- reserva de stock: `application_stock_reservations`;
+- lotes/TTL de la mezcla: `application_preparation_lots`;
+- auditoría idempotente del circuito: `treatment_application_workflow_events`;
 - archivo binario: storage; metadatos: `clinical_files`;
 - protocolo vigente: configuración; copia histórica: tratamiento.
 

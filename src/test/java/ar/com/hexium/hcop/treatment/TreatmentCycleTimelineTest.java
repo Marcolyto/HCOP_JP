@@ -64,6 +64,84 @@ class TreatmentCycleTimelineTest {
     assertThat(detail.path("activeCycle").asInt()).isEqualTo(1);
   }
 
+  @Test
+  void separatesHomeDosesFromDayHospitalApplications() throws Exception {
+    ObjectNode detail = (ObjectNode) mapper.readTree("""
+        {
+          "activeCycle": 1,
+          "cycles": [{
+            "number": 1,
+            "plannedDate": "2026-08-01",
+            "drugs": [
+              {
+                "drugName": "Capecitabina",
+                "prescribedDoseText": "1500",
+                "doseUnit": "mg",
+                "applicationDays": "1 - 2 - 3 - 4 - 5",
+                "route": "Oral",
+                "source": {"seAplicaEnHdd": "1"}
+              },
+              {
+                "drugName": "Trastuzumab",
+                "prescribedDoseText": "600",
+                "doseUnit": "mg",
+                "applicationDays": "1",
+                "route": "Subcutanea",
+                "source": {"seAplicaEnHdd": "1"}
+              }
+            ],
+            "days": [
+              {"day": 1, "status": "pending"},
+              {"day": 2, "status": "pending"},
+              {"day": 3, "status": "pending"}
+            ],
+            "applications": []
+          }]
+        }
+        """);
+
+    timeline.enrich(detail, List.of());
+
+    JsonNode cycle = detail.path("cycles").get(0);
+    assertThat(cycle.path("days")).hasSize(1);
+    assertThat(cycle.path("days").get(0).path("day").asInt()).isEqualTo(1);
+    assertThat(cycle.path("days").get(0).path("medications")).hasSize(1);
+    assertThat(cycle.path("days").get(0).path("medications").get(0)
+        .path("drugName").asText()).isEqualTo("Trastuzumab");
+    assertThat(cycle.path("homeMedications")).hasSize(1);
+    assertThat(cycle.path("homeMedications").get(0).path("drugName").asText())
+        .isEqualTo("Capecitabina");
+    assertThat(cycle.path("homeMedications").get(0).path("careSetting").asText())
+        .isEqualTo("home");
+  }
+
+  @Test
+  void oralOnlyTreatmentDoesNotInventADayHospitalApplication() throws Exception {
+    ObjectNode detail = (ObjectNode) mapper.readTree("""
+        {
+          "cycles": [{
+            "number": 1,
+            "plannedDate": "2026-08-01",
+            "drugs": [{
+              "drugName": "Letrozol",
+              "applicationDays": "1 - 2 - 3",
+              "route": "Oral",
+              "source": {"seAplicaEnHdd": "1"}
+            }],
+            "days": [],
+            "applications": []
+          }]
+        }
+        """);
+
+    timeline.enrich(detail, List.of());
+
+    JsonNode cycle = detail.path("cycles").get(0);
+    assertThat(cycle.path("days")).isEmpty();
+    assertThat(cycle.path("applications")).isEmpty();
+    assertThat(cycle.path("homeMedications")).hasSize(1);
+  }
+
   private ObjectNode detail() throws Exception {
     return (ObjectNode) mapper.readTree("""
         {

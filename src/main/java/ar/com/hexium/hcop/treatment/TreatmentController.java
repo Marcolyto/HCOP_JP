@@ -61,10 +61,12 @@ public class TreatmentController {
     result.put("id", creation.treatment().get("id"));
     result.put("treatment", creation.treatment());
     result.put("evolution", creation.evolution());
-    result.put("evolutionCreated", true);
+    result.put("evolutionCreated", !creation.idempotentReplay());
+    result.put("idempotentReplay", creation.idempotentReplay());
     result.put("documentRevision", creation.documentRevision());
     result.put("createdAt", creation.createdAt());
-    return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    return ResponseEntity.status(
+        creation.idempotentReplay() ? HttpStatus.OK : HttpStatus.CREATED).body(result);
   }
 
   @GetMapping("/api/clinical/patients/{patientId}/treatment-options")

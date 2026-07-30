@@ -245,6 +245,7 @@ function addComponent(data = {}) {
   $(".drug-name", card).dataset.linkedName = data.drugName || "";
   $(".drug-day", card).value = data.day || "1";
   $(".drug-dose", card).value = data.prescribedDoseText || "";
+  $(".drug-unit", card).value = data.doseUnit || data.unidadDosis || data.unidad || "";
   $(".drug-calculation", card).value = data.doseCalculationMethod || "Fija";
   $(".drug-route", card).value = data.route || "Endovenosa";
   $(".drug-time", card).value = data.administrationTime || "";
@@ -399,6 +400,7 @@ function componentDraft(card) {
     drugName: $(".drug-name", card).value.trim(),
     day: $(".drug-day", card).value.trim(),
     prescribedDoseText: $(".drug-dose", card).value.trim(),
+    doseUnit: $(".drug-unit", card).value.trim(),
     doseCalculationMethod: $(".drug-calculation", card).value,
     route: $(".drug-route", card).value.trim(),
     administrationTime: $(".drug-time", card).value.trim(),
@@ -459,7 +461,7 @@ function renderPreview() {
   const components = $$(".component-card", $("#components")).map(componentDraft);
   const summary = `<article class="preview-summary"><span>${escapeHtml(category)}</span><h3>${escapeHtml(name)}</h3><div class="preview-metrics"><span><b>${escapeHtml(cycle)}</b><small>días por ciclo</small></span><span><b>${components.length}</b><small>drogas</small></span><span><b>${escapeHtml(duration)}</b><small>duración operativa</small></span></div></article>`;
   const drugs = components.length
-    ? `<div class="preview-drugs">${components.map((item) => `<article class="preview-drug"><span>Día ${escapeHtml(item.day || "—")}</span><div><strong>${escapeHtml(item.drugName || "Droga sin definir")}</strong><small>${escapeHtml([item.route, item.administrationTime, item.dayHospital ? "Hospital de día" : "Sin sillón"].filter(Boolean).join(" · "))}</small></div><em>${escapeHtml(item.prescribedDoseText || "—")}</em></article>`).join("")}</div>`
+    ? `<div class="preview-drugs">${components.map((item) => `<article class="preview-drug"><span>Día ${escapeHtml(item.day || "—")}</span><div><strong>${escapeHtml(item.drugName || "Droga sin definir")}</strong><small>${escapeHtml([item.route, item.administrationTime, item.dayHospital ? "Hospital de día" : "Sin sillón"].filter(Boolean).join(" · "))}</small></div><em>${escapeHtml([item.prescribedDoseText, item.doseUnit].filter(Boolean).join(" ") || "—")}</em></article>`).join("")}</div>`
     : '<div class="preview-empty">Agregue drogas para completar la vista previa.</div>';
   target.innerHTML = summary + drugs;
 }

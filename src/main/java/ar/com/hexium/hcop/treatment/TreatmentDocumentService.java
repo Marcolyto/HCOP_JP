@@ -124,8 +124,11 @@ public class TreatmentDocumentService {
     }
     StringBuilder html = new StringBuilder();
     for (JsonNode drug : drugs) {
+      String dose = text(drug, "prescribedDoseText", "dose", "dosis");
+      String unit = text(drug, "doseUnit", "unidadDosis", "unidad");
       html.append("<tr><td>").append(escape(text(drug, "drugName", "name", "nombre")))
-          .append("</td><td>").append(escape(text(drug, "prescribedDoseText", "dose", "dosis")))
+          .append("</td><td>").append(escape(
+              dose + (unit.isBlank() || dose.matches(".*[A-Za-z%].*") ? "" : " " + unit)))
           .append("</td><td>").append(escape(text(drug, "route", "via")))
           .append("</td><td>").append(escape(text(drug, "administrationTime", "time")))
           .append("</td></tr>");

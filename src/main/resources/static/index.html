@@ -4,14 +4,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>HCOP Centro Oncologico</title>
-    <link rel="stylesheet" href="styles.css?v=20260729-explicit-modals-1">
+    <link rel="stylesheet" href="styles.css?v=20260729-application-workflow-1">
     <link rel="stylesheet" href="care-scheduler.css?v=20260728-suspended-turn-removal-1">
     <link rel="stylesheet" href="care-scheduler-modal.css?v=20260725-hospital-unified-2">
     <link rel="stylesheet" href="/help/help.css?v=20260725-1">
     <script src="/vendor/lucide.min.js" defer></script>
     <script src="/help/help-content.js?v=20260725-hospital-tab-order-1" defer></script>
     <script src="/help/help.js?v=20260725-hospital-unified-1" defer></script>
-    <script src="app.js?v=20260729-explicit-modals-1" defer></script>
+    <script src="app.js?v=20260729-application-workflow-1" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -396,14 +396,6 @@
                         <p class="care-treatment-manager-status" id="careInfusionTableStatus" role="status" aria-live="polite"></p>
                         <nav class="care-treatment-manager-pagination" id="careInfusionPagination" aria-label="Paginas de aplicaciones"></nav>
 
-                        <section class="care-treatment-manager-action-area" aria-labelledby="careInfusionActionsTitle">
-                          <h3 id="careInfusionActionsTitle">Acciones</h3>
-                          <div class="care-treatment-manager-actions" id="careInfusionActions">
-                            <button class="tool-button primary" id="openCareInfusionModalBtn" type="button"><i data-lucide="calendar-plus"></i><span>Programar ciclo</span></button>
-                            <button class="tool-button" id="careInfusionAdvanceBtn" type="button" data-care-infusion-action="advance" disabled><i data-lucide="arrow-right"></i><span>Continuar flujo</span></button>
-                            <button class="tool-button danger" id="careInfusionCancelBtn" type="button" data-care-infusion-action="cancel" disabled><i data-lucide="x"></i><span>Cancelar</span></button>
-                          </div>
-                        </section>
                       </div>
                     </section>
                   </section>
@@ -737,7 +729,6 @@
             <p id="newPatientModalDescription">La ficha comenzara vacia. Complete solamente la identidad administrativa disponible.</p>
           </div>
           <div class="modal-header-actions">
-            <button class="section-help-button" type="button" data-help-trigger data-help-topic="patients" title="Ayuda para crear pacientes" aria-label="Ayuda para crear pacientes"><i data-lucide="circle-help"></i></button>
             <button class="icon-button" id="closeNewPatientBtn" type="button" title="Cerrar" aria-label="Cerrar alta de paciente"><i data-lucide="x"></i></button>
           </div>
         </header>
@@ -842,9 +833,9 @@
           <div class="care-schedule-modal-title">
             <span class="sheet-kicker">Centro de infusion</span>
             <h2 id="careTreatmentManagerTitle">Hospital de dia</h2>
-            <p id="careTreatmentManagerDescription">Nuevo tratamiento, farmacia, sillones y tratamientos en un unico espacio.</p>
+            <p id="careTreatmentManagerDescription">Prescripcion, farmacia, turnos, triaje, preparacion y administracion en un unico circuito.</p>
           </div>
-          <div class="care-schedule-date-nav" data-care-hospital-context="chairs" aria-label="Fecha de la agenda">
+          <div class="care-schedule-date-nav" data-care-hospital-context="daily" aria-label="Fecha operativa">
             <button class="icon-button" id="careSchedulePreviousDayBtn" type="button" title="Dia anterior" aria-label="Dia anterior"><i data-lucide="chevron-left"></i></button>
             <label><span class="visually-hidden">Fecha</span><input id="careScheduleDate" type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off" aria-label="Fecha del turnero en formato dia mes anio"></label>
             <label class="care-schedule-calendar-picker" title="Elegir fecha en el calendario"><i data-lucide="calendar-days" aria-hidden="true"></i><input id="careScheduleCalendarDate" type="date" aria-label="Elegir fecha en el calendario"></label>
@@ -853,7 +844,7 @@
             <button class="icon-button" id="careScheduleNextDayBtn" type="button" title="Dia siguiente" aria-label="Dia siguiente"><i data-lucide="chevron-right"></i></button>
           </div>
           <div class="care-schedule-modal-actions">
-            <button class="tool-button care-qr-launch-button" id="openCareQrScannerBtn" type="button" title="Escanear identificación de tratamiento" aria-haspopup="dialog" aria-controls="careQrScannerModal" aria-expanded="false" data-permission="section.day-hospital.edit"><i data-lucide="scan-line"></i><span>Escanear QR</span></button>
+            <button class="tool-button care-qr-launch-button" id="openCareQrScannerBtn" type="button" title="Escanear identificación de tratamiento" aria-haspopup="dialog" aria-controls="careQrScannerModal" aria-expanded="false" data-permission="application.administration.manage"><i data-lucide="scan-line"></i><span>Escanear QR</span></button>
             <a class="tool-button care-hospital-config-link" data-care-hospital-context="chairs" href="/configuration/#day-hospital" target="_blank" rel="noopener"><i data-lucide="settings-2"></i><span>Configurar agenda</span></a>
             <button class="icon-button" id="careScheduleRefreshBtn" type="button" title="Actualizar Hospital de dia" aria-label="Actualizar Hospital de dia"><i data-lucide="refresh-cw"></i></button>
             <button class="icon-button" id="closeCareTreatmentManagerBtn" type="button" title="Cerrar" aria-label="Cerrar Hospital de dia"><i data-lucide="x"></i></button>
@@ -864,7 +855,9 @@
           <nav class="care-schedule-mode-tabs care-hospital-tabs" role="tablist" aria-label="Secciones de Hospital de dia">
             <button id="careHospitalNewTreatmentTab" type="button" role="tab" data-care-hospital-tab="new-treatment" data-permission="section.prescriptions.edit" aria-controls="careHospitalNewTreatmentPanel" aria-selected="false"><i data-lucide="plus"></i><span>Nuevo tratamiento</span></button>
             <button id="careHospitalPharmacyTab" type="button" role="tab" data-care-hospital-tab="pharmacy" aria-controls="careSchedulePharmacyPanel" aria-selected="false"><i data-lucide="package-check"></i><span>Farmacia</span></button>
-            <button class="active" id="careHospitalChairsTab" type="button" role="tab" data-care-hospital-tab="chairs" aria-controls="careScheduleChairsPanel" aria-selected="true"><i data-lucide="armchair"></i><span>Sillones</span></button>
+            <button class="active" id="careHospitalChairsTab" type="button" role="tab" data-care-hospital-tab="chairs" aria-controls="careScheduleChairsPanel" aria-selected="true"><i data-lucide="calendar-clock"></i><span>Turnos y sala</span></button>
+            <button id="careHospitalTriageTab" type="button" role="tab" data-care-hospital-tab="triage" aria-controls="careHospitalTriagePanel" aria-selected="false"><i data-lucide="stethoscope"></i><span>Triaje</span></button>
+            <button id="careHospitalPreparationTab" type="button" role="tab" data-care-hospital-tab="preparation" aria-controls="careHospitalPreparationPanel" aria-selected="false"><i data-lucide="flask-conical"></i><span>Preparacion</span></button>
             <button id="careHospitalTreatmentsTab" type="button" role="tab" data-care-hospital-tab="treatments" aria-controls="careHospitalTreatmentsPanel" aria-selected="false"><i data-lucide="clipboard-list"></i><span>Tratamientos</span></button>
             <div class="care-hospital-patient-context" id="careHospitalPatientContext">
               <i data-lucide="user-round" aria-hidden="true"></i>
@@ -874,26 +867,61 @@
 
           <section class="care-schedule-mode-panel active" id="careScheduleChairsPanel" role="tabpanel" data-care-hospital-panel="chairs" aria-labelledby="careHospitalChairsTab">
             <div class="care-schedule-toolbar">
-              <span>Arrastre desde pendientes. Cada turno ocupa automaticamente el tiempo completo del tratamiento.</span>
+              <nav class="care-chair-mode-switch" role="tablist" aria-label="Vista de turnos y sala">
+                <button class="active" id="careChairAgendaTab" type="button" role="tab" data-care-chair-mode="agenda" aria-controls="careScheduleAgendaSurface" aria-selected="true"><i data-lucide="calendar-range"></i><span>Agenda</span></button>
+                <button id="careChairRoomTab" type="button" role="tab" data-care-chair-mode="room" aria-controls="careScheduleRoomSurface" aria-selected="false"><i data-lucide="syringe"></i><span>Sala de hoy</span></button>
+              </nav>
+              <span id="careChairModeHint">Arrastre solamente aplicaciones habilitadas. El bloque ocupa el tiempo completo del tratamiento.</span>
               <div class="care-schedule-legend" aria-label="Referencias"><span><i class="is-available"></i>Disponible</span><span><i class="is-fit"></i>Entra seleccionado</span><span><i class="is-occupied-pending"></i>Turno sin confirmar</span><span><i class="is-occupied"></i>Turno confirmado</span><span><i class="is-target"></i>Ubicacion al arrastrar</span></div>
             </div>
-            <div class="care-schedule-layout">
-              <aside class="care-schedule-candidates"><header><div><select id="careScheduleCandidateFilter" aria-label="Filtrar lista de espera"><option value="prescribed">Todos los ciclos pendientes</option><option value="prescription-confirmed">Pacientes con prescripción</option><option value="missing-prescription">Falta prescripción</option><option value="missing-medication">Falta medicación</option><option value="medication-received">Medicación recibida</option><option value="medication-with-patient">La tiene el paciente</option></select><small id="careScheduleCandidateCount">0 ciclos pendientes</small></div></header><label class="care-schedule-search"><i data-lucide="search"></i><input id="careScheduleCandidateSearch" type="search" placeholder="Paciente, DNI, esquema o diagnóstico" aria-label="Buscar en la espera y en los sillones"></label><div id="careScheduleCandidates" class="care-schedule-candidate-list"></div></aside>
+            <div class="care-schedule-layout" id="careScheduleAgendaSurface" role="tabpanel" data-care-chair-surface="agenda" aria-labelledby="careChairAgendaTab">
+              <aside class="care-schedule-candidates"><header><div><select id="careScheduleCandidateFilter" aria-label="Filtrar lista de espera"><option value="prescribed">Todas las aplicaciones pendientes</option><option value="prescription-confirmed">Pacientes con prescripción</option><option value="missing-prescription">Falta prescripción</option><option value="missing-medication">Falta medicación</option><option value="medication-received">Medicación recibida</option><option value="medication-with-patient">La tiene el paciente</option></select><small id="careScheduleCandidateCount">0 aplicaciones pendientes</small></div></header><label class="care-schedule-search"><i data-lucide="search"></i><input id="careScheduleCandidateSearch" type="search" placeholder="Paciente, DNI, esquema o diagnóstico" aria-label="Buscar en la espera y en los sillones"></label><div id="careScheduleCandidates" class="care-schedule-candidate-list"></div></aside>
               <section class="care-schedule-board-panel"><div class="care-schedule-board-head"><p id="careScheduleStatus" role="status" aria-live="polite">Cargando agenda...</p><nav class="care-schedule-chair-viewport-controls" aria-label="Sillones visibles"><button id="careSchedulePreviousChairsBtn" type="button" title="Ver sillones anteriores" aria-label="Ver sillones anteriores"><i data-lucide="chevron-left"></i></button><strong id="careScheduleChairRange">Sillones 1–6</strong><button id="careScheduleNextChairsBtn" type="button" title="Ver sillones siguientes" aria-label="Ver sillones siguientes"><i data-lucide="chevron-right"></i></button><span aria-hidden="true"></span><button id="careScheduleZoomInBtn" type="button" title="Acercar: mostrar menos sillones" aria-label="Acercar y mostrar menos sillones"><i data-lucide="zoom-in"></i></button><button id="careScheduleZoomOutBtn" type="button" title="Alejar: mostrar más sillones" aria-label="Alejar y mostrar más sillones"><i data-lucide="zoom-out"></i></button></nav></div><div class="care-schedule-board-scroll" id="careScheduleBoardScroll"><div class="care-schedule-grid" id="careScheduleGrid" role="grid" aria-label="Agenda de sillones"></div></div></section>
             </div>
+            <section class="care-application-queue care-room-queue" id="careScheduleRoomSurface" role="tabpanel" data-care-chair-surface="room" aria-labelledby="careChairRoomTab" hidden>
+              <header class="care-application-toolbar">
+                <div><strong>Sala de infusion</strong><span>Aplicaciones ordenadas por hora y sillon. Abra una fila para realizar el doble chequeo.</span></div>
+                <label><i data-lucide="search"></i><input id="careRoomSearch" type="search" placeholder="Paciente, DNI, esquema o sillon" aria-label="Buscar aplicaciones en sala"></label>
+                <label class="care-application-filter"><span class="visually-hidden">Filtrar aplicaciones de Sala</span><select id="careRoomFilter" aria-label="Filtrar aplicaciones de Sala"><option value="all" selected>Todo el día</option><option value="active">En atención</option><option value="completed">Finalizadas</option></select></label>
+                <span id="careRoomCount" role="status" aria-live="polite">0 aplicaciones</span>
+              </header>
+              <div class="care-application-worklist" id="careRoomRows" role="list" aria-live="polite"></div>
+            </section>
           </section>
           <section class="care-schedule-mode-panel care-pharmacy-panel" id="careSchedulePharmacyPanel" role="tabpanel" data-care-hospital-panel="pharmacy" aria-labelledby="careHospitalPharmacyTab" hidden>
             <header class="care-pharmacy-toolbar">
-              <div><strong>Preparación previa al turno</strong><span>Confirme la medicación e imprima la etiqueta del ciclo. El QR se usa después de asignar el sillón.</span></div>
-              <label><i data-lucide="search"></i><input id="careSchedulePharmacySearch" type="search" placeholder="Paciente, DNI, esquema o diagnóstico" aria-label="Buscar ciclos pendientes en Farmacia"></label>
-              <span id="careSchedulePharmacyCount" role="status" aria-live="polite">0 ciclos pendientes</span>
+              <div><strong>Validacion y reserva de medicacion</strong><span>Audite la orden y asegure la proxima aplicacion antes de habilitar el turno.</span></div>
+              <label><i data-lucide="search"></i><input id="careSchedulePharmacySearch" type="search" placeholder="Paciente, DNI, HC, ciclo, día, droga o fecha" aria-label="Buscar aplicaciones en Farmacia"></label>
+              <label class="care-application-filter care-pharmacy-date-filter"><span class="visually-hidden">Filtrar por prioridad temporal</span><select id="careSchedulePharmacyDateScope" aria-label="Filtrar Farmacia por fecha"><option value="next-7" selected>Vencidas + 7 días</option><option value="today">Solo hoy</option><option value="next-30">Vencidas + 30 días</option><option value="all">Todas las fechas</option></select></label>
+              <label class="care-application-filter care-pharmacy-status-filter"><span class="visually-hidden">Filtrar Farmacia por estado</span><select id="careSchedulePharmacyFilter" aria-label="Filtrar aplicaciones de Farmacia"><option value="all">Todos los estados</option><option value="pending-validation">Pendientes de validar</option><option value="rejected">Órdenes rechazadas</option><option value="patient">Debe traerla</option><option value="patient-has">La tiene el paciente</option><option value="received-center">Recibida en el centro</option><option value="pending-stock">Pendiente de stock</option><option value="reserved">Stock reservado</option></select></label>
+              <span id="careSchedulePharmacyCount" role="status" aria-live="polite">0 aplicaciones pendientes</span>
             </header>
             <div class="care-pharmacy-table-shell">
               <table class="care-pharmacy-table">
-                <thead><tr><th>Paciente</th><th>Fecha estimada</th><th>Ciclo</th><th>Protocolo</th><th>Duración</th><th>Medicación</th><th>QR</th></tr></thead>
+                <thead><tr><th>Paciente</th><th>Aplicacion</th><th>Fecha</th><th>Medicacion</th><th>Disponibilidad</th><th>Accion siguiente</th></tr></thead>
                 <tbody id="careSchedulePharmacyRows"></tbody>
               </table>
             </div>
+          </section>
+
+          <section class="care-schedule-mode-panel care-application-queue" id="careHospitalTriagePanel" role="tabpanel" data-care-hospital-panel="triage" aria-labelledby="careHospitalTriageTab" hidden>
+            <header class="care-application-toolbar">
+              <div><strong>Triaje del dia</strong><span>Laboratorio, signos vitales y aptitud clinica antes de liberar la preparacion.</span></div>
+              <label><i data-lucide="search"></i><input id="careTriageSearch" type="search" placeholder="Paciente, DNI, esquema o sillon" aria-label="Buscar pacientes para triaje"></label>
+              <label class="care-application-filter"><span class="visually-hidden">Filtrar Triaje</span><select id="careTriageFilter" aria-label="Filtrar triajes"><option value="all">Todos</option><option value="pending">Pendientes</option><option value="pass">Aptos</option><option value="fail">Postergados / no aptos</option></select></label>
+              <span id="careTriageCount" role="status" aria-live="polite">0 pacientes</span>
+            </header>
+            <div class="care-application-worklist" id="careTriageRows" role="list" aria-live="polite"></div>
+          </section>
+
+          <section class="care-schedule-mode-panel care-application-queue" id="careHospitalPreparationPanel" role="tabpanel" data-care-hospital-panel="preparation" aria-labelledby="careHospitalPreparationTab" hidden>
+            <header class="care-application-toolbar">
+              <div><strong>Preparacion esteril</strong><span>Solo aparecen aplicaciones con autorizacion clinica vigente.</span></div>
+              <label><i data-lucide="search"></i><input id="carePreparationSearch" type="search" placeholder="Paciente, droga, protocolo o sillon" aria-label="Buscar preparaciones"></label>
+              <label class="care-application-filter"><span class="visually-hidden">Filtrar Preparacion</span><select id="carePreparationFilter" aria-label="Filtrar preparaciones"><option value="all">Todas</option><option value="ready-to-start">Por iniciar</option><option value="in-progress">En preparacion</option><option value="ready">Listas</option><option value="released">Liberadas</option><option value="expired">Mezclas vencidas</option></select></label>
+              <span id="carePreparationCount" role="status" aria-live="polite">0 preparaciones</span>
+            </header>
+            <div class="care-application-worklist" id="carePreparationRows" role="list" aria-live="polite"></div>
           </section>
 
           <section class="care-schedule-mode-panel care-hospital-treatment-panel" id="careHospitalTreatmentsPanel" role="tabpanel" data-care-hospital-panel="treatments" aria-labelledby="careHospitalTreatmentsTab" hidden>
@@ -993,7 +1021,7 @@
             </div>
             <form id="careQrManualForm">
               <label for="careQrManualCode">Contenido del código</label>
-              <textarea id="careQrManualCode" rows="4" autocomplete="off" spellcheck="false" placeholder="https://lira.hexium.com.ar/tratamiento/verOncologico/..."></textarea>
+              <textarea id="careQrManualCode" rows="4" autocomplete="off" spellcheck="false" placeholder="Pegue aquí el código generado por HCOP"></textarea>
               <button class="tool-button primary" id="resolveCareQrTextBtn" type="submit"><i data-lucide="search-check"></i><span>Identificar</span></button>
             </form>
             <div class="care-qr-status" id="careQrScannerStatus" role="status" aria-live="polite">
@@ -1020,6 +1048,31 @@
           <button class="icon-button" id="closeCareScheduleDetailBtn" type="button" title="Cerrar" aria-label="Cerrar detalle del turno"><i data-lucide="x"></i></button>
         </header>
         <div class="modal-body care-schedule-detail-body" id="careScheduleDetailBody"></div>
+      </section>
+    </div>
+
+    <div class="modal-backdrop care-modal-backdrop care-application-workflow-backdrop" id="careApplicationWorkflowModal" aria-hidden="true" hidden>
+      <section class="modal-card care-application-workflow-modal" role="dialog" aria-modal="true" aria-labelledby="careApplicationWorkflowTitle" aria-describedby="careApplicationWorkflowDescription" tabindex="-1">
+        <form id="careApplicationWorkflowForm" novalidate>
+          <header class="modal-header care-application-workflow-header">
+            <div>
+              <span class="sheet-kicker" id="careApplicationWorkflowKicker">Circuito de la aplicacion</span>
+              <h2 id="careApplicationWorkflowTitle">Paciente</h2>
+              <p id="careApplicationWorkflowDescription">Ciclo, dia y estado operativo.</p>
+            </div>
+            <button class="icon-button" id="closeCareApplicationWorkflowBtn" type="button" title="Cerrar" aria-label="Cerrar circuito de la aplicacion"><i data-lucide="x"></i></button>
+          </header>
+          <div class="modal-body care-application-workflow-body">
+            <ol class="care-workflow-stepper" id="careApplicationWorkflowStepper" aria-label="Progreso del circuito"></ol>
+            <section class="care-application-workflow-summary" id="careApplicationWorkflowSummary" aria-label="Resumen de la aplicacion"></section>
+            <section class="care-application-workflow-content" id="careApplicationWorkflowContent" aria-live="polite"></section>
+            <div class="care-application-workflow-error" id="careApplicationWorkflowError" role="alert" hidden></div>
+          </div>
+          <footer class="modal-actions care-application-workflow-footer">
+            <button class="tool-button" id="cancelCareApplicationWorkflowBtn" type="button"><i data-lucide="x"></i><span>Cerrar</span></button>
+            <div id="careApplicationWorkflowActions"></div>
+          </footer>
+        </form>
       </section>
     </div>
 
@@ -1072,7 +1125,9 @@
               </label>
               <label class="care-form-field care-form-field--wide" for="careTreatmentScheme">
                 <span>Esquema</span>
+                <input id="careTreatmentSchemeSearch" type="search" autocomplete="off" placeholder="Buscar protocolo por nombre..." aria-label="Buscar protocolo">
                 <select id="careTreatmentScheme" name="esquema" required><option value="">Seleccione...</option></select>
+                <small id="careTreatmentSchemeSearchStatus">Escriba para reducir la lista de protocolos.</small>
               </label>
               <section class="care-protocol-warning care-form-field--wide" id="careTreatmentProtocolWarning" role="alert" hidden>
                 <header>
@@ -1157,57 +1212,6 @@
           <footer class="modal-actions">
             <button class="tool-button" id="cancelCareTreatmentWorkflowBtn" type="button"><i data-lucide="x"></i><span>Cancelar</span></button>
             <button class="tool-button primary" id="saveCareTreatmentWorkflowBtn" type="submit"><i data-lucide="save"></i><span>Guardar</span></button>
-          </footer>
-        </form>
-      </section>
-    </div>
-
-    <div class="modal-backdrop care-modal-backdrop" id="careInfusionModal" aria-hidden="true">
-      <section class="modal-card care-modal-card care-modal-card--compact" role="dialog" aria-modal="true" aria-labelledby="careInfusionModalTitle" aria-describedby="careInfusionModalDescription">
-        <form id="careInfusionForm">
-          <header class="modal-header">
-            <div>
-              <span class="sheet-kicker">Centro de infusion</span>
-              <h2 id="careInfusionModalTitle">Programar ciclo</h2>
-              <p id="careInfusionModalDescription">Asigne fecha, horario y sillon para la aplicacion.</p>
-            </div>
-            <button class="icon-button" id="closeCareInfusionModalBtn" type="button" title="Cerrar" aria-label="Cerrar programacion de ciclo">
-              <i data-lucide="x"></i>
-            </button>
-          </header>
-
-          <div class="modal-body care-form-body">
-            <div class="care-form-grid care-form-grid--two">
-              <label class="care-form-field care-form-field--wide" for="careInfusionTreatment">
-                <span>Tratamiento</span>
-                <select id="careInfusionTreatment" name="treatment" required><option value="">Seleccione un tratamiento...</option></select>
-              </label>
-              <label class="care-form-field" for="careInfusionCycle">
-                <span>Ciclo</span>
-                <input id="careInfusionCycle" name="cycle" type="number" min="1" max="100" step="1" inputmode="numeric" required>
-              </label>
-              <label class="care-form-field" for="careInfusionDate">
-                <span>Fecha</span>
-                <input id="careInfusionDate" name="date" type="date" required>
-              </label>
-              <label class="care-form-field" for="careInfusionTime">
-                <span>Hora</span>
-                <input id="careInfusionTime" name="time" type="time" required>
-              </label>
-              <label class="care-form-field" for="careInfusionChair">
-                <span>Sillon</span>
-                <input id="careInfusionChair" name="chair" autocomplete="off" placeholder="Ej.: Sillon 3" required>
-              </label>
-              <label class="care-form-field care-form-field--wide" for="careInfusionNotes">
-                <span>Notas</span>
-                <textarea id="careInfusionNotes" name="notes" rows="4" maxlength="2000" placeholder="Preparacion, accesos, observaciones o alertas..."></textarea>
-              </label>
-            </div>
-          </div>
-
-          <footer class="modal-actions">
-            <button class="tool-button" id="cancelCareInfusionBtn" type="button"><i data-lucide="x"></i><span>Cancelar</span></button>
-            <button class="tool-button primary" id="saveCareInfusionBtn" type="submit"><i data-lucide="calendar-check"></i><span>Programar ciclo</span></button>
           </footer>
         </form>
       </section>

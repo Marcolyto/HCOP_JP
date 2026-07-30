@@ -35,6 +35,7 @@ public class TreatmentWorkflowRepository {
   public TreatmentSummary treatment(long patientId, String treatmentId) {
     return jdbc.query("""
         SELECT t.patient_id, t.id, t.scheme_name, t.diagnosis, t.treatment_status,
+               t.initial_cycle, t.cycle_count,
                p.document_number, concat_ws(', ', p.last_name, p.first_name) AS patient_name
           FROM clinical_treatments t
           JOIN patients p ON p.source_id = t.patient_id
@@ -131,6 +132,15 @@ public class TreatmentWorkflowRepository {
         """, state, actorId, patientId, treatmentId, cycle);
   }
 
+  public String prescriptionState(long patientId, String treatmentId, int cycle) {
+    return jdbc.query("""
+        SELECT prescription_state
+          FROM treatment_cycle_logistics
+         WHERE patient_id = ? AND treatment_id = ? AND cycle_number = ?
+        """, (result, row) -> text(result, "prescription_state"),
+        patientId, treatmentId, cycle).stream().findFirst().orElse("");
+  }
+
   public void insertEvent(
       Long requestId, long patientId, String treatmentId, Integer cycle,
       String eventType, long actorId, JsonNode event) {
@@ -164,7 +174,7 @@ public class TreatmentWorkflowRepository {
     return new TreatmentSummary(
         result.getLong("patient_id"), result.getString("id"), result.getString("scheme_name"),
         text(result, "diagnosis"), text(result, "treatment_status"), text(result, "document_number"),
-        text(result, "patient_name"));
+        text(result, "patient_name"), result.getInt("initial_cycle"), result.getInt("cycle_count"));
   }
 
   private ManagementState mapManagement(ResultSet result, int row) throws SQLException {
@@ -210,7 +220,7 @@ public class TreatmentWorkflowRepository {
 
   public record TreatmentSummary(
       long patientId, String treatmentId, String scheme, String diagnosis, String status,
-      String patientDni, String patientName) {
+      String patientDni, String patientName, int initialCycle, int cycleCount) {
   }
 
   public record ManagementState(

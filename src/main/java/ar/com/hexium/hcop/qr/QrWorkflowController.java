@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import tools.jackson.databind.JsonNode;
 
@@ -28,17 +29,18 @@ public class QrWorkflowController {
   ResponseEntity<String> document(
       @PathVariable long patientId,
       @PathVariable String treatmentId,
-      @org.springframework.web.bind.annotation.RequestParam int cycle,
+      @RequestParam int cycle,
+      @RequestParam(defaultValue = "1") int applicationDay,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.day-hospital.view");
     return ResponseEntity.ok()
-        .contentType(MediaType.TEXT_HTML)
-        .body(qr.printableHtml(patientId, treatmentId, cycle));
+        .contentType(MediaType.parseMediaType("text/html;charset=UTF-8"))
+        .body(qr.printableHtml(patientId, treatmentId, cycle, applicationDay));
   }
 
   @PostMapping("/api/clinical/qr-scans")
   Map<String, Object> scan(@RequestBody JsonNode body, HttpServletRequest request) {
-    auth.requirePermission(request, "section.day-hospital.edit");
+    auth.requirePermission(request, "application.administration.manage");
     return qr.scan(
         body.path("code").asText(""),
         body.path("operationId").asText(""),

@@ -247,6 +247,38 @@ let careScheduleCandidateRequestVersion = 0;
 let careScheduleCandidateSearchTimer = null;
 let careScheduleCandidateVisibleLimit = 200;
 let careSchedulePharmacyVisibleLimit = 250;
+let careChairMode = "agenda";
+let careApplicationQueueSearchTimer = null;
+let careApplicationQueueRequestVersions = {
+  pharmacy: 0,
+  triage: 0,
+  preparation: 0,
+  administration: 0
+};
+let careApplicationWorkflowBusy = false;
+let careApplicationAdministrationUsers = null;
+let careApplicationAdministrationUsersLoading = null;
+let careApplicationPreparationUsers = null;
+let careApplicationPreparationUsersLoading = null;
+let careApplicationQueues = {
+  pharmacy: [],
+  triage: [],
+  preparation: [],
+  administration: []
+};
+let careApplicationQueueLoaded = {
+  pharmacy: false,
+  triage: false,
+  preparation: false,
+  administration: false
+};
+let careApplicationWorkflowContext = {
+  queue: "",
+  key: "",
+  item: null,
+  detail: null,
+  returnFocus: null
+};
 let careScheduleDetailInfusionId = "";
 let careScheduleDetailSource = "schedule";
 let careScheduleDetailQrScan = null;
@@ -283,7 +315,6 @@ let careBusy = false;
 let careTreatmentArchiveBusy = false;
 let careInfusionMutationBusy = false;
 let careHospitalReturnFocus = null;
-let careInfusionModalReturnFocus = null;
 let careTreatmentCollections = {
   oncological: [],
   nonOncological: [],
@@ -469,7 +500,6 @@ function applyClinicalPermissions() {
   const mutationGroups = [
     ["section.history.edit", "#newPatientBtn,[data-action='open-evolution'],[data-action='edit-evolution'],[data-action='open-section-editor'],[data-action='open-diagnosis']"],
     ["section.studies.edit", "#openStudyUploadBtn,#openStudyTemplateBtn,#confirmStudyUploadBtn,#confirmStudyTemplateBtn,#annotateStudyImageBtn,#saveStudyAnnotationBtn,[data-study-upload-trigger],[data-action='delete-study'],[data-action='annotate-study']"],
-    ["section.day-hospital.edit", "#openCareInfusionModalBtn,[data-care-manager-action='schedule'],.care-pharmacy-state button"],
     ["section.prescriptions.edit", "#careHospitalNewTreatmentTab,#careHospitalOpenNewTreatmentBtn,#openCareTreatmentModalBtn,#careHierarchyNewTreatmentBtn,[data-care-manager-action='new'],#careTreatmentForm input,#careTreatmentForm select,#careTreatmentForm textarea,#careTreatmentForm button,#prescriptionForm input,#prescriptionForm select,#prescriptionForm textarea,#prescriptionForm button"],
     ["section.research.edit", "#researchForm input,#researchForm select,#researchForm textarea,#researchForm button"]
   ];
@@ -536,6 +566,10 @@ function handleClinicalSessionExpired() {
   clinicalInboxAutoOpenPending = false;
   updateClinicalInboxBadge();
   careScheduleWorkflowUsers.clear();
+  careApplicationAdministrationUsers = null;
+  careApplicationAdministrationUsersLoading = null;
+  careApplicationPreparationUsers = null;
+  careApplicationPreparationUsersLoading = null;
   purgeClinicalLocalCache();
   clinicalSession = {
     authenticated: false,
@@ -592,6 +626,14 @@ async function initializeClinicalSession() {
 
 function updateClinicalSession(payload = {}) {
   const user = payload.user || payload.currentUser || null;
+  const previousUserId = String(clinicalSession.user?.id || clinicalSession.user?.userId || "");
+  const nextUserId = String(user?.id || user?.userId || "");
+  if (previousUserId !== nextUserId) {
+    careApplicationAdministrationUsers = null;
+    careApplicationAdministrationUsersLoading = null;
+    careApplicationPreparationUsers = null;
+    careApplicationPreparationUsersLoading = null;
+  }
   clinicalSession = {
     authenticated: payload.authenticated === true || Boolean(user),
     loginRequired: payload.loginRequired === true,
@@ -1605,7 +1647,6 @@ function currentHelpTopic() {
       treatments: "treatment-detail",
       "new-treatment": "treatment-new"
     }[careScheduleMode] || "scheduler-chairs"],
-    ["#careInfusionModal.open", "care"],
     ["#prescriptionPreviewModal.open", "prescription"],
     ["#studyTemplateModal.open", "studies"],
     ["#studyUploadModal.open", "studies"],
@@ -1634,40 +1675,8 @@ function currentHelpTopic() {
   }[rightTab] || "overview";
 }
 
-function installModalHelpButtons() {
-  const topics = {
-    liraImportModal: "patients",
-    careInfusionModal: "care",
-    patientModal: "history",
-    evolutionModal: "history",
-    sectionEditModal: "history",
-    sectionHistoryModal: "history",
-    prescriptionPreviewModal: "prescription",
-    studyImageModal: "studies",
-    guidePdfModal: "tools-guides"
-  };
-  Object.entries(topics).forEach(([modalId, topic]) => {
-    const modal = document.getElementById(modalId);
-    const header = $(".modal-header", modal);
-    if (!header || $("[data-help-trigger]", header)) return;
-    const button = document.createElement("button");
-    button.className = "section-help-button";
-    button.type = "button";
-    button.dataset.helpTrigger = "";
-    button.dataset.helpTopic = topic;
-    button.title = "Ayuda de esta seccion";
-    button.setAttribute("aria-label", "Ayuda de esta seccion");
-    button.innerHTML = '<i data-lucide="circle-help"></i>';
-    const close = $(".icon-button", header);
-    if (close) close.before(button);
-    else header.append(button);
-  });
-  refreshIcons();
-}
-
 function initializeGuidedHelp() {
   if (!window.HcopHelp) return;
-  installModalHelpButtons();
   window.HcopHelp.init({
     page: "main",
     menuTrigger: "#openHelpMenuBtn",
@@ -1788,37 +1797,78 @@ function wireCareEvents() {
   $("#refreshCareBtn")?.addEventListener("click", () => refreshCareWorkspace({ force: true }));
   $("#openCareInfusionManagerBtn")?.addEventListener("click", () => openCareTreatmentManagerModal());
   $("#openCareTreatmentModalBtn")?.addEventListener("click", openCareTreatmentModal);
-  $("#openCareInfusionModalBtn")?.addEventListener("click", () => openCareInfusionModal());
   $("#careHierarchyNewTreatmentBtn")?.addEventListener("click", openCareTreatmentModal);
   $("#careScheduleDate")?.addEventListener("change", handleCareScheduleDateChange);
   $("#careScheduleDate")?.addEventListener("blur", handleCareScheduleDateChange);
   $("#careScheduleCalendarDate")?.addEventListener("change", (event) => {
     if (!event.target.value) return;
     setCareScheduleDate(event.target.value);
-    void loadCareSchedule();
+    void refreshCareHospitalMode();
   });
   $("#careScheduleRefreshBtn")?.addEventListener("click", refreshCareHospitalMode);
-  $("#careScheduleTodayBtn")?.addEventListener("click", () => { setCareScheduleDate(careScheduleDateValue()); loadCareSchedule(); });
+  $("#careScheduleTodayBtn")?.addEventListener("click", () => { setCareScheduleDate(careScheduleDateValue()); void refreshCareHospitalMode(); });
   $("#careSchedulePreviousDayBtn")?.addEventListener("click", () => shiftCareScheduleDate(-1));
   $("#careScheduleNextDayBtn")?.addEventListener("click", () => shiftCareScheduleDate(1));
   $$("[data-care-hospital-tab]").forEach((button) => {
     button.addEventListener("click", () => activateCareHospitalTab(button.dataset.careHospitalTab));
+    button.addEventListener("keydown", (event) =>
+      moveWithinTablist(event, "[data-care-hospital-tab]", "careHospitalTab", activateCareHospitalTab));
+  });
+  $$("[data-care-chair-mode]").forEach((button) => {
+    button.addEventListener("click", () => setCareChairMode(button.dataset.careChairMode));
+    button.addEventListener("keydown", (event) =>
+      moveWithinTablist(event, "[data-care-chair-mode]", "careChairMode", setCareChairMode));
   });
   $("#careTreatmentManagerModal")?.addEventListener("click", handleCareHospitalAction);
   $("#careScheduleCandidateSearch")?.addEventListener("input", (event) => {
     careScheduleCandidateVisibleLimit = 200;
-    renderCareScheduleCandidates();
-    renderCareScheduleSearchHighlights();
+    if (focusCareScheduleSearchMatch()) {
+      renderCareSchedule();
+    } else {
+      renderCareScheduleCandidates();
+      renderCareScheduleSearchHighlights();
+    }
     window.clearTimeout(careScheduleCandidateSearchTimer);
     careScheduleCandidateSearchTimer = window.setTimeout(() => loadCareScheduleCandidates(event.target.value), 280);
   });
   $("#careSchedulePharmacySearch")?.addEventListener("input", (event) => {
     careSchedulePharmacyVisibleLimit = 250;
     renderCareSchedulePharmacy();
-    window.clearTimeout(careScheduleCandidateSearchTimer);
-    careScheduleCandidateSearchTimer = window.setTimeout(() => loadCareScheduleCandidates(event.target.value), 280);
+    scheduleCareApplicationQueueSearch("pharmacy", event.target.value);
   });
-  $("#careSchedulePharmacyRows")?.addEventListener("click", updateCareSchedulePharmacyState);
+  $("#careSchedulePharmacyFilter")?.addEventListener("change", () => {
+    careSchedulePharmacyVisibleLimit = 250;
+    void loadCareApplicationQueue("pharmacy");
+  });
+  $("#careSchedulePharmacyDateScope")?.addEventListener("change", () => {
+    careSchedulePharmacyVisibleLimit = 250;
+    renderCareSchedulePharmacy();
+  });
+  $("#careSchedulePharmacyRows")?.addEventListener("click", handleCareApplicationQueueAction);
+  $("#careTriageSearch")?.addEventListener("input", (event) => {
+    renderCareApplicationQueue("triage");
+    scheduleCareApplicationQueueSearch("triage", event.target.value);
+  });
+  $("#careTriageFilter")?.addEventListener("change", () => renderCareApplicationQueue("triage"));
+  $("#careTriageRows")?.addEventListener("click", handleCareApplicationQueueAction);
+  $("#carePreparationSearch")?.addEventListener("input", (event) => {
+    renderCareApplicationQueue("preparation");
+    scheduleCareApplicationQueueSearch("preparation", event.target.value);
+  });
+  $("#carePreparationFilter")?.addEventListener("change", () => renderCareApplicationQueue("preparation"));
+  $("#carePreparationRows")?.addEventListener("click", handleCareApplicationQueueAction);
+  $("#careRoomSearch")?.addEventListener("input", (event) => {
+    renderCareApplicationQueue("administration");
+    scheduleCareApplicationQueueSearch("administration", event.target.value);
+  });
+  $("#careRoomFilter")?.addEventListener("change", () => renderCareApplicationQueue("administration"));
+  $("#careRoomRows")?.addEventListener("click", handleCareApplicationQueueAction);
+  $("#careApplicationWorkflowActions")?.addEventListener("click", handleCareApplicationWorkflowCommand);
+  $("#careApplicationWorkflowContent")?.addEventListener("click", handleCareApplicationWorkflowCommand);
+  $("#closeCareApplicationWorkflowBtn")?.addEventListener("click", closeCareApplicationWorkflowModal);
+  $("#cancelCareApplicationWorkflowBtn")?.addEventListener("click", closeCareApplicationWorkflowModal);
+  $("#careApplicationWorkflowContent")?.addEventListener("change", syncCareApplicationWorkflowConditionalFields);
+  $("#careApplicationWorkflowContent")?.addEventListener("input", syncCareApplicationWorkflowConditionalFields);
   $("#careScheduleCandidateFilter")?.addEventListener("change", () => {
     careScheduleCandidateVisibleLimit = 200;
     renderCareScheduleCandidates();
@@ -1924,7 +1974,6 @@ function wireCareEvents() {
     renderCareInfusions();
   });
   $("#careTreatmentForm")?.addEventListener("submit", submitCareTreatment);
-  $("#careInfusionForm")?.addEventListener("submit", submitCareInfusion);
   $("#careTreatmentForm")?.addEventListener("change", (event) => {
     if (event.target.matches('[name="esquema"], [name="scheme"], [name="schemeId"]')) void renderCareTreatmentRequirements();
     if (event.target.matches('[name="diagnostico"], [name="diagnosis"], [name="diagnosisId"], [name="esquema"], [name="scheme"], [name="schemeId"]')) {
@@ -1936,6 +1985,9 @@ function wireCareEvents() {
   });
   $("#careTreatmentForm")?.addEventListener("input", (event) => {
     if (event.target.matches('[name="cantidadCiclos"], [name="cycles"], [name="cicloInicial"], [name="initialCycle"], [name="fechaPrimerCiclo"]')) renderCareTreatmentProjection();
+  });
+  $("#careTreatmentSchemeSearch")?.addEventListener("input", (event) => {
+    filterCareTreatmentSchemeOptions(event.target.value);
   });
   $("#careTreatmentForm")?.addEventListener("invalid", (event) => {
     if (event.target.closest("#careTreatmentRequirementList")) toast("Complete los requisitos obligatorios del esquema antes de guardar");
@@ -1955,8 +2007,6 @@ function wireCareEvents() {
   $("#cancelCareTreatmentWorkflowBtn")?.addEventListener("click", () => closeCareModal("careTreatmentWorkflowModal"));
   $("#closeCareTreatmentModalBtn")?.addEventListener("click", () => closeCareModal("careTreatmentModal"));
   $("#cancelCareTreatmentBtn")?.addEventListener("click", () => closeCareModal("careTreatmentModal"));
-  $("#closeCareInfusionModalBtn")?.addEventListener("click", closeCareInfusionModal);
-  $("#cancelCareInfusionBtn")?.addEventListener("click", closeCareInfusionModal);
   $$('[data-care-modal-close]').forEach((button) => {
     button.addEventListener("click", () => closeCareModal(button.closest(".modal-backdrop, [role=dialog]")?.id));
   });
@@ -1969,12 +2019,12 @@ function wireCareEvents() {
       trapCareModalFocus(event, "careScheduleDetailModal");
       return;
     }
-    if (event.key === "Tab" && $("#careScheduleWorkflowActionModal")?.classList.contains("open")) {
-      trapCareModalFocus(event, "careScheduleWorkflowActionModal");
+    if (event.key === "Tab" && $("#careApplicationWorkflowModal")?.classList.contains("open")) {
+      trapCareModalFocus(event, "careApplicationWorkflowModal");
       return;
     }
-    if (event.key === "Tab" && $("#careInfusionModal")?.classList.contains("open")) {
-      trapCareModalFocus(event, "careInfusionModal");
+    if (event.key === "Tab" && $("#careScheduleWorkflowActionModal")?.classList.contains("open")) {
+      trapCareModalFocus(event, "careScheduleWorkflowActionModal");
       return;
     }
     if (event.key === "Tab" && $("#careTreatmentManagerModal")?.classList.contains("open")) {
@@ -2105,14 +2155,14 @@ function handleCareScheduleDateChange() {
   }
   if (value === input.dataset.iso) return;
   setCareScheduleDate(value);
-  void loadCareSchedule();
+  void refreshCareHospitalMode();
 }
 
 function shiftCareScheduleDate(days) {
   const date = new Date(`${selectedCareScheduleDate()}T12:00:00`);
   date.setDate(date.getDate() + days);
   setCareScheduleDate(careScheduleDateValue(date));
-  void loadCareSchedule();
+  void refreshCareHospitalMode();
 }
 
 function careScheduleClockMinutes(value) {
@@ -2141,11 +2191,44 @@ function careScheduleItemDuration(item) {
 }
 
 function careScheduleInfusionScheme(infusion) {
-  const drugNames = (infusion?.medications || []).map((item) => item?.drugName).filter(Boolean);
-  return infusion?.sourceRef?.scheduler?.drugScheme || drugNames.join(" + ") || infusion?.drugScheme || infusion?.sourceRef?.scheduler?.scheme || infusion?.treatmentScheme || "Esquema no informado";
+  const drugNames = (infusion?.medications || [])
+    .filter(careTreatmentRequiresDayHospital)
+    .map((item) => item?.drugName)
+    .filter(Boolean);
+  return drugNames.join(" + ") ||
+    infusion?.sourceRef?.scheduler?.drugScheme ||
+    infusion?.drugScheme ||
+    infusion?.sourceRef?.scheduler?.scheme ||
+    infusion?.treatmentScheme ||
+    "Esquema no informado";
+}
+
+function careScheduleApplicationKey(item) {
+  return [
+    String(item?.patientId || ""),
+    String(item?.treatmentId || ""),
+    Math.max(1, Number(item?.cycleNumber) || 1),
+    Math.max(1, Number(item?.applicationDay) || 1)
+  ].join(":");
+}
+
+function careScheduleCandidatePharmacy(item) {
+  const key = careScheduleApplicationKey(item);
+  return careApplicationQueues.pharmacy.find((workflow) => workflow.workflowKey === key) || null;
+}
+
+function careScheduleMedicationSource(item) {
+  const workflow = careScheduleCandidatePharmacy(item);
+  if (workflow?.medicationSource) return workflow.medicationSource;
+  if (item?.medicationSource) return String(item.medicationSource);
+  if (careScheduleMedicationWithPatient(item)) return "patient_has_medication";
+  if (careScheduleMedicationReceived(item)) return "received_center";
+  return "";
 }
 
 function careScheduleMedicationReceived(item) {
+  const workflow = careScheduleCandidatePharmacy(item);
+  if (workflow) return workflow.medicationSource === "received_center";
   return item?.medicationState === "received" ||
     item?.sourceRef?.scheduler?.medicationState === "received" ||
     item?.medicationReceived === true ||
@@ -2153,6 +2236,8 @@ function careScheduleMedicationReceived(item) {
 }
 
 function careScheduleMedicationWithPatient(item) {
+  const workflow = careScheduleCandidatePharmacy(item);
+  if (workflow) return workflow.medicationSource === "patient_has_medication";
   return item?.medicationState === "patient" ||
     item?.sourceRef?.scheduler?.medicationState === "patient" ||
     item?.medicationWithPatient === true ||
@@ -2164,13 +2249,20 @@ function careScheduleMedicationWithPatient(item) {
 }
 
 function careSchedulePrescriptionConfirmed(item) {
-  return item?.prescriptionWorkflowState === "confirmed" ||
+  const status = String(item?.prescriptionStatus || item?.prescriptionState || "").toLowerCase();
+  return ["confirmed", "available", "issued"].includes(status) ||
+    item?.prescriptionWorkflowState === "confirmed" ||
     item?.prescriptionConfirmed === true ||
     item?.sourceRef?.scheduler?.prescriptionConfirmed === true;
 }
 
 function careScheduleMedicationAvailable(item) {
-  return careScheduleMedicationReceived(item) || careScheduleMedicationWithPatient(item);
+  const source = careScheduleMedicationSource(item);
+  const pharmacyWorkflow = careScheduleCandidatePharmacy(item);
+  return careScheduleMedicationReceived(item) ||
+    careScheduleMedicationWithPatient(item) ||
+    source === "patient_to_bring" ||
+    (source === "center_stock" && careApplicationStockReserved(pharmacyWorkflow || item));
 }
 
 function careScheduleWorkflowStatus(item) {
@@ -2223,7 +2315,18 @@ function careScheduleOpenRequestId(item, kind) {
 }
 
 function careScheduleCandidateBlockedReason(item) {
-  if (!clinicalHasPermission("section.day-hospital.edit")) return "Su rol permite consultar el turnero, pero no asignar turnos.";
+  if (!clinicalHasPermission("application.schedule.manage")) return "Su rol permite consultar el turnero, pero no asignar turnos.";
+  if (!careApplicationQueueLoaded.pharmacy) return "No se pudo verificar Farmacia. Actualice la agenda antes de asignar.";
+  const pharmacy = careScheduleCandidatePharmacy(item);
+  if (!pharmacy) return "La aplicacion todavia no ingreso al circuito de Farmacia.";
+  if (!["validated", "approved", "confirmed"].includes(pharmacy.pharmacyValidationStatus)) {
+    return "Farmacia todavia no valido la orden.";
+  }
+  if (pharmacy.medicationSource === "pending_supplier") return "La medicacion continua pendiente del proveedor.";
+  if (pharmacy.medicationSource === "center_stock" &&
+      !["reserved", "locked", "confirmed"].includes(pharmacy.stockReservationStatus)) {
+    return "Farmacia todavia no reservo el stock de esta aplicacion.";
+  }
   const workflowStatus = careScheduleWorkflowStatus(item);
   if (careScheduleWorkflowBlockedByPriorCycle(item)) {
     return `Bloqueado por suspensión desde ciclo ${careScheduleWorkflowEffectiveCycle(item)}.`;
@@ -2239,7 +2342,7 @@ function careScheduleCandidateBlockedReason(item) {
 }
 
 function careScheduleCandidateCanManage() {
-  return clinicalHasPermission("section.day-hospital.edit") &&
+  return clinicalHasPermission("application.schedule.manage") &&
     ["workflow.suspend", "workflow.resume", "workflow.request-prescription", "workflow.request-continuity"]
     .some((permission) => clinicalHasPermission(permission));
 }
@@ -2252,8 +2355,28 @@ function careSchedulePatientDni(item) {
   return String(item?.patientDni || item?.dni || "").trim();
 }
 
+function moveWithinTablist(event, selector, datasetKey, activate) {
+  if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+  const tabs = $$(selector).filter((tab) =>
+    !tab.disabled &&
+    !tab.hidden &&
+    tab.getAttribute("aria-hidden") !== "true" &&
+    window.getComputedStyle(tab).display !== "none");
+  if (!tabs.length) return;
+  const current = Math.max(0, tabs.indexOf(event.currentTarget));
+  let next = current;
+  if (event.key === "Home") next = 0;
+  else if (event.key === "End") next = tabs.length - 1;
+  else if (["ArrowRight", "ArrowDown"].includes(event.key)) next = (current + 1) % tabs.length;
+  else next = (current - 1 + tabs.length) % tabs.length;
+  event.preventDefault();
+  const target = tabs[next];
+  activate(target.dataset[datasetKey]);
+  window.requestAnimationFrame(() => target.focus());
+}
+
 function setCareHospitalTab(mode) {
-  const allowed = new Set(["chairs", "pharmacy", "treatments", "new-treatment"]);
+  const allowed = new Set(["chairs", "pharmacy", "triage", "preparation", "treatments", "new-treatment"]);
   careScheduleMode = allowed.has(mode) ? mode : "chairs";
   if (careScheduleMode === "new-treatment" && !clinicalHasPermission("section.prescriptions.edit")) {
     careScheduleMode = getActiveLiraPatientId() ? "treatments" : "chairs";
@@ -2282,6 +2405,8 @@ function setCareHospitalTab(mode) {
   renderCareHospitalPatientContext();
   if (careScheduleMode === "pharmacy") {
     renderCareSchedulePharmacy();
+  } else if (careScheduleMode === "triage" || careScheduleMode === "preparation") {
+    renderCareApplicationQueue(careScheduleMode);
   } else if (careScheduleMode === "chairs") {
     renderCareSchedule();
   } else if (careScheduleMode === "treatments" && getActiveLiraPatientId()) {
@@ -2293,8 +2418,11 @@ function setCareHospitalTab(mode) {
 
 function activateCareHospitalTab(mode) {
   setCareHospitalTab(mode);
-  if (careScheduleMode === "chairs" || careScheduleMode === "pharmacy") {
+  if (careScheduleMode === "chairs") {
     void loadCareSchedule();
+    if (careChairMode === "room") void loadCareApplicationQueue("administration");
+  } else if (["pharmacy", "triage", "preparation"].includes(careScheduleMode)) {
+    void loadCareApplicationQueue(careScheduleMode);
   } else if (careScheduleMode === "new-treatment" && getActiveLiraPatientId() && !careTreatmentOptions && !careBusy) {
     void refreshCareWorkspace();
   } else if (careScheduleMode === "treatments" && getActiveLiraPatientId() && !careTreatments.length && !careBusy) {
@@ -2306,9 +2434,40 @@ function setCareScheduleMode(mode) {
   activateCareHospitalTab(mode);
 }
 
+function setCareChairMode(mode) {
+  careChairMode = mode === "room" ? "room" : "agenda";
+  $$("[data-care-chair-mode]").forEach((button) => {
+    const active = button.dataset.careChairMode === careChairMode;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
+  });
+  $$("[data-care-chair-surface]").forEach((surface) => {
+    surface.hidden = surface.dataset.careChairSurface !== careChairMode;
+  });
+  const hint = $("#careChairModeHint");
+  if (hint) hint.textContent = careChairMode === "room"
+    ? "Abra una aplicación para verificar paciente y etiqueta, iniciar o completar la administración."
+    : "Arrastre solamente aplicaciones habilitadas. El bloque ocupa el tiempo completo del tratamiento.";
+  const legend = $(".care-schedule-legend", $("#careScheduleChairsPanel"));
+  if (legend) legend.hidden = careChairMode === "room";
+  if (careChairMode === "room") {
+    renderCareApplicationQueue("administration");
+    void loadCareApplicationQueue("administration");
+  } else {
+    renderCareSchedule();
+  }
+  refreshIcons();
+}
+
 async function refreshCareHospitalMode() {
-  if (careScheduleMode === "chairs" || careScheduleMode === "pharmacy") {
+  if (careScheduleMode === "chairs") {
     await loadCareSchedule();
+    if (careChairMode === "room") await loadCareApplicationQueue("administration");
+    return;
+  }
+  if (["pharmacy", "triage", "preparation"].includes(careScheduleMode)) {
+    await loadCareApplicationQueue(careScheduleMode);
     return;
   }
   if (getActiveLiraPatientId()) {
@@ -2363,13 +2522,17 @@ function careScheduleSearchableText(item) {
     item?.affiliateNumber,
     item?.suggestedDate,
     Number(item?.cycleNumber) > 0 ? `ciclo ${item.cycleNumber}` : "",
+    Number(item?.applicationDay) > 0 ? `día ${item.applicationDay}` : "",
     careSchedulePrescriptionConfirmed(item) ? "prescripcion confirmada" : "falta prescripcion",
     careScheduleMedicationAvailable(item) ? "medicacion disponible" : "falta medicacion",
   ].filter(Boolean).join(" "));
 }
 
 function careScheduleMatchesSearch(item, query = careScheduleSearchQuery()) {
-  return !query || careScheduleSearchableText(item).includes(query);
+  const terms = String(query || "").trim().split(/\s+/).filter(Boolean);
+  if (!terms.length) return true;
+  const searchable = careScheduleSearchableText(item);
+  return terms.every((term) => searchable.includes(term));
 }
 
 function careScheduleDateLabel(value) {
@@ -2413,6 +2576,7 @@ function careScheduleCandidateCompare(left, right) {
       sensitivity: "base",
     }) ||
     Number(left?.cycleNumber || 0) - Number(right?.cycleNumber || 0) ||
+    Number(left?.applicationDay || 0) - Number(right?.applicationDay || 0) ||
     String(left?.id || "").localeCompare(String(right?.id || ""), "es-AR", {
       numeric: true,
       sensitivity: "base",
@@ -2456,6 +2620,1621 @@ async function careScheduleJson(path, options = {}) {
   return payload;
 }
 
+function careApplicationFirst(...values) {
+  return values.find((value) => value !== undefined && value !== null && String(value).trim() !== "");
+}
+
+function careApplicationArray(...values) {
+  return values.find((value) => Array.isArray(value)) || [];
+}
+
+function normalizeCareApplicationWorkflow(raw = {}) {
+  const source = raw.application || raw.workflow || raw.detail || raw.item || raw;
+  const patient = source.patient || raw.patient || {};
+  const treatment = source.treatment || raw.treatment || {};
+  const appointment = source.appointment || source.infusion || raw.appointment || raw.infusion || {};
+  const logistics = source.logistics || raw.logistics || {};
+  const pharmacy = source.pharmacy || raw.pharmacy || {};
+  const stock = source.stock || source.reservation || raw.stock || raw.reservation || {};
+  const clinical = source.clinicalAssessment || source.clinicalAuthorization || source.triage ||
+    raw.clinicalAssessment || raw.clinicalAuthorization || raw.triage || {};
+  const preparation = source.preparationData || source.preparation || raw.preparationData || raw.preparation || {};
+  const administration = source.administrationData || source.administration || raw.administrationData || raw.administration || {};
+  const cycleNumber = Math.max(1, Number(careApplicationFirst(
+    source.cycleNumber, source.cycle, logistics.cycleNumber, appointment.cycleNumber
+  )) || 1);
+  const applicationDay = Math.max(1, Number(careApplicationFirst(
+    source.applicationDay, source.day, logistics.applicationDay, appointment.applicationDay
+  )) || 1);
+  const patientId = String(careApplicationFirst(source.patientId, patient.id, logistics.patientId, appointment.patientId) || "");
+  const treatmentId = String(careApplicationFirst(source.treatmentId, treatment.id, logistics.treatmentId, appointment.treatmentId) || "");
+  const medicationSourceRaw = String(careApplicationFirst(
+    source.medicationSource, logistics.medicationSource, pharmacy.medicationSource,
+    source.medicationState, logistics.medicationState,
+    source.medicationWithPatient === true ? "patient_has_medication" : "",
+    logistics.medicationWithPatient === true ? "patient_has_medication" : ""
+  ) || "center_stock").toLowerCase();
+  const supportedMedicationSources = new Set([
+    "center_stock", "patient_to_bring", "patient_has_medication", "received_center", "pending_supplier"
+  ]);
+  let medicationSource = supportedMedicationSources.has(medicationSourceRaw) ? medicationSourceRaw : "center_stock";
+  if (["patient", "with_patient", "medication-with-patient"].includes(medicationSourceRaw)) {
+    medicationSource = source.medicationReceived === true || logistics.medicationReceived === true
+      ? "patient_has_medication" : "patient_to_bring";
+  } else if (["received", "available", "delivered"].includes(medicationSourceRaw)) {
+    medicationSource = "received_center";
+  } else if (["pending", "supplier"].includes(medicationSourceRaw)) {
+    medicationSource = "pending_supplier";
+  }
+  const pharmacyValidationStatus = String(careApplicationFirst(
+    source.pharmacyValidationStatus, pharmacy.validationStatus, pharmacy.status,
+    source.pharmacyValidated === true ? "validated" : ""
+  ) || "pending").toLowerCase();
+  const stockReservationStatus = String(careApplicationFirst(
+    source.stockReservationStatus, source.stockStatus, stock.status,
+    source.stockReserved === true ? "reserved" : "",
+    medicationSource === "received_center" || medicationSource === "patient_has_medication" ? "received" : ""
+  ) || "pending").toLowerCase();
+  const clinicalDecision = String(careApplicationFirst(
+    source.clinicalDecision, source.clinicalAuthorizationStatus, clinical.decision, clinical.status
+  ) || "pending").toLowerCase();
+  const preparationStatus = String(careApplicationFirst(
+    source.preparationStatus, preparation.status, source.pharmacyStatus, appointment.pharmacyStatus
+  ) || "pending").toLowerCase();
+  const administrationStatus = String(careApplicationFirst(
+    source.administrationStatus, administration.status, appointment.administrationStatus
+  ) || "not_started").toLowerCase();
+  const scheduledAt = String(careApplicationFirst(
+    source.scheduledAt, appointment.scheduledAt, source.appointmentAt, source.plannedAt
+  ) || "");
+  const plannedDate = String(careApplicationFirst(
+    source.plannedDate, logistics.plannedDate, source.suggestedDate, scheduledAt && careLocalDateKey(scheduledAt)
+  ) || "");
+  const drugs = careApplicationArray(
+    source.applicationDrugs, source.medications, source.drugs,
+    treatment.applicationDrugs, treatment.medications, logistics.applicationDrugs
+  );
+  const revision = Math.max(0, Number(careApplicationFirst(
+    source.workflowRevision, source.revision, logistics.revision, appointment.revision, raw.revision
+  )) || 0);
+  const normalized = {
+    ...raw,
+    ...source,
+    patient,
+    treatment,
+    appointment,
+    logistics,
+    pharmacy,
+    stock,
+    clinicalAssessment: clinical,
+    clinicalAuthorization: clinical,
+    preparationData: preparation,
+    preparation,
+    administrationData: administration,
+    administration,
+    patientId,
+    treatmentId,
+    cycleNumber,
+    applicationDay,
+    patientName: String(careApplicationFirst(
+      source.patientName, patient.fullName, patient.name, appointment.patientName
+    ) || "Paciente sin nombre"),
+    patientDni: String(careApplicationFirst(source.patientDni, source.dni, patient.dni, appointment.patientDni) || ""),
+    insurance: String(careApplicationFirst(source.insurance, patient.insurance, appointment.insurance) || ""),
+    affiliateNumber: String(careApplicationFirst(source.affiliateNumber, patient.affiliateNumber, appointment.affiliateNumber) || ""),
+    diagnosis: String(careApplicationFirst(source.diagnosis, treatment.diagnosis, treatment.diagnostico) || ""),
+    scheme: String(careApplicationFirst(
+      source.scheme, source.protocolName, treatment.scheme, treatment.esquema,
+      appointment.scheme, appointment.sourceRef?.scheduler?.scheme
+    ) || "Esquema no informado"),
+    chair: String(careApplicationFirst(source.chair, appointment.chair) || ""),
+    scheduledAt,
+    plannedDate,
+    durationMinutes: Math.max(1, Number(careApplicationFirst(
+      source.durationMinutes, logistics.durationMinutes, appointment.durationMinutes
+    )) || 60),
+    medicationSource,
+    pharmacyValidationStatus,
+    stockReservationStatus,
+    stockStatus: stockReservationStatus,
+    clinicalDecision,
+    preparationStatus,
+    administrationStatus,
+    drugs,
+    revision
+  };
+  // Los endpoints de detalle y comandos envuelven la misma aplicación en
+  // `workflow`. No conservar ese sobre evita que un comando posterior vuelva
+  // a leer el snapshot anterior y muestre estados transitoriamente obsoletos.
+  delete normalized.application;
+  delete normalized.workflow;
+  delete normalized.detail;
+  delete normalized.item;
+  normalized.workflowKey = [patientId, treatmentId, cycleNumber, applicationDay].join(":");
+  return normalized;
+}
+
+function careApplicationWorkflowItems(payload = {}) {
+  const rows = careApplicationArray(
+    payload.items, payload.workflows, payload.applications, payload.queue, payload.records, payload.data
+  );
+  return rows.map(normalizeCareApplicationWorkflow);
+}
+
+function careApplicationQueueSearchInput(queue) {
+  return {
+    pharmacy: "#careSchedulePharmacySearch",
+    triage: "#careTriageSearch",
+    preparation: "#carePreparationSearch",
+    administration: "#careRoomSearch"
+  }[queue] || "";
+}
+
+function careApplicationQueueOutput(queue) {
+  return {
+    triage: $("#careTriageRows"),
+    preparation: $("#carePreparationRows"),
+    administration: $("#careRoomRows")
+  }[queue] || null;
+}
+
+function careApplicationQueueCount(queue) {
+  return {
+    pharmacy: $("#careSchedulePharmacyCount"),
+    triage: $("#careTriageCount"),
+    preparation: $("#carePreparationCount"),
+    administration: $("#careRoomCount")
+  }[queue] || null;
+}
+
+function careApplicationQueueQuery(queue) {
+  const selector = careApplicationQueueSearchInput(queue);
+  return String(selector ? $(selector)?.value || "" : "").trim();
+}
+
+function scheduleCareApplicationQueueSearch(queue, query) {
+  window.clearTimeout(careApplicationQueueSearchTimer);
+  careApplicationQueueSearchTimer = window.setTimeout(() => {
+    void loadCareApplicationQueue(queue, { query });
+  }, 280);
+}
+
+async function loadCareApplicationQueue(queue, { query = careApplicationQueueQuery(queue), quiet = false } = {}) {
+  if (!Object.hasOwn(careApplicationQueues, queue)) return;
+  const requestVersion = ++careApplicationQueueRequestVersions[queue];
+  const params = new URLSearchParams({ queue });
+  if (queue !== "pharmacy") params.set("date", selectedCareScheduleDate());
+  if (queue === "pharmacy" && $("#careSchedulePharmacyFilter")?.value === "patient") {
+    params.set("medicationSource", "patient_to_bring");
+  }
+  if (String(query || "").trim()) params.set("q", String(query).trim());
+  params.set("t", String(Date.now()));
+  const count = careApplicationQueueCount(queue);
+  if (!quiet && count) count.textContent = "Cargando...";
+  try {
+    const payload = await careScheduleJson(`/api/clinical/application-workflows?${params}`);
+    if (requestVersion !== careApplicationQueueRequestVersions[queue]) return;
+    careApplicationQueues[queue] = careApplicationWorkflowItems(payload);
+    careApplicationQueueLoaded[queue] = true;
+    if (queue === "pharmacy") renderCareSchedulePharmacy();
+    else renderCareApplicationQueue(queue);
+  } catch (error) {
+    if (requestVersion !== careApplicationQueueRequestVersions[queue]) return;
+    careApplicationQueueLoaded[queue] = false;
+    renderCareApplicationQueueError(queue, error.message || "No se pudo abrir la cola operativa.");
+  }
+}
+
+function careApplicationSearchText(item) {
+  return normalizeSearchText([
+    item.patientName, item.patientDni, item.scheme, item.diagnosis, item.chair,
+    item.cycleNumber, item.applicationDay, item.plannedDate, item.scheduledAt,
+    ...item.drugs.flatMap((drug) => [drug.drugName, drug.name, drug.droga, drug.dose, drug.dosis])
+  ].filter(Boolean).join(" "));
+}
+
+function careApplicationMatchesLocalSearch(item, queue) {
+  const query = normalizeSearchText(careApplicationQueueQuery(queue));
+  if (!query) return true;
+  const searchable = careApplicationSearchText(item);
+  return query.split(/\s+/).filter(Boolean).every((term) => searchable.includes(term));
+}
+
+function careApplicationTimeLabel(value) {
+  const date = new Date(String(value || ""));
+  return Number.isNaN(date.getTime())
+    ? "Sin hora"
+    : new Intl.DateTimeFormat("es-AR", { hour: "2-digit", minute: "2-digit" }).format(date);
+}
+
+function careApplicationDrugLabel(item) {
+  const names = item.drugs.map((drug) => careApplicationFirst(
+    drug.drugName, drug.name, drug.droga, drug.genericName
+  )).filter(Boolean);
+  return names.length ? names.join(" + ") : item.scheme;
+}
+
+function careApplicationStateClass(value) {
+  return String(value || "pending").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
+function careApplicationMedicationSourceLabel(source) {
+  return {
+    center_stock: "Stock del centro",
+    patient_to_bring: "Debe traerla el paciente",
+    patient_has_medication: "La tiene el paciente",
+    received_center: "Recibida en el centro",
+    pending_supplier: "Pendiente del proveedor"
+  }[String(source || "").toLowerCase()] || "Origen pendiente";
+}
+
+function careApplicationPharmacyApproved(item) {
+  return ["approved", "validated", "confirmed"].includes(item.pharmacyValidationStatus);
+}
+
+function careApplicationStockReserved(item) {
+  return ["reserved", "locked", "confirmed"].includes(item.stockReservationStatus);
+}
+
+function careApplicationPharmacyCanCorrect(item) {
+  return !["completed", "finished"].includes(item.administrationStatus) &&
+    ["not_started", "cancelled"].includes(item.preparationStatus) &&
+    ["not_started", "withheld"].includes(item.administrationStatus);
+}
+
+function careApplicationMedicationReady(item) {
+  return item.medicationSource === "center_stock"
+    ? careApplicationStockReserved(item)
+    : ["patient_has_medication", "received_center"].includes(item.medicationSource);
+}
+
+function careApplicationAppointmentReadyToday(item) {
+  if (typeof item.appointment?.readyToday === "boolean") {
+    return item.appointment.readyToday;
+  }
+  return Boolean(
+    item.scheduledAt &&
+    item.appointment?.confirmed === true &&
+    careLocalDateKey(item.scheduledAt) === careScheduleDateValue()
+  );
+}
+
+function careApplicationQueuePermission(queue) {
+  return {
+    pharmacy: "application.pharmacy.manage",
+    triage: "application.triage.manage",
+    preparation: "application.preparation.manage",
+    administration: "application.administration.manage"
+  }[queue] || "section.day-hospital.view";
+}
+
+function careApplicationCommandPermission(command) {
+  if (["pharmacy-validation", "stock-reservation"].includes(command)) {
+    return "application.pharmacy.manage";
+  }
+  if (command === "clinical-authorization") return "application.triage.manage";
+  if (String(command || "").startsWith("preparation/")) return "application.preparation.manage";
+  if (String(command || "").startsWith("administration/")) return "application.administration.manage";
+  return "section.day-hospital.view";
+}
+
+function careApplicationClinicalLabel(item) {
+  if (["pass", "passed", "approved", "authorized", "apto"].includes(item.clinicalDecision)) return "Apto";
+  if (["fail", "failed", "rejected", "postponed", "not_authorized", "no-apto"].includes(item.clinicalDecision)) return "Postergado";
+  return "Pendiente";
+}
+
+function careApplicationPreparationLabel(item) {
+  if (careApplicationPreparationExpired(item)) return "Mezcla vencida";
+  const status = item.preparationStatus;
+  if (["released", "delivered"].includes(status)) return "Liberada a sala";
+  if (["ready", "completed", "prepared"].includes(status)) return "Preparacion lista";
+  if (["in_preparation", "in-progress", "started"].includes(status)) return "En preparacion";
+  return "Por iniciar";
+}
+
+function careApplicationPreparationExpired(item) {
+  if (!["prepared", "released"].includes(item.preparationStatus)) return false;
+  const expiry = new Date(String(item.preparationExpiresAt || item.preparation?.expiresAt || ""));
+  return !Number.isNaN(expiry.getTime()) && expiry.getTime() <= Date.now();
+}
+
+function careApplicationAdministrationLabel(item) {
+  const status = item.administrationStatus;
+  if (["completed", "finished"].includes(status)) return "Finalizada";
+  if (["in_progress", "in-progress", "started"].includes(status)) return "En administracion";
+  if (status === "withheld" && item.administration?.interruptionPending) return "Interrumpida";
+  if (status === "withheld" && item.administration?.interruptionResolution === "terminate") {
+    return "Cerrada sin completar";
+  }
+  if (["withheld", "cancelled"].includes(status)) return "No administrada";
+  if (careApplicationPreparationExpired(item)) return "Mezcla vencida";
+  if (["released", "ready"].includes(item.preparationStatus)) return "Lista para administrar";
+  return "Esperando";
+}
+
+function careApplicationQueueFilter(item, queue) {
+  if (queue === "triage") {
+    const filter = $("#careTriageFilter")?.value || "all";
+    const label = careApplicationClinicalLabel(item);
+    return filter === "all" ||
+      (filter === "pending" && label === "Pendiente") ||
+      (filter === "pass" && label === "Apto") ||
+      (filter === "fail" && label === "Postergado");
+  }
+  if (queue === "preparation") {
+    const filter = $("#carePreparationFilter")?.value || "all";
+    const status = item.preparationStatus;
+    const expired = careApplicationPreparationExpired(item);
+    return filter === "all" ||
+      (filter === "ready-to-start" && !["in_preparation", "in-progress", "started", "ready", "completed", "prepared", "released", "delivered"].includes(status)) ||
+      (filter === "in-progress" && ["in_preparation", "in-progress", "started"].includes(status)) ||
+      (filter === "ready" && !expired && ["ready", "completed", "prepared"].includes(status)) ||
+      (filter === "released" && !expired && ["released", "delivered"].includes(status)) ||
+      (filter === "expired" && expired);
+  }
+  if (queue === "administration") {
+    const filter = $("#careRoomFilter")?.value || "all";
+    const completed = ["completed", "finished"].includes(item.administrationStatus);
+    return filter === "all" ||
+      (filter === "active" && !completed) ||
+      (filter === "completed" && completed);
+  }
+  return true;
+}
+
+function careApplicationQueueActionLabel(item, queue) {
+  if (queue === "triage") {
+    if (careApplicationClinicalLabel(item) === "Pendiente" &&
+        !careApplicationAppointmentReadyToday(item)) return "Revisar turno";
+    return careApplicationClinicalLabel(item) === "Pendiente" ? "Evaluar" : "Ver triaje";
+  }
+  if (queue === "preparation") {
+    const state = careApplicationPreparationLabel(item);
+    if (state === "Mezcla vencida") return "Descartar y repetir";
+    if (state === "Por iniciar") return "Iniciar";
+    if (state === "En preparacion") return "Registrar mezcla";
+    if (state === "Preparacion lista") return "Liberar a sala";
+    return "Ver preparacion";
+  }
+  if (queue === "administration") {
+    const state = careApplicationAdministrationLabel(item);
+    if (state === "Mezcla vencida") return "Repetir preparacion";
+    if (state === "Lista para administrar") return "Doble chequeo";
+    if (state === "En administracion") return "Finalizar";
+    return "Ver aplicacion";
+  }
+  return "Abrir";
+}
+
+function renderCareApplicationQueue(queue) {
+  const output = careApplicationQueueOutput(queue);
+  if (!output) return;
+  const rows = (careApplicationQueues[queue] || [])
+    .filter((item) => careApplicationMatchesLocalSearch(item, queue) && careApplicationQueueFilter(item, queue))
+    .sort((left, right) => String(left.scheduledAt || left.plannedDate).localeCompare(String(right.scheduledAt || right.plannedDate)));
+  const count = careApplicationQueueCount(queue);
+  if (count) count.textContent = `${rows.length} ${rows.length === 1 ? "aplicacion" : "aplicaciones"}`;
+  if (!rows.length) {
+    const empty = {
+      triage: ["clipboard-check", "Sin triajes para esta fecha", "No hay pacientes que coincidan con la fecha y los filtros."],
+      preparation: ["flask-conical", "Sin preparaciones pendientes", "Las aplicaciones apareceran aqui despues del PASS clinico."],
+      administration: ["armchair", "Sala sin aplicaciones", "No hay administraciones que coincidan con la fecha y la busqueda."]
+    }[queue];
+    output.innerHTML = `<div class="care-empty-state"><i data-lucide="${empty[0]}"></i><strong>${empty[1]}</strong><span>${empty[2]}</span></div>`;
+    refreshIcons();
+    return;
+  }
+  output.innerHTML = rows.map((item) => {
+    const triageNotReady = queue === "triage" &&
+      careApplicationClinicalLabel(item) === "Pendiente" &&
+      !careApplicationAppointmentReadyToday(item);
+    const stateLabel = triageNotReady
+      ? item.appointment?.confirmed ? "Fuera de fecha" : "Turno sin confirmar"
+      : queue === "triage"
+      ? careApplicationClinicalLabel(item)
+      : queue === "preparation" ? careApplicationPreparationLabel(item) : careApplicationAdministrationLabel(item);
+    const stateValue = triageNotReady
+      ? "warning"
+      : queue === "triage"
+      ? item.clinicalDecision
+      : queue === "preparation"
+        ? careApplicationPreparationExpired(item) ? "expired" : item.preparationStatus
+        : careApplicationPreparationExpired(item) ? "expired" : item.administrationStatus;
+    const time = careApplicationTimeLabel(item.scheduledAt);
+    const date = item.scheduledAt ? careLocalDateKey(item.scheduledAt) : item.plannedDate;
+    return `<article class="care-application-row" role="listitem" data-care-application-key="${escapeAttr(item.workflowKey)}">
+      <time datetime="${escapeAttr(item.scheduledAt || date)}"><strong>${escapeHtml(time)}</strong><small>${escapeHtml(careScheduleDateLabel(date))}</small></time>
+      <div class="care-application-patient"><strong>${escapeHtml(item.patientName)}</strong><small>${item.patientDni ? `DNI ${escapeHtml(item.patientDni)}` : "DNI no informado"}${item.chair ? ` · Sillon ${escapeHtml(careScheduleChair(item.chair) || item.chair)}` : ""}</small></div>
+      <div class="care-application-treatment"><strong>${escapeHtml(item.scheme)}</strong><small>Ciclo ${item.cycleNumber} · Dia ${item.applicationDay} · ${escapeHtml(careScheduleDurationLabel(item.durationMinutes))}</small></div>
+      <div class="care-application-drugs"><span>${escapeHtml(careApplicationDrugLabel(item))}</span></div>
+      <span class="care-application-state is-${escapeAttr(careApplicationStateClass(stateValue))}">${escapeHtml(stateLabel)}</span>
+      <button class="tool-button${stateLabel === "Pendiente" || stateLabel === "Por iniciar" || stateLabel === "Lista para administrar" ? " primary" : ""}" type="button" data-care-application-open="${escapeAttr(item.workflowKey)}" data-care-application-queue="${escapeAttr(queue)}" aria-label="${escapeAttr(`${careApplicationQueueActionLabel(item, queue)} de ${item.patientName}`)}"><span>${escapeHtml(careApplicationQueueActionLabel(item, queue))}</span><i data-lucide="chevron-right"></i></button>
+    </article>`;
+  }).join("");
+  applyClinicalPermissions();
+  refreshIcons();
+}
+
+function renderCareApplicationQueueError(queue, message) {
+  const count = careApplicationQueueCount(queue);
+  if (count) count.textContent = "No disponible";
+  if (queue === "pharmacy") {
+    const output = $("#careSchedulePharmacyRows");
+    if (output) output.innerHTML = `<tr><td colspan="6"><div class="care-empty-state"><i data-lucide="wifi-off"></i><strong>No se pudo abrir Farmacia</strong><span>${escapeHtml(message)}</span><button class="tool-button" type="button" data-care-queue-retry="pharmacy"><i data-lucide="refresh-cw"></i><span>Reintentar</span></button></div></td></tr>`;
+  } else {
+    const output = careApplicationQueueOutput(queue);
+    if (output) output.innerHTML = `<div class="care-empty-state"><i data-lucide="wifi-off"></i><strong>No se pudo abrir la cola</strong><span>${escapeHtml(message)}</span><button class="tool-button" type="button" data-care-queue-retry="${escapeAttr(queue)}"><i data-lucide="refresh-cw"></i><span>Reintentar</span></button></div>`;
+  }
+  refreshIcons();
+}
+
+function findCareApplicationWorkflow(queue, key) {
+  return (careApplicationQueues[queue] || []).find((item) => item.workflowKey === String(key || "")) || null;
+}
+
+function handleCareApplicationQueueAction(event) {
+  const retry = event.target.closest("[data-care-queue-retry]");
+  if (retry) {
+    void loadCareApplicationQueue(retry.dataset.careQueueRetry);
+    return;
+  }
+  if (event.target.closest("[data-care-pharmacy-load-more]")) {
+    careSchedulePharmacyVisibleLimit += 250;
+    renderCareSchedulePharmacy();
+    return;
+  }
+  const button = event.target.closest("[data-care-application-open]");
+  if (!button) return;
+  void openCareApplicationWorkflowModal(
+    button.dataset.careApplicationQueue,
+    button.dataset.careApplicationOpen,
+    button
+  );
+}
+
+function careApplicationWorkflowPath(item, suffix = "") {
+  const parts = [
+    item.patientId,
+    item.treatmentId,
+    item.cycleNumber,
+    item.applicationDay
+  ].map((part) => encodeURIComponent(String(part)));
+  return `/api/clinical/application-workflows/${parts.join("/")}${suffix ? `/${suffix}` : ""}`;
+}
+
+function careApplicationWorkflowCurrentStep(item) {
+  if (["completed", "finished"].includes(item.administrationStatus)) return 7;
+  if (item.administrationStatus === "withheld" && item.administration?.interruptionPending) return 6;
+  if (["in_progress", "in-progress", "started"].includes(item.administrationStatus) ||
+      ["released", "delivered"].includes(item.preparationStatus)) return 6;
+  if (["in_preparation", "in-progress", "started", "ready", "completed", "prepared"].includes(item.preparationStatus)) return 5;
+  if (["pass", "passed", "approved", "authorized", "apto"].includes(item.clinicalDecision)) return 5;
+  if (["fail", "failed", "rejected", "postponed", "not_authorized", "no-apto"].includes(item.clinicalDecision)) return 4;
+  if (item.scheduledAt || item.appointment?.id) return 3;
+  if (careApplicationPharmacyApproved(item) &&
+      (item.medicationSource === "patient_to_bring" || careApplicationMedicationReady(item))) return 3;
+  if (careApplicationPharmacyApproved(item)) return 2;
+  return careSchedulePrescriptionConfirmed(item) ? 2 : 1;
+}
+
+function renderCareApplicationWorkflowStepper(item) {
+  const output = $("#careApplicationWorkflowStepper");
+  if (!output) return;
+  const steps = [
+    ["file-pen-line", "Prescripción"],
+    ["package-check", "Farmacia"],
+    ["calendar-check", "Turno"],
+    ["stethoscope", "Triaje"],
+    ["flask-conical", "Preparación"],
+    ["syringe", "Sala"],
+    ["circle-check", "Cierre"]
+  ];
+  const current = careApplicationWorkflowCurrentStep(item);
+  const failed = ["fail", "failed", "rejected", "postponed", "not_authorized", "no-apto"].includes(item.clinicalDecision);
+  output.innerHTML = steps.map(([icon, label], index) => {
+    const number = index + 1;
+    const state = failed && number === 4 ? "is-failed"
+      : number < current ? "is-complete" : number === current ? "is-current" : "is-pending";
+    return `<li class="${state}"${number === current ? ' aria-current="step"' : ""}><i data-lucide="${icon}"></i><span>${number}. ${label}</span></li>`;
+  }).join("");
+}
+
+function careApplicationWorkflowSummaryMarkup(item) {
+  const date = item.scheduledAt ? careLocalDateKey(item.scheduledAt) : item.plannedDate;
+  return `<div><span>Paciente</span><strong>${escapeHtml(item.patientName)}</strong><small>${item.patientDni ? `DNI ${escapeHtml(item.patientDni)}` : "DNI no informado"}</small></div>
+    <div><span>Aplicacion</span><strong>Ciclo ${item.cycleNumber} · Dia ${item.applicationDay}</strong><small>${escapeHtml(careScheduleDurationLabel(item.durationMinutes))}</small></div>
+    <div><span>Turno</span><strong>${escapeHtml(careScheduleDateLabel(date))}</strong><small>${item.scheduledAt ? `${escapeHtml(careApplicationTimeLabel(item.scheduledAt))}${item.chair ? ` · Sillon ${escapeHtml(careScheduleChair(item.chair) || item.chair)}` : ""} · ${item.appointment?.confirmed ? "Confirmado" : "Sin confirmar"}` : "Todavia sin horario"}</small></div>
+    <div class="is-wide"><span>Protocolo</span><strong>${escapeHtml(item.scheme)}</strong><small>${escapeHtml(item.diagnosis || careApplicationDrugLabel(item))}</small></div>`;
+}
+
+function careApplicationAuditActionLabel(action) {
+  return {
+    pharmacy_validation_approved: "Orden validada por Farmacia",
+    pharmacy_validation_rejected: "Orden rechazada por Farmacia",
+    stock_reserved: "Stock reservado",
+    stock_released: "Reserva liberada",
+    appointment_scheduled: "Turno asignado",
+    appointment_updated: "Turno actualizado",
+    appointment_cancelled: "Turno cancelado",
+    appointment_rescheduled_after_clinical_fail: "Turno reprogramado",
+    appointment_removed: "Turno retirado",
+    clinical_pass: "Triaje aprobado (PASS)",
+    clinical_fail: "Aplicacion postergada (FAIL)",
+    preparation_started: "Preparacion iniciada",
+    preparation_completed: "Mezcla preparada y verificada",
+    preparation_released: "Mezcla liberada a sala",
+    preparation_restarted: "Mezcla descartada y reproceso iniciado",
+    administration_started: "Administracion iniciada",
+    administration_interrupted: "Administración interrumpida",
+    administration_resumed: "Administración reanudada",
+    administration_terminated: "Aplicación cerrada sin completar",
+    administration_completed: "Aplicacion completada",
+    idempotent_replay: "Reintento seguro reconocido"
+  }[String(action || "")] || String(action || "Cambio registrado").replaceAll("_", " ");
+}
+
+function careApplicationWorkflowAuditMarkup(item) {
+  const events = Array.isArray(item.auditTrail) ? item.auditTrail : [];
+  if (!events.length) {
+    return `<details class="care-workflow-audit"><summary><i data-lucide="history"></i><span>Historial de esta aplicacion</span><b>Sin trazas</b></summary><p class="care-workflow-safety-note is-warning"><i data-lucide="triangle-alert"></i><span>Registro migrado sin eventos auditables. Cualquier nueva accion quedara identificada con usuario, fecha y revision.</span></p></details>`;
+  }
+  const rows = [...events].reverse().map((event) => {
+    const occurred = event.occurredAt
+      ? formatCareDateTime(event.occurredAt)
+      : "Fecha no informada";
+    return `<li><i data-lucide="circle-check"></i><span><strong>${escapeHtml(careApplicationAuditActionLabel(event.action))}</strong><small>${escapeHtml(occurred)} · ${escapeHtml(event.actor || "Sistema")} · revision ${escapeHtml(event.resultingRevision || "")}</small></span></li>`;
+  }).join("");
+  return `<details class="care-workflow-audit"><summary><i data-lucide="history"></i><span>Historial de esta aplicacion</span><b>${events.length}</b></summary><ol>${rows}</ol></details>`;
+}
+
+function careApplicationWorkflowDrugRows(item) {
+  const rows = item.drugs.length ? item.drugs : [{ drugName: item.scheme }];
+  return rows.map((drug) => {
+    const name = String(careApplicationFirst(drug.drugName, drug.name, drug.droga, drug.genericName) || "Medicacion");
+    const dose = String(careApplicationFirst(
+      drug.calculatedDoseText, drug.prescribedDoseText, drug.totalDoseText,
+      drug.calculatedDose, drug.dose, drug.dosis, drug.dailyDose, drug.dosisDiaria
+    ) || "");
+    const unit = String(careApplicationFirst(
+      drug.doseUnit, drug.unidadDosis, drug.unidad
+    ) || "");
+    const route = String(careApplicationFirst(drug.route, drug.via, drug.viaAdministracion) || "");
+    const trace = String(drug.calculationTrace || "");
+    const doseLabel = [dose, unit].filter(Boolean).join(" ");
+    const missingUnit = dose && !unit
+      ? "Unidad no configurada: Farmacia no podrá aprobar hasta corregir el protocolo."
+      : "";
+    return `<li class="${missingUnit ? "is-warning" : ""}"><i data-lucide="${missingUnit ? "triangle-alert" : "pill"}"></i><span><strong>${escapeHtml(name)}</strong><small>${escapeHtml([doseLabel, route, trace].filter(Boolean).join(" · ") || "Dosis y vía según prescripción")}</small>${missingUnit ? `<em>${escapeHtml(missingUnit)}</em>` : ""}</span></li>`;
+  }).join("");
+}
+
+function careApplicationDrugComponentKey(drug, index) {
+  const source = drug?.source || {};
+  const explicit = String(careApplicationFirst(
+    drug?.sourceItemRef,
+    drug?.componentKey,
+    source.sourceItemRef,
+    source.id
+  ) || "").trim();
+  if (explicit) return explicit;
+  const drugId = String(careApplicationFirst(
+    drug?.drugId, drug?.idDroga, source.idDroga
+  ) || "").trim();
+  const stem = drugId || normalizeSearchText(careApplicationFirst(
+    drug?.drugName, drug?.name, drug?.droga, source.droga, `componente-${index + 1}`
+  )).replace(/\s+/g, "-");
+  return `${stem}-${index + 1}`;
+}
+
+function careApplicationManualStockMarkup(item) {
+  if (item.medicationSource !== "center_stock") return "";
+  const rows = item.drugs.length ? item.drugs : [];
+  if (!rows.length) return "";
+  const reservations = careApplicationArray(item.stockReservations, item.reservations);
+  return `<fieldset class="care-workflow-fieldset care-stock-manual">
+    <legend>Constatación física por componente</legend>
+    <p>Registre cuánto se apartó para este paciente. Es una reserva manual documentada: no reemplaza un inventario electrónico.</p>
+    <div class="care-stock-manual-components">${rows.map((drug, index) => {
+      const drugName = String(careApplicationFirst(
+        drug.drugName, drug.name, drug.droga, drug.genericName
+      ) || `Componente ${index + 1}`);
+      const drugId = String(careApplicationFirst(drug.drugId, drug.idDroga, drug.id) || "");
+      const componentKey = careApplicationDrugComponentKey(drug, index);
+      const dose = String(careApplicationFirst(
+        drug.calculatedDoseText, drug.prescribedDoseText, drug.totalDoseText,
+        drug.calculatedDose, drug.dose, drug.dosis, drug.dailyDose, drug.dosisDiaria
+      ) || "");
+      const unit = String(careApplicationFirst(
+        drug.doseUnit, drug.unidadDosis, drug.unidad
+      ) || "");
+      const previous = reservations.find((reservation) =>
+        String(reservation.componentKey || "") === componentKey ||
+        normalizeSearchText(reservation.drugName) === normalizeSearchText(drugName)
+      ) || {};
+      const quantity = Number(previous.requestedQuantity);
+      const numericDose = Number(String(dose).replace(",", ".").match(/[+-]?\d+(?:\.\d+)?/)?.[0] || "");
+      const initialQuantity = Number.isFinite(quantity) && quantity > 0
+        ? quantity : Number.isFinite(numericDose) && numericDose > 0 ? numericDose : "";
+      const knownUnit = String(previous.unit || unit || "").trim();
+      return `<div class="care-stock-manual-component">
+        <input type="hidden" name="stockComponentKey" value="${escapeAttr(componentKey)}">
+        <input type="hidden" name="stockDrugId" value="${escapeAttr(drugId)}">
+        <input type="hidden" name="stockDrugName" value="${escapeAttr(drugName)}">
+        <strong>${escapeHtml(drugName)}</strong>
+        <label><span>Cantidad a reservar *</span><input name="stockQuantity" type="number" min="0.0001" step="any" value="${escapeAttr(initialQuantity)}" data-required-for-stock${initialQuantity !== "" ? " readonly aria-readonly=\"true\"" : ""}><small>${initialQuantity !== "" ? "Tomada de la orden; debe reservarse completa." : "Complete la cantidad indicada en la orden."}</small></label>
+        <label><span>Unidad *</span><input name="stockUnit" maxlength="40" value="${escapeAttr(knownUnit)}" data-required-for-stock${knownUnit ? " readonly aria-readonly=\"true\"" : ""}></label>
+      </div>`;
+    }).join("")}</div>
+  </fieldset>`;
+}
+
+function careApplicationWorkflowPharmacyMarkup(item) {
+  const pharmacyNotes = String(careApplicationFirst(
+    item.pharmacyValidationNotes, item.pharmacy.notes, item.logistics.pharmacyNotes, item.notes
+  ) || "");
+  const pharmacyApproved = careApplicationPharmacyApproved(item);
+  const pharmacyRejected = ["rejected", "invalid", "denied"].includes(item.pharmacyValidationStatus);
+  const canCorrect = careApplicationPharmacyCanCorrect(item);
+  const sourceOptions = [
+    ["center_stock", "Stock del centro"],
+    ["patient_to_bring", "Debe traerla el paciente"],
+    ["patient_has_medication", "La tiene el paciente"],
+    ["received_center", "Recibida en el centro"],
+    ["pending_supplier", "Pendiente del proveedor"]
+  ].map(([value, label]) =>
+    `<option value="${value}"${item.medicationSource === value ? " selected" : ""}>${label}</option>`
+  ).join("");
+  const reservationLabel = item.medicationSource === "center_stock"
+    ? careApplicationStockReserved(item) ? "Reserva manual documentada" : "Stock todavía sin constatar"
+    : "No corresponde reservar stock del centro";
+  return `<section class="care-workflow-card">
+      <header><div><small>Paso 2</small><h3>Validacion y disponibilidad</h3></div><span class="care-application-state is-${escapeAttr(careApplicationStateClass(item.medicationSource))}">${escapeHtml(careApplicationMedicationSourceLabel(item.medicationSource))}</span></header>
+      <ul class="care-workflow-drug-list">${careApplicationWorkflowDrugRows(item)}</ul>
+    </section>
+    <div class="care-workflow-form-grid">
+      <label><span>Procedencia y custodia</span><select name="medicationSource">${sourceOptions}</select></label>
+      <label><span>Reserva de stock</span><input value="${escapeAttr(reservationLabel)}" readonly aria-readonly="true"></label>
+      <input type="hidden" name="verificationMethod" value="manual">
+      <label class="is-wide"><span>Observaciones de Farmacia</span><textarea name="pharmacyNotes" rows="3" maxlength="2000" placeholder="Indique dónde y cómo se constató la medicación, o documente la auditoría de la orden.">${escapeHtml(pharmacyNotes)}</textarea></label>
+    </div>
+    ${careApplicationManualStockMarkup(item)}
+    ${canCorrect && !pharmacyRejected ? `<fieldset class="care-workflow-fieldset care-pharmacy-correction"><legend>Rechazo o corrección de Farmacia</legend>
+      <label><span>Motivo obligatorio</span><textarea name="pharmacyActionReason" rows="2" minlength="3" maxlength="2000" placeholder="Explique por qué se rechaza la orden o se libera la reserva."></textarea></label>
+      <p>${pharmacyApproved ? "Primero libere una reserva activa. Después podrá rechazar la orden, cambiar la procedencia y volver a validarla." : "Use este motivo si la orden inicial tiene un problema. Quedará bloqueada hasta que Farmacia la revalide."}</p>
+    </fieldset>` : ""}
+    ${pharmacyRejected ? `<p class="care-workflow-safety-note is-warning"><i data-lucide="triangle-alert"></i><span>La orden está rechazada. Corrija la procedencia u observaciones y use Revalidar orden para devolverla al circuito.</span></p>` : ""}
+    <p class="care-workflow-safety-note"><i data-lucide="info"></i><span>Si el paciente debe traer la medicación, vuelva aquí cuando la tenga: seleccione “La tiene el paciente” o “Recibida en el centro”. Para stock del centro, esta pantalla deja una constatación cuantificada y auditable; no descuenta un inventario global.</span></p>`;
+}
+
+function careApplicationWorkflowTriageMarkup(item) {
+  const clinical = item.clinicalAuthorization || {};
+  const laboratory = clinical.laboratory || clinical.lab || {};
+  const vitals = clinical.vitalSigns || clinical.vitals || {};
+  const toxicity = clinical.toxicity || {};
+  const appointmentWarning = careApplicationAppointmentReadyToday(item)
+    ? ""
+    : `<p class="care-workflow-safety-note is-warning"><i data-lucide="calendar-x"></i><span>El PASS solo se habilita con un turno confirmado para hoy. Confirme o reprograme el turno desde Turnos y sala.</span></p>`;
+  return `${appointmentWarning}<section class="care-workflow-card">
+      <header><div><small>Paso 4</small><h3>Aptitud clinica de la aplicacion</h3></div><span class="care-application-state is-${escapeAttr(careApplicationStateClass(item.clinicalDecision))}">${escapeHtml(careApplicationClinicalLabel(item))}</span></header>
+      <p>Complete los controles disponibles. El PASS o la postergacion quedan vinculados a este ciclo y dia.</p>
+    </section>
+    <fieldset class="care-workflow-fieldset"><legend>Laboratorio</legend><div class="care-workflow-form-grid">
+      <label><span>Fecha del laboratorio *</span><input name="labDate" type="date" value="${escapeAttr(laboratory.date || clinical.labDate || "")}" data-required-for-pass></label>
+      <label><span>Neutrofilos (/mm3) *</span><input name="neutrophils" type="number" min="0" step="1" value="${escapeAttr(laboratory.neutrophils || "")}" data-required-for-pass></label>
+      <label><span>Plaquetas (/mm3) *</span><input name="platelets" type="number" min="0" step="1" value="${escapeAttr(laboratory.platelets || "")}" data-required-for-pass></label>
+      <label><span>Creatinina (mg/dL) *</span><input name="creatinine" type="number" min="0" step="0.01" value="${escapeAttr(laboratory.creatinine || "")}" data-required-for-pass></label>
+      <label><span>Bilirrubina (mg/dL)</span><input name="bilirubin" type="number" min="0" step="0.01" value="${escapeAttr(laboratory.bilirubin || "")}"></label>
+      <label><span>Transaminasas / funcion hepatica</span><input name="hepaticFunction" value="${escapeAttr(laboratory.hepaticFunction || "")}" maxlength="300"></label>
+    </div></fieldset>
+    <fieldset class="care-workflow-fieldset"><legend>Evaluacion clinica</legend><div class="care-workflow-form-grid">
+      <label><span>Peso actual (kg) *</span><input name="weightKg" type="number" min="1" step="0.1" value="${escapeAttr(vitals.weightKg || clinical.weightKg || "")}" data-required-for-pass></label>
+      <label><span>Presion arterial *</span><input name="bloodPressure" value="${escapeAttr(vitals.bloodPressure || "")}" placeholder="120/80" data-required-for-pass></label>
+      <label><span>Temperatura (°C) *</span><input name="temperatureC" type="number" min="30" max="45" step="0.1" value="${escapeAttr(vitals.temperatureC || "")}" data-required-for-pass></label>
+      <label><span>Frecuencia cardiaca (lpm)</span><input name="heartRate" type="number" min="20" max="250" step="1" value="${escapeAttr(vitals.heartRate || "")}"></label>
+      <label><span>Saturacion (%)</span><input name="oxygenSaturation" type="number" min="0" max="100" step="1" value="${escapeAttr(vitals.oxygenSaturation || "")}"></label>
+      <label><span>ECOG</span><select name="ecog"><option value="">Seleccione...</option>${[0,1,2,3,4].map((value) => `<option value="${value}"${String(toxicity.ecog ?? clinical.ecog ?? "") === String(value) ? " selected" : ""}>${value}</option>`).join("")}</select></label>
+      <label><span>Grado maximo de toxicidad *</span><select name="toxicityGrade" data-required-for-pass><option value="">Seleccione...</option>${[0,1,2,3,4,5].map((value) => `<option value="${value}"${String(toxicity.grade ?? clinical.toxicityGrade ?? "") === String(value) ? " selected" : ""}>Grado ${value}</option>`).join("")}</select></label>
+      <label class="is-wide"><span>Evaluacion y observaciones</span><textarea name="clinicalNotes" rows="3" maxlength="3000">${escapeHtml(toxicity.notes || clinical.notes || "")}</textarea></label>
+      <label class="is-wide"><span>Justificacion de PASS con alerta</span><textarea name="clinicalOverrideReason" rows="2" minlength="10" maxlength="2000" placeholder="Solo es necesaria si un valor activa una alerta clínica.">${escapeHtml(clinical.overrideReason || "")}</textarea><small>El sistema advierte; la decisión clínica sigue siendo del profesional y queda auditada.</small></label>
+    </div><div class="care-triage-safety-alert" id="careTriageSafetyAlert" role="alert" hidden></div></fieldset>
+    <fieldset class="care-workflow-fieldset care-workflow-fail-fields"><legend>Si se posterga</legend><div class="care-workflow-form-grid">
+      <label class="is-wide"><span>Motivo de la postergacion</span><textarea name="failReason" rows="3" maxlength="2000" placeholder="Causa clinica o analitica...">${escapeHtml(clinical.reason || item.clinicalAuthorizationReason || "")}</textarea></label>
+      <label><span>Nueva fecha propuesta</span><input name="rescheduledDate" type="date" value="${escapeAttr(clinical.rescheduledDate || "")}"></label>
+    </div><p>Al registrar FAIL se libera la reserva de stock y la aplicacion vuelve al circuito de programacion.</p></fieldset>`;
+}
+
+function careApplicationPreparationRecord(item, drug, index) {
+  const records = careApplicationArray(
+    item.preparation.preparations, item.preparation.drugs, item.preparations
+  );
+  const name = String(careApplicationFirst(drug.drugName, drug.name, drug.droga, drug.genericName) || item.scheme);
+  const componentKey = careApplicationDrugComponentKey(drug, index);
+  const byComponent = records.find((record) =>
+    String(record.componentKey || "") === componentKey);
+  if (byComponent) return byComponent;
+  const indexed = records[index];
+  if (indexed &&
+      normalizeSearchText(careApplicationFirst(indexed.drugName, indexed.name, indexed.droga, "")) ===
+        normalizeSearchText(name)) {
+    return indexed;
+  }
+  return records.find((record) =>
+    normalizeSearchText(careApplicationFirst(record.drugName, record.name, record.droga, "")) === normalizeSearchText(name)
+  ) || indexed || {};
+}
+
+function careApplicationPreparationReservation(item, drug, index) {
+  const reservations = careApplicationArray(item.stockReservations, item.reservations);
+  const name = String(careApplicationFirst(drug.drugName, drug.name, drug.droga, drug.genericName) || item.scheme);
+  const componentKey = careApplicationDrugComponentKey(drug, index);
+  return reservations.find((record) =>
+    String(record.componentKey || "") === componentKey
+  ) || reservations[index] || reservations.find((record) =>
+    ["reserved", "consumed"].includes(String(record.status || "").toLowerCase()) &&
+    normalizeSearchText(careApplicationFirst(record.drugName, record.name, "")) === normalizeSearchText(name)
+  ) || {};
+}
+
+function careApplicationWorkflowPreparationMarkup(item) {
+  const drugs = item.drugs.length ? item.drugs : [{ drugName: item.scheme }];
+  const actor = clinicalUserDisplayName();
+  const preparation = item.preparation || {};
+  const finalized = ["prepared", "released"].includes(item.preparationStatus);
+  const canDiscard = finalized &&
+    String(item.administrationStatus || "not_started").toLowerCase() === "not_started";
+  const verifierId = String(preparation.verifiedByUserId || preparation.verifiedBy || "");
+  const verifierOptions = careApplicationUserOptions(
+    careApplicationPreparationUsers,
+    verifierId,
+    preparation.verifiedByDisplayName
+  );
+  const preparedDisplay = String(
+    preparation.preparedByDisplayName || preparation.preparedBy || item.preparedByDisplayName || actor
+  );
+  const verifiedDisplay = String(
+    preparation.verifiedByDisplayName || preparation.verifiedByName || ""
+  );
+  return `<section class="care-workflow-card">
+      <header><div><small>Paso 5</small><h3>Preparacion esteril</h3></div><span class="care-application-state is-${escapeAttr(careApplicationStateClass(careApplicationPreparationExpired(item) ? "expired" : item.preparationStatus))}">${escapeHtml(careApplicationPreparationLabel(item))}</span></header>
+      <p>Registre la trazabilidad real de cada droga antes de declarar la mezcla lista. El sistema identifica al preparador con la sesion activa.</p>
+      ${["prepared", "released"].includes(item.preparationStatus) ? `<p class="care-workflow-actor-line"><strong>Preparó:</strong> ${escapeHtml(preparedDisplay)} <span aria-hidden="true">·</span> <strong>Segundo profesional declarado:</strong> ${escapeHtml(verifiedDisplay || "Registrado en auditoría")}</p>` : ""}
+    </section>
+    <div class="care-preparation-drugs">${drugs.map((drug, index) => {
+      const name = String(careApplicationFirst(drug.drugName, drug.name, drug.droga, drug.genericName) || item.scheme);
+      const record = careApplicationPreparationRecord(item, drug, index);
+      const reservation = careApplicationPreparationReservation(item, drug, index);
+      const componentKey = careApplicationDrugComponentKey(drug, index);
+      const prescribedDose = String(careApplicationFirst(
+        drug.calculatedDoseText, drug.prescribedDoseText, drug.totalDoseText,
+        drug.calculatedDose, drug.dose, drug.dosis, drug.dailyDose, drug.dosisDiaria
+      ) || "");
+      const numericDose = Number(String(prescribedDose).replace(",", ".").match(/[+-]?\d+(?:\.\d+)?/)?.[0] || "");
+      const preparedQuantity = careApplicationFirst(
+        record.quantity,
+        reservation.requestedQuantity,
+        Number.isFinite(numericDose) && numericDose > 0 ? numericDose : ""
+      );
+      const preparedUnit = String(careApplicationFirst(
+        record.unit, reservation.unit, drug.doseUnit, drug.unidadDosis, drug.unidad
+      ) || "").trim();
+      return `<fieldset class="care-workflow-fieldset care-preparation-drug" data-preparation-drug="${index}"><legend>${escapeHtml(name)}</legend>
+        <input type="hidden" name="componentKey" value="${escapeAttr(componentKey)}">
+        <input type="hidden" name="drugName" value="${escapeAttr(name)}">
+        <input type="hidden" name="reservationId" value="${escapeAttr(record.reservationId || reservation.id || "")}">
+        <input type="hidden" name="inventoryLotId" value="${escapeAttr(record.inventoryLotId || reservation.inventoryLotId || "")}">
+        <div class="care-workflow-form-grid">
+          <label><span>Lote *</span><input name="lot" value="${escapeAttr(record.lot || "")}" maxlength="120" data-required-for-preparation></label>
+          <label><span>Vencimiento *</span><input name="expiryDate" type="date" value="${escapeAttr(record.expiryDate || "")}" data-required-for-preparation></label>
+          <label><span>Dosis preparada *</span><input name="quantity" type="number" min="0.0001" step="any" value="${escapeAttr(preparedQuantity)}" data-required-for-preparation${preparedQuantity !== "" ? " readonly aria-readonly=\"true\"" : ""}><small>${preparedQuantity !== "" ? "Vinculada al componente prescripto." : "Complete la dosis indicada."}</small></label>
+          <label><span>Unidad *</span><input name="unit" value="${escapeAttr(preparedUnit)}" maxlength="40" data-required-for-preparation${preparedUnit ? " readonly aria-readonly=\"true\"" : ""}></label>
+          <label><span>Diluyente *</span><input name="diluent" value="${escapeAttr(record.diluent || "")}" maxlength="200" data-required-for-preparation></label>
+          <label><span>Volumen final *</span><input name="finalVolume" value="${escapeAttr(record.finalVolume || "")}" maxlength="120" placeholder="Ej. 250 ml" data-required-for-preparation></label>
+          <label><span>Concentracion final *</span><input name="concentration" value="${escapeAttr(record.concentration || "")}" maxlength="120" data-required-for-preparation></label>
+          <label><span>Vida util / TTL (min) *</span><input name="ttlMinutes" type="number" min="1" step="1" value="${escapeAttr(record.ttlMinutes || "")}" data-required-for-preparation></label>
+        </div>
+      </fieldset>`;
+    }).join("")}</div>
+    <div class="care-workflow-form-grid">
+      <label><span>Preparador registrado</span><input value="${escapeAttr(actor)}" readonly aria-readonly="true"></label>
+      <label><span>Segundo profesional que controló *</span><select name="verifiedBy" data-required-for-preparation-verifier>${verifierOptions}</select><small>Registra la declaración del preparador; no reemplaza la cofirma del segundo profesional.</small></label>
+      <label class="is-wide"><span>Observaciones</span><textarea name="preparationNotes" rows="3" maxlength="2000">${escapeHtml(item.preparation.notes || "")}</textarea></label>
+    </div>
+    ${canDiscard ? `<fieldset class="care-workflow-fieldset care-workflow-expired"><legend>Descartar y rehacer</legend>
+      <p>Use esta salida ante vencimiento, contaminación, derrame, lote equivocado u otro error detectado antes de administrar.</p>
+      <div class="care-workflow-form-grid"><label class="is-wide"><span>Motivo del descarte *</span><textarea name="preparationDiscardReason" rows="3" minlength="10" maxlength="2000" placeholder="Explique el motivo y la condición de la mezcla..."></textarea></label></div>
+    </fieldset>` : ""}`;
+}
+
+async function loadCareApplicationAdministrationUsers() {
+  if (Array.isArray(careApplicationAdministrationUsers)) return careApplicationAdministrationUsers;
+  if (careApplicationAdministrationUsersLoading) return careApplicationAdministrationUsersLoading;
+  const permission = "application.administration.manage";
+  const params = new URLSearchParams({ permission, capability: permission });
+  careApplicationAdministrationUsersLoading = careScheduleJson(`/api/clinical/users?${params}`)
+    .then((payload) => {
+      careApplicationAdministrationUsers = careApplicationArray(payload.items, payload.users)
+        .filter((user) => user?.active !== false)
+        .map((user) => ({
+          id: String(user.id || user.userId || user.username || ""),
+          displayName: String(user.displayName || user.name || user.username || user.email || "Profesional")
+        }))
+        .filter((user) => user.id);
+      return careApplicationAdministrationUsers;
+    })
+    .finally(() => {
+      careApplicationAdministrationUsersLoading = null;
+    });
+  return careApplicationAdministrationUsersLoading;
+}
+
+async function loadCareApplicationPreparationUsers() {
+  if (Array.isArray(careApplicationPreparationUsers)) return careApplicationPreparationUsers;
+  if (careApplicationPreparationUsersLoading) return careApplicationPreparationUsersLoading;
+  const permission = "application.preparation.manage";
+  const params = new URLSearchParams({ permission, capability: permission });
+  careApplicationPreparationUsersLoading = careScheduleJson(`/api/clinical/users?${params}`)
+    .then((payload) => {
+      careApplicationPreparationUsers = careApplicationArray(payload.items, payload.users)
+        .filter((user) => user?.active !== false)
+        .map((user) => ({
+          id: String(user.id || user.userId || user.username || ""),
+          displayName: String(user.displayName || user.name || user.username || user.email || "Profesional")
+        }))
+        .filter((user) => user.id);
+      return careApplicationPreparationUsers;
+    })
+    .finally(() => {
+      careApplicationPreparationUsersLoading = null;
+    });
+  return careApplicationPreparationUsersLoading;
+}
+
+function careApplicationUserOptions(users, selectedId, selectedName) {
+  const currentUserId = String(clinicalSession.user?.id || clinicalSession.user?.userId || "");
+  const normalizedSelectedId = String(selectedId || "");
+  const available = (users || [])
+    .filter((user) => user.id !== currentUserId || user.id === normalizedSelectedId);
+  const hasSelected = available.some((user) => user.id === normalizedSelectedId);
+  const fallback = normalizedSelectedId && !hasSelected
+    ? [{ id: normalizedSelectedId, displayName: selectedName || `Usuario ${normalizedSelectedId}` }]
+    : [];
+  return [
+    `<option value="">Seleccione otro profesional...</option>`,
+    ...fallback,
+    ...available
+  ].map((user) => typeof user === "string"
+    ? user
+    : `<option value="${escapeAttr(user.id)}"${user.id === normalizedSelectedId ? " selected" : ""}>${escapeHtml(user.displayName)}</option>`
+  ).join("");
+}
+
+function careApplicationAdministrationUserOptions(administration = {}) {
+  const selectedId = String(
+    administration.doubleCheckByUserId || administration.doubleCheckBy || ""
+  );
+  return careApplicationUserOptions(
+    careApplicationAdministrationUsers,
+    selectedId,
+    administration.doubleCheckDisplayName
+  );
+}
+
+function careApplicationWorkflowAdministrationMarkup(item) {
+  const administration = item.administration || {};
+  const started = ["in_progress", "in-progress", "started"].includes(item.administrationStatus);
+  const completed = ["completed", "finished"].includes(item.administrationStatus);
+  const interrupted = item.administrationStatus === "withheld" &&
+    Boolean(administration.interruptionPending);
+  const preparationExpired = careApplicationPreparationExpired(item);
+  const terminated = item.administrationStatus === "withheld" &&
+    administration.interruptionResolution === "terminate";
+  const locked = completed || interrupted || terminated;
+  const checkerOptions = careApplicationAdministrationUserOptions(administration);
+  const qr = item.patientId && item.treatmentId
+    ? `/api/clinical/patients/${encodeURIComponent(item.patientId)}/treatments/${encodeURIComponent(item.treatmentId)}/documents/qr?cycle=${encodeURIComponent(item.cycleNumber)}&applicationDay=${encodeURIComponent(item.applicationDay)}`
+    : "";
+  const appointmentWarning = !started && !locked && !careApplicationAppointmentReadyToday(item)
+    ? `<p class="care-workflow-safety-note is-warning"><i data-lucide="calendar-x"></i><span>No se puede iniciar: el turno debe estar confirmado y corresponder a hoy.</span></p>`
+    : "";
+  const interruptionPanel = started
+    ? `<fieldset class="care-workflow-fieldset care-workflow-emergency"><legend>Interrupción o reacción durante la administración</legend>
+        <p>Use estos campos sólo si necesita detener la infusión. La aplicación quedará bloqueada hasta documentar si se reanuda o se cierra.</p>
+        <div class="care-workflow-form-grid">
+          <label><span>Hora de interrupción</span><input name="interruptedAt" type="datetime-local"></label>
+          <label><span>Destino clínico *</span><select name="interruptionDisposition">
+            <option value="">Seleccione...</option>
+            <option value="observation">Observación en Hospital de día</option>
+            <option value="medical_review">Evaluación médica inmediata</option>
+            <option value="emergency_transfer">Derivación a guardia/emergencia</option>
+          </select></label>
+          <label class="is-wide"><span>Motivo o reacción *</span><textarea name="interruptionReason" rows="2" maxlength="3000"></textarea></label>
+          <label class="is-wide"><span>Dosis administrada hasta detenerse *</span><input name="interruptionActualDose" maxlength="500" value="${escapeAttr(administration.actualDose || "")}"></label>
+          <label class="is-wide"><span>Medidas adoptadas *</span><textarea name="interruptionMeasures" rows="2" maxlength="3000" placeholder="Detención, medicación de rescate, controles, aviso médico..."></textarea></label>
+          <label class="is-wide"><span>Condición actual del paciente *</span><textarea name="interruptionPatientCondition" rows="2" maxlength="3000"></textarea></label>
+        </div>
+      </fieldset>`
+    : interrupted
+      ? `<section class="care-workflow-interruption-summary">
+          <header><i data-lucide="octagon-alert"></i><div><strong>Administración interrumpida</strong><span>${escapeHtml(administration.interruptionReason || "Motivo no informado")}</span></div></header>
+          <dl>
+            <div><dt>Hora</dt><dd>${escapeHtml(formatCareDateTime(administration.interruptedAt || ""))}</dd></div>
+            <div><dt>Dosis hasta detenerse</dt><dd>${escapeHtml(administration.actualDoseAtInterruption || "No informada")}</dd></div>
+            <div><dt>Medidas</dt><dd>${escapeHtml(administration.interruptionMeasures || "No informadas")}</dd></div>
+            <div><dt>Condición</dt><dd>${escapeHtml(administration.interruptionPatientCondition || "No informada")}</dd></div>
+          </dl>
+        </section>
+        ${preparationExpired ? `<p class="care-workflow-safety-note is-warning"><i data-lucide="timer-off"></i><span>La mezcla venció durante la interrupción. No puede reanudarse: documente el cierre sin completar y genere una nueva aplicación clínica.</span></p>` : ""}
+        <fieldset class="care-workflow-fieldset care-workflow-resolution"><legend>Resolver la interrupción</legend>
+          <div class="care-workflow-form-grid">
+            <label class="is-wide"><span>Decisión y condiciones *</span><textarea name="interruptionResolutionNotes" rows="3" maxlength="3000" placeholder="Documente la indicación para reanudar o el motivo de cierre definitivo."></textarea></label>
+            <label class="is-wide"><span>Condición del paciente al resolver *</span><textarea name="interruptionResolutionCondition" rows="2" maxlength="3000"></textarea></label>
+            <label class="is-wide"><span>Dosis total administrada (obligatoria si se cierra)</span><input name="interruptionResolutionDose" maxlength="500" value="${escapeAttr(administration.actualDoseAtInterruption || administration.actualDose || "")}"></label>
+          </div>
+        </fieldset>`
+      : terminated
+        ? `<p class="care-workflow-safety-note is-warning"><i data-lucide="shield-x"></i><span>Esta aplicación se cerró sin completar después de una interrupción. El registro es inmutable; una nueva administración requiere decisión y prescripción clínica.</span></p>`
+        : "";
+  return `${appointmentWarning}<section class="care-workflow-card">
+      <header><div><small>Paso 6 y 7</small><h3>Administracion y cierre</h3></div><span class="care-application-state is-${escapeAttr(careApplicationStateClass(item.administrationStatus))}">${escapeHtml(careApplicationAdministrationLabel(item))}</span></header>
+      <ul class="care-workflow-drug-list">${careApplicationWorkflowDrugRows(item)}</ul>
+      ${qr ? `<a class="tool-button care-workflow-qr-link" href="${qr}" target="_blank" rel="noopener"><i data-lucide="qr-code"></i><span>Abrir QR de identificacion</span></a>` : ""}
+    </section>
+    <fieldset class="care-workflow-fieldset"><legend>Doble chequeo a pie de cama</legend>
+      <label class="care-workflow-check"><input name="patientVerified" type="checkbox"${administration.patientVerified ? " checked" : ""}${locked ? " disabled" : ""}><span><strong>Paciente verificado</strong><small>Nombre, DNI y pulsera coinciden con la aplicacion.</small></span></label>
+      <label class="care-workflow-check"><input name="labelVerified" type="checkbox"${administration.labelVerified ? " checked" : ""}${locked ? " disabled" : ""}><span><strong>Etiqueta y medicacion verificadas</strong><small>Droga, dosis, via, lote, vencimiento y velocidad coinciden.</small></span></label>
+      <div class="care-workflow-form-grid"><label class="is-wide"><span>Segundo profesional que verificó *</span><select name="doubleCheckBy"${locked ? " disabled" : ""}>${checkerOptions}</select><small>Debe ser otro profesional habilitado. Esta selección registra la declaración; no constituye una cofirma.</small></label></div>
+    </fieldset>
+    <fieldset class="care-workflow-fieldset"><legend>Datos reales de administracion</legend><div class="care-workflow-form-grid">
+      <label><span>Inicio real</span><input name="startedAt" type="datetime-local" value="${escapeAttr(careApplicationDateTimeLocal(administration.startedAt || ""))}"${locked ? " disabled" : ""}></label>
+      <label><span>Finalizacion real</span><input name="completedAt" type="datetime-local" value="${escapeAttr(careApplicationDateTimeLocal(administration.completedAt || ""))}"${locked ? " disabled" : ""}></label>
+      <label class="is-wide"><span>Dosis efectivamente administrada *</span><input name="actualDose" value="${escapeAttr(administration.actualDose || administration.actualDoseAtInterruption || "")}" maxlength="500" data-required-for-completion${locked ? " disabled" : ""}></label>
+      <label class="is-wide"><span>Observaciones al iniciar</span><textarea name="administrationStartNotes" rows="2" maxlength="2000"${completed || started ? " disabled" : ""}>${escapeHtml(administration.notes || "")}</textarea></label>
+      <label class="care-workflow-check is-wide"><input name="reactionOccurred" type="checkbox"${administration.reactionOccurred ? " checked" : ""}${locked ? " disabled" : ""}><span><strong>Hubo reaccion o incidencia</strong><small>Active para documentar el evento y las medidas adoptadas.</small></span></label>
+      <label class="is-wide" data-reaction-detail><span>Descripcion de la reaccion</span><textarea name="reactionDescription" rows="3" maxlength="3000"${locked ? " disabled" : ""}>${escapeHtml(administration.reactionDescription || "")}</textarea></label>
+      <label class="is-wide"><span>Observacion de cierre *</span><textarea name="administrationObservation" rows="3" maxlength="3000"${locked ? " disabled" : ""}>${escapeHtml(administration.observation || "")}</textarea></label>
+    </div></fieldset>
+    ${interruptionPanel}
+    ${preparationExpired && !interrupted && !started ? `<fieldset class="care-workflow-fieldset care-workflow-expired"><legend>Preparacion vencida</legend><div class="care-workflow-form-grid"><label class="is-wide"><span>Motivo para descartar y repetir *</span><textarea name="preparationDiscardReason" rows="3" minlength="10" maxlength="2000" placeholder="Documente el descarte de la mezcla vencida..."></textarea></label></div></fieldset>` : ""}
+    ${started && !completed ? `<p class="care-workflow-safety-note is-active"><i data-lucide="activity"></i><span>Administracion iniciada. Registre la hora final, dosis real y tolerancia antes de completar.</span></p>` : ""}`;
+}
+
+function careApplicationDateTimeLocal(value) {
+  const date = new Date(String(value || ""));
+  if (Number.isNaN(date.getTime())) return "";
+  const offset = date.getTimezoneOffset();
+  return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16);
+}
+
+function careApplicationWorkflowContentMarkup(item, queue) {
+  if (queue === "pharmacy") return careApplicationWorkflowPharmacyMarkup(item);
+  if (queue === "triage") return careApplicationWorkflowTriageMarkup(item);
+  if (queue === "preparation") return careApplicationWorkflowPreparationMarkup(item);
+  return careApplicationWorkflowAdministrationMarkup(item);
+}
+
+function careApplicationWorkflowActionsMarkup(item, queue) {
+  if (queue === "pharmacy") {
+    if (!careApplicationPharmacyCanCorrect(item)) return "";
+    if (!careApplicationPharmacyApproved(item)) {
+      const rejected = ["rejected", "invalid", "denied"].includes(item.pharmacyValidationStatus);
+      const label = rejected ? "Revalidar orden" : "Validar orden";
+      const rejectOrder = rejected ? "" : `<button class="tool-button danger" type="button" data-permission="application.pharmacy.manage" data-care-application-command="pharmacy-validation" data-validated="false"><i data-lucide="file-x-2"></i><span>Rechazar orden</span></button>`;
+      return `${rejectOrder}<button class="tool-button primary" type="button" data-permission="application.pharmacy.manage" data-care-application-command="pharmacy-validation" data-validated="true"><i data-lucide="badge-check"></i><span>${label}</span></button>`;
+    }
+    const reserved = careApplicationStockReserved(item);
+    const rejectOrder = `<button class="tool-button danger" type="button" data-permission="application.pharmacy.manage" data-care-application-command="pharmacy-validation" data-validated="false"${reserved ? ' data-requires-reservation-release="true" title="Libere primero la reserva activa"' : ""}><i data-lucide="file-x-2"></i><span>Rechazar orden</span></button>`;
+    if (reserved) {
+      return `<button class="tool-button" type="button" data-permission="application.pharmacy.manage" data-care-application-command="stock-reservation" data-reserved="false"><i data-lucide="lock-open"></i><span>Liberar reserva</span></button>${rejectOrder}`;
+    }
+    const updateSource = `<button class="tool-button" type="button" data-permission="application.pharmacy.manage" data-care-application-command="pharmacy-validation" data-validated="true"><i data-lucide="package-search"></i><span>Guardar procedencia</span></button>`;
+    if (item.medicationSource === "patient_to_bring") {
+      return `<button class="tool-button primary" type="button" data-permission="application.pharmacy.manage" data-care-application-command="pharmacy-validation" data-validated="true" data-requires-medication-arrival="true"><i data-lucide="package-check"></i><span>Confirmar disponibilidad</span></button>${updateSource}${rejectOrder}`;
+    }
+    if (item.medicationSource === "pending_supplier") {
+      return `<button class="tool-button primary" type="button" data-permission="application.pharmacy.manage" data-care-application-command="pharmacy-validation" data-validated="true" data-requires-source-change="true"><i data-lucide="package-search"></i><span>Actualizar procedencia</span></button>${rejectOrder}`;
+    }
+    if (item.medicationSource === "center_stock") {
+      return `<button class="tool-button primary" type="button" data-permission="application.pharmacy.manage" data-care-application-command="stock-reservation" data-reserved="true"><i data-lucide="clipboard-check"></i><span>Documentar reserva</span></button>${updateSource}${rejectOrder}`;
+    }
+    return `${updateSource}${rejectOrder}`;
+  }
+  if (queue === "triage") {
+    if (careApplicationClinicalLabel(item) === "Apto") {
+      const preparation = String(item.preparationStatus || "not_started").toLowerCase();
+      const administration = String(item.administrationStatus || "not_started").toLowerCase();
+      const canRevoke = ["not_started", "cancelled"].includes(preparation) &&
+        ["not_started", "withheld"].includes(administration);
+      return canRevoke
+        ? `<button class="tool-button danger" type="button" data-permission="application.triage.manage" data-care-application-command="clinical-authorization" data-decision="FAIL" data-revoking-pass="true"><i data-lucide="shield-x"></i><span>Revocar PASS y postergar</span></button>`
+        : "";
+    }
+    if (careApplicationClinicalLabel(item) !== "Pendiente") return "";
+    if (!careApplicationAppointmentReadyToday(item)) return "";
+    return `<button class="tool-button danger" type="button" data-permission="application.triage.manage" data-care-application-command="clinical-authorization" data-decision="FAIL"><i data-lucide="calendar-x"></i><span>Postergar</span></button>
+      <button class="tool-button primary" type="button" data-permission="application.triage.manage" data-care-application-command="clinical-authorization" data-decision="PASS"><i data-lucide="shield-check"></i><span>Autorizar PASS</span></button>`;
+  }
+  if (queue === "preparation") {
+    const state = careApplicationPreparationLabel(item);
+    const administrationNotStarted = String(item.administrationStatus || "not_started").toLowerCase() === "not_started";
+    const printLabel = `<a class="tool-button" data-permission="application.preparation.manage" href="${escapeAttr(careApplicationWorkflowPath(item, "preparation-label"))}" target="_blank" rel="noopener"><i data-lucide="printer"></i><span>Imprimir etiqueta</span></a>`;
+    const discard = administrationNotStarted
+      ? `<button class="tool-button danger" type="button" data-permission="application.preparation.manage" data-care-application-command="preparation/restart"><i data-lucide="trash-2"></i><span>Descartar / rehacer</span></button>`
+      : "";
+    if (careApplicationPreparationExpired(item)) return discard || printLabel;
+    if (state === "Por iniciar" && careApplicationMedicationReady(item)) return `<button class="tool-button primary" type="button" data-permission="application.preparation.manage" data-care-application-command="preparation/start"><i data-lucide="play"></i><span>Iniciar preparacion</span></button>`;
+    if (state === "En preparacion") return `<button class="tool-button primary" type="button" data-permission="application.preparation.manage" data-care-application-command="preparation/complete"><i data-lucide="flask-conical"></i><span>Registrar mezcla lista</span></button>`;
+    if (state === "Preparacion lista") return `${discard}${printLabel}<button class="tool-button primary" type="button" data-permission="application.preparation.manage" data-care-application-command="preparation/release"><i data-lucide="send"></i><span>Liberar a sala</span></button>`;
+    if (state === "Liberada a sala") return `${discard}${printLabel}`;
+    return "";
+  }
+  const state = careApplicationAdministrationLabel(item);
+  if (state === "Mezcla vencida") return `<button class="tool-button danger" type="button" data-permission="application.preparation.manage" data-care-application-command="preparation/restart"><i data-lucide="rotate-ccw"></i><span>Descartar y repetir</span></button>`;
+  if (state === "Lista para administrar" && careApplicationAppointmentReadyToday(item)) return `<button class="tool-button primary" type="button" data-permission="application.administration.manage" data-care-application-command="administration/start"><i data-lucide="play"></i><span>Iniciar administracion</span></button>`;
+  if (state === "En administracion") {
+    return `<button class="tool-button danger" type="button" data-permission="application.administration.manage" data-care-application-command="administration/interrupt"><i data-lucide="octagon-alert"></i><span>Interrumpir / reacción</span></button>
+      <button class="tool-button primary" type="button" data-permission="application.administration.manage" data-care-application-command="administration/complete"><i data-lucide="check-check"></i><span>Completar aplicacion</span></button>`;
+  }
+  if (state === "Interrumpida") {
+    const close = `<button class="tool-button danger" type="button" data-permission="application.administration.manage" data-care-application-command="administration/resolve" data-resolution="terminate"><i data-lucide="shield-x"></i><span>Cerrar sin completar</span></button>`;
+    if (careApplicationPreparationExpired(item)) return close;
+    return `${close}<button class="tool-button primary" type="button" data-permission="application.administration.manage" data-care-application-command="administration/resolve" data-resolution="resume"><i data-lucide="rotate-cw"></i><span>Reanudar administración</span></button>`;
+  }
+  return "";
+}
+
+function renderCareApplicationWorkflowModal() {
+  const context = careApplicationWorkflowContext;
+  const item = normalizeCareApplicationWorkflow(context.detail || context.item || {});
+  const title = $("#careApplicationWorkflowTitle");
+  const description = $("#careApplicationWorkflowDescription");
+  const kicker = $("#careApplicationWorkflowKicker");
+  if (title) title.textContent = item.patientName;
+  if (description) description.textContent = `Ciclo ${item.cycleNumber} · Dia ${item.applicationDay} · ${item.scheme}`;
+  if (kicker) kicker.textContent = {
+    pharmacy: "Farmacia oncologica",
+    triage: "Triaje clinico",
+    preparation: "Area de mezclas",
+    administration: "Sala de infusion"
+  }[context.queue] || "Circuito de la aplicacion";
+  renderCareApplicationWorkflowStepper(item);
+  const summary = $("#careApplicationWorkflowSummary");
+  if (summary) summary.innerHTML = careApplicationWorkflowSummaryMarkup(item);
+  const content = $("#careApplicationWorkflowContent");
+  const canManage = clinicalHasPermission(careApplicationQueuePermission(context.queue));
+  const canRestartPreparation = ["prepared", "released"].includes(item.preparationStatus) &&
+    item.administrationStatus === "not_started" &&
+    clinicalHasPermission("application.preparation.manage");
+  if (content) {
+    content.innerHTML = careApplicationWorkflowContentMarkup(item, context.queue) +
+      careApplicationWorkflowAuditMarkup(item);
+    content.classList.toggle("is-read-only", !canManage);
+    if (!canManage) {
+      content.insertAdjacentHTML(
+        "afterbegin",
+        `<p class="care-workflow-readonly"><i data-lucide="lock-keyhole"></i><span>Su rol permite consultar esta etapa, pero no modificarla.</span></p>`
+      );
+      $$("input, select, textarea", content).forEach((field) => { field.disabled = true; });
+      if (canRestartPreparation) {
+        const restartNotes = content.querySelector('[name="preparationDiscardReason"]');
+        if (restartNotes) restartNotes.disabled = false;
+      }
+    }
+  }
+  const actions = $("#careApplicationWorkflowActions");
+  if (actions) actions.innerHTML = careApplicationWorkflowActionsMarkup(item, context.queue);
+  const error = $("#careApplicationWorkflowError");
+  if (error) {
+    error.hidden = true;
+    error.textContent = "";
+  }
+  syncCareApplicationWorkflowConditionalFields();
+  applyClinicalPermissions();
+  refreshIcons();
+}
+
+async function openCareApplicationWorkflowModal(queue, key, returnFocus = null) {
+  const item = findCareApplicationWorkflow(queue, key);
+  if (!item || careApplicationWorkflowBusy) return;
+  careApplicationWorkflowContext = { queue, key, item, detail: null, returnFocus: returnFocus || document.activeElement };
+  const title = $("#careApplicationWorkflowTitle");
+  const description = $("#careApplicationWorkflowDescription");
+  if (title) title.textContent = item.patientName;
+  if (description) description.textContent = `Ciclo ${item.cycleNumber} · Dia ${item.applicationDay} · cargando detalle...`;
+  $("#careApplicationWorkflowSummary").innerHTML = careApplicationWorkflowSummaryMarkup(item);
+  $("#careApplicationWorkflowContent").innerHTML = `<div class="care-empty-state"><i data-lucide="loader-circle"></i><strong>Cargando aplicacion</strong><span>Consultando el estado completo y su trazabilidad.</span></div>`;
+  $("#careApplicationWorkflowActions").innerHTML = "";
+  renderCareApplicationWorkflowStepper(item);
+  showCareModal("careApplicationWorkflowModal");
+  refreshIcons();
+  try {
+    const [payload] = await Promise.all([
+      careScheduleJson(`${careApplicationWorkflowPath(item)}?t=${Date.now()}`),
+      queue === "administration"
+        ? loadCareApplicationAdministrationUsers().catch(() => {
+            careApplicationAdministrationUsers = [];
+            return [];
+          })
+        : queue === "preparation"
+          ? loadCareApplicationPreparationUsers().catch(() => {
+              careApplicationPreparationUsers = [];
+              return [];
+            })
+        : Promise.resolve([])
+    ]);
+    if (careApplicationWorkflowContext.key !== key || careApplicationWorkflowContext.queue !== queue) return;
+    careApplicationWorkflowContext.detail = normalizeCareApplicationWorkflow(payload);
+    renderCareApplicationWorkflowModal();
+  } catch (error) {
+    const output = $("#careApplicationWorkflowContent");
+    if (output) output.innerHTML = `<div class="care-empty-state"><i data-lucide="triangle-alert"></i><strong>No se pudo abrir el detalle</strong><span>${escapeHtml(error.message)}</span><button class="tool-button" type="button" data-care-application-retry><i data-lucide="refresh-cw"></i><span>Reintentar</span></button></div>`;
+    $("#careApplicationWorkflowActions").innerHTML = "";
+    refreshIcons();
+  }
+}
+
+function closeCareApplicationWorkflowModal({ restoreFocus = true } = {}) {
+  const modal = $("#careApplicationWorkflowModal");
+  if (!modal?.classList.contains("open") || careApplicationWorkflowBusy) return;
+  const returnFocus = careApplicationWorkflowContext.returnFocus;
+  closeCareModal("careApplicationWorkflowModal");
+  careApplicationWorkflowContext = { queue: "", key: "", item: null, detail: null, returnFocus: null };
+  $("#careApplicationWorkflowForm")?.reset();
+  if (restoreFocus) window.requestAnimationFrame(() => returnFocus?.focus?.());
+}
+
+function syncCareApplicationWorkflowConditionalFields() {
+  const reaction = $("#careApplicationWorkflowForm")?.elements?.namedItem("reactionOccurred");
+  const detail = $("[data-reaction-detail]", $("#careApplicationWorkflowContent"));
+  if (detail) {
+    detail.hidden = !reaction?.checked;
+    const textarea = $("textarea", detail);
+    if (textarea) textarea.required = Boolean(reaction?.checked);
+  }
+  const warning = $("#careTriageSafetyAlert");
+  if (warning) {
+    const alerts = careApplicationTriageSafetyWarnings();
+    warning.hidden = !alerts.length;
+    warning.innerHTML = alerts.length
+      ? `<i data-lucide="triangle-alert"></i><span><strong>Revise antes de autorizar PASS</strong>${escapeHtml(alerts.join(" · "))}. Si decide continuar, documente la justificación.</span>`
+      : "";
+    const override = $("#careApplicationWorkflowForm")?.elements?.namedItem("clinicalOverrideReason");
+    if (override) override.required = alerts.length > 0;
+    refreshIcons();
+  }
+}
+
+function careApplicationTriageSafetyWarnings() {
+  const alerts = [];
+  const neutrophils = careApplicationFormNumber("neutrophils");
+  const platelets = careApplicationFormNumber("platelets");
+  const temperature = careApplicationFormNumber("temperatureC");
+  const saturation = careApplicationFormNumber("oxygenSaturation");
+  const toxicity = careApplicationFormNumber("toxicityGrade");
+  if (neutrophils != null && neutrophils < 1000) alerts.push("Neutrofilos < 1.000/mm3");
+  if (platelets != null && platelets < 75000) alerts.push("Plaquetas < 75.000/mm3");
+  if (temperature != null && temperature >= 38) alerts.push("Temperatura ≥ 38 °C");
+  if (saturation != null && saturation < 92) alerts.push("Saturacion < 92%");
+  if (toxicity != null && toxicity >= 3) alerts.push("Toxicidad grado ≥ 3");
+  return alerts;
+}
+
+function careApplicationFormValue(name) {
+  return String($("#careApplicationWorkflowForm")?.elements?.namedItem(name)?.value || "").trim();
+}
+
+function careApplicationFormChecked(name) {
+  return Boolean($("#careApplicationWorkflowForm")?.elements?.namedItem(name)?.checked);
+}
+
+function careApplicationFormNumber(name) {
+  const value = careApplicationFormValue(name);
+  return value === "" || !Number.isFinite(Number(value)) ? null : Number(value);
+}
+
+function careApplicationInstant(value, fallbackNow = true) {
+  const input = String(value || "").trim();
+  if (!input) return fallbackNow ? new Date().toISOString() : null;
+  const date = new Date(input);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function validateCareApplicationWorkflowCommand(command, button) {
+  const form = $("#careApplicationWorkflowForm");
+  $$('[aria-invalid="true"]', form).forEach((field) => field.removeAttribute("aria-invalid"));
+  $$("[data-required-for-pass], [data-required-for-stock], [data-required-for-preparation], [data-required-for-preparation-verifier], [data-required-for-completion]", form).forEach((field) => {
+    field.required = false;
+  });
+  const rejectingOrder = command === "pharmacy-validation" && button.dataset.validated === "false";
+  const releasingReservation = command === "stock-reservation" && button.dataset.reserved === "false";
+  if (rejectingOrder && button.dataset.requiresReservationRelease === "true") {
+    setCareApplicationWorkflowError("Libere primero la reserva activa y luego rechace la orden.");
+    return false;
+  }
+  if ((rejectingOrder || releasingReservation) && careApplicationFormValue("pharmacyActionReason").length < 3) {
+    const field = form.elements.namedItem("pharmacyActionReason");
+    field?.setAttribute("aria-invalid", "true");
+    field?.focus();
+    setCareApplicationWorkflowError(
+      rejectingOrder
+        ? "Indique el motivo del rechazo farmacéutico."
+        : "Indique el motivo para liberar la reserva."
+    );
+    return false;
+  }
+  if (command === "pharmacy-validation" && button.dataset.requiresMedicationArrival === "true" &&
+      !["patient_has_medication", "received_center"].includes(careApplicationFormValue("medicationSource"))) {
+    const field = form.elements.namedItem("medicationSource");
+    field?.setAttribute("aria-invalid", "true");
+    field?.focus();
+    setCareApplicationWorkflowError("Indique si la medicacion quedo con el paciente o fue recibida en el centro.");
+    return false;
+  }
+  if (command === "pharmacy-validation" && button.dataset.requiresSourceChange === "true" &&
+      careApplicationFormValue("medicationSource") === "pending_supplier") {
+    const field = form.elements.namedItem("medicationSource");
+    field?.setAttribute("aria-invalid", "true");
+    field?.focus();
+    setCareApplicationWorkflowError("Seleccione la procedencia real de la medicacion antes de continuar.");
+    return false;
+  }
+  if (command === "stock-reservation" && button.dataset.reserved !== "false" &&
+      careApplicationFormValue("medicationSource") !== "center_stock") {
+    const field = form.elements.namedItem("medicationSource");
+    field?.setAttribute("aria-invalid", "true");
+    field?.focus();
+    setCareApplicationWorkflowError("Guarde primero la nueva procedencia; la reserva sólo corresponde al stock del centro.");
+    return false;
+  }
+  if (command === "stock-reservation" && button.dataset.reserved !== "false" &&
+      careApplicationFormValue("pharmacyNotes").length < 10) {
+    const field = form.elements.namedItem("pharmacyNotes");
+    field?.setAttribute("aria-invalid", "true");
+    field?.focus();
+    setCareApplicationWorkflowError("Explique en al menos 10 caracteres cómo se constató físicamente la medicación.");
+    return false;
+  }
+  if (command === "stock-reservation" && button.dataset.reserved !== "false") {
+    $$("[data-required-for-stock]", form).forEach((field) => { field.required = true; });
+  }
+  if (command === "clinical-authorization" && button.dataset.decision === "PASS") {
+    $$("[data-required-for-pass]", form).forEach((field) => { field.required = true; });
+    const alerts = careApplicationTriageSafetyWarnings();
+    if (alerts.length && careApplicationFormValue("clinicalOverrideReason").length < 10) {
+      const field = form.elements.namedItem("clinicalOverrideReason");
+      field?.setAttribute("aria-invalid", "true");
+      field?.focus();
+      setCareApplicationWorkflowError("Revise las alertas y documente por qué corresponde autorizar PASS.");
+      return false;
+    }
+  }
+  if (command === "clinical-authorization" && button.dataset.decision === "FAIL" && !careApplicationFormValue("failReason")) {
+    const field = form.elements.namedItem("failReason");
+    field?.setAttribute("aria-invalid", "true");
+    field?.focus();
+    setCareApplicationWorkflowError("Indique el motivo clinico de la postergacion.");
+    return false;
+  }
+  if (command === "preparation/complete") {
+    $$("[data-required-for-preparation]", form).forEach((field) => { field.required = true; });
+    $$("[data-required-for-preparation-verifier]", form).forEach((field) => { field.required = true; });
+    const selectedVerifier = careApplicationFormValue("verifiedBy");
+    const currentUserId = String(clinicalSession.user?.id || clinicalSession.user?.userId || "");
+    if (selectedVerifier && selectedVerifier === currentUserId) {
+      const field = form.elements.namedItem("verifiedBy");
+      field?.setAttribute("aria-invalid", "true");
+      field?.focus();
+      setCareApplicationWorkflowError("El segundo control debe realizarlo otro profesional.");
+      return false;
+    }
+  }
+  if (command === "preparation/restart" && careApplicationFormValue("preparationDiscardReason").length < 10) {
+    const field = form.elements.namedItem("preparationDiscardReason");
+    field?.setAttribute("aria-invalid", "true");
+    field?.focus();
+    setCareApplicationWorkflowError("Explique en al menos 10 caracteres por que se descarta y rehace la preparacion.");
+    return false;
+  }
+  if (command === "administration/start") {
+    if (!careApplicationFormChecked("patientVerified") || !careApplicationFormChecked("labelVerified") || !careApplicationFormValue("doubleCheckBy")) {
+      setCareApplicationWorkflowError("Confirme paciente, etiqueta y segundo verificador antes de iniciar.");
+      return false;
+    }
+  }
+  if (command === "administration/interrupt") {
+    const required = [
+      ["interruptionReason", "Describa el motivo o la reacción."],
+      ["interruptionActualDose", "Registre la dosis administrada hasta detenerse."],
+      ["interruptionMeasures", "Registre las medidas adoptadas."],
+      ["interruptionPatientCondition", "Registre la condición actual del paciente."],
+      ["interruptionDisposition", "Seleccione el destino clínico."]
+    ];
+    const missing = required.find(([name]) => careApplicationFormValue(name).length < 2);
+    if (missing) {
+      const field = form.elements.namedItem(missing[0]);
+      field?.setAttribute("aria-invalid", "true");
+      field?.focus();
+      setCareApplicationWorkflowError(missing[1]);
+      return false;
+    }
+  }
+  if (command === "administration/resolve") {
+    const required = [
+      ["interruptionResolutionNotes", "Documente la decisión clínica."],
+      ["interruptionResolutionCondition", "Registre la condición del paciente al resolver."]
+    ];
+    const missing = required.find(([name]) => careApplicationFormValue(name).length < 3);
+    if (missing) {
+      const field = form.elements.namedItem(missing[0]);
+      field?.setAttribute("aria-invalid", "true");
+      field?.focus();
+      setCareApplicationWorkflowError(missing[1]);
+      return false;
+    }
+    if (button.dataset.resolution === "terminate" &&
+        careApplicationFormValue("interruptionResolutionDose").length < 2) {
+      const field = form.elements.namedItem("interruptionResolutionDose");
+      field?.setAttribute("aria-invalid", "true");
+      field?.focus();
+      setCareApplicationWorkflowError("Registre la dosis total administrada antes del cierre.");
+      return false;
+    }
+  }
+  if (command === "administration/complete") {
+    const observation = form.elements.namedItem("administrationObservation");
+    observation.required = true;
+    $$("[data-required-for-completion]", form).forEach((field) => { field.required = true; });
+    if (careApplicationFormChecked("reactionOccurred")) {
+      form.elements.namedItem("reactionDescription").required = true;
+    }
+  }
+  if (!form.reportValidity()) {
+    setCareApplicationWorkflowError("Complete los datos obligatorios antes de continuar.");
+    return false;
+  }
+  return true;
+}
+
+function confirmCareApplicationWorkflowCommand(command, button, item) {
+  const patient = item.patientName || "este paciente";
+  const reason = careApplicationFormValue("pharmacyActionReason");
+  if (command === "clinical-authorization" && button.dataset.revokingPass === "true") {
+    const clinicalReason = careApplicationFormValue("failReason");
+    return window.confirm(`¿Revocar el PASS de ${patient} y postergar esta aplicación?\n\nMotivo: ${clinicalReason}\n\nSe liberará la reserva y la aplicación deberá volver a Farmacia, Agenda y Triaje.`);
+  }
+  if (command === "pharmacy-validation" && button.dataset.validated === "false") {
+    return window.confirm(`¿Rechazar la orden de ${patient}?\n\nMotivo: ${reason}\n\nLa aplicación quedará bloqueada hasta que Farmacia la revalide.`);
+  }
+  if (command === "stock-reservation" && button.dataset.reserved === "false") {
+    return window.confirm(`¿Liberar la reserva de ${patient}?\n\nMotivo: ${reason}\n\nEl stock volverá a estar disponible y la aplicación no podrá turnarse hasta resolver su disponibilidad.`);
+  }
+  if (command === "administration/interrupt") {
+    return window.confirm(`¿Interrumpir ahora la administración de ${patient}?\n\nLa aplicación quedará bloqueada y se documentará una evolución clínica.`);
+  }
+  if (command === "administration/resolve" && button.dataset.resolution === "terminate") {
+    return window.confirm(`¿Cerrar la aplicación de ${patient} sin completarla?\n\nEsta decisión quedará registrada como cierre definitivo de esta aplicación.`);
+  }
+  return true;
+}
+
+function careApplicationPreparationPayload() {
+  return $$(".care-preparation-drug", $("#careApplicationWorkflowContent")).map((group) => ({
+    componentKey: String($('[name="componentKey"]', group)?.value || "").trim(),
+    drugName: String($('[name="drugName"]', group)?.value || "").trim(),
+    lot: String($('[name="lot"]', group)?.value || "").trim(),
+    expiryDate: String($('[name="expiryDate"]', group)?.value || "").trim(),
+    quantity: (() => {
+      const value = String($('[name="quantity"]', group)?.value || "").trim();
+      return value && Number.isFinite(Number(value)) ? Number(value) : null;
+    })(),
+    quantityText: String($('[name="quantity"]', group)?.value || "").trim(),
+    unit: String($('[name="unit"]', group)?.value || "").trim(),
+    diluent: String($('[name="diluent"]', group)?.value || "").trim(),
+    finalVolume: String($('[name="finalVolume"]', group)?.value || "").trim(),
+    concentration: String($('[name="concentration"]', group)?.value || "").trim(),
+    ttlMinutes: Number($('[name="ttlMinutes"]', group)?.value || 0),
+    reservationId: String($('[name="reservationId"]', group)?.value || "").trim() || null,
+    inventoryLotId: (() => {
+      const value = String($('[name="inventoryLotId"]', group)?.value || "").trim();
+      return value && Number.isSafeInteger(Number(value)) ? Number(value) : null;
+    })()
+  }));
+}
+
+function careApplicationStockComponentsPayload() {
+  return $$(".care-stock-manual-component", $("#careApplicationWorkflowContent")).map((group) => {
+    const quantityText = String($('[name="stockQuantity"]', group)?.value || "").trim();
+    const unit = String($('[name="stockUnit"]', group)?.value || "").trim();
+    return {
+      componentKey: String($('[name="stockComponentKey"]', group)?.value || "").trim(),
+      drugId: String($('[name="stockDrugId"]', group)?.value || "").trim(),
+      drugName: String($('[name="stockDrugName"]', group)?.value || "").trim(),
+      requestedQuantity: quantityText && Number.isFinite(Number(quantityText))
+        ? Number(quantityText) : null,
+      requestedQuantityText: [quantityText, unit].filter(Boolean).join(" "),
+      unit,
+      inventoryLotId: null
+    };
+  });
+}
+
+function careApplicationWorkflowCommandPayload(command, button) {
+  if (command === "pharmacy-validation") {
+    const validated = button.dataset.validated !== "false";
+    return {
+      validated,
+      validationStatus: validated ? "validated" : "rejected",
+      medicationSource: careApplicationFormValue("medicationSource"),
+      notes: validated
+        ? careApplicationFormValue("pharmacyNotes")
+        : careApplicationFormValue("pharmacyActionReason")
+    };
+  }
+  if (command === "stock-reservation") {
+    const reserved = button.dataset.reserved !== "false";
+    return {
+      reserved,
+      medicationSource: reserved ? "center_stock" : careApplicationFormValue("medicationSource"),
+      verificationMethod: careApplicationFormValue("verificationMethod") || "manual",
+      notes: reserved
+        ? careApplicationFormValue("pharmacyNotes")
+        : careApplicationFormValue("pharmacyActionReason"),
+      components: reserved ? careApplicationStockComponentsPayload() : []
+    };
+  }
+  if (command === "clinical-authorization") {
+    const decision = button.dataset.decision;
+    return {
+      decision,
+      laboratory: {
+        date: careApplicationFormValue("labDate"),
+        neutrophils: careApplicationFormNumber("neutrophils"),
+        platelets: careApplicationFormNumber("platelets"),
+        creatinine: careApplicationFormNumber("creatinine"),
+        bilirubin: careApplicationFormNumber("bilirubin"),
+        hepaticFunction: careApplicationFormValue("hepaticFunction")
+      },
+      vitalSigns: {
+        weightKg: careApplicationFormNumber("weightKg"),
+        bloodPressure: careApplicationFormValue("bloodPressure"),
+        temperatureC: careApplicationFormNumber("temperatureC"),
+        heartRate: careApplicationFormNumber("heartRate"),
+        oxygenSaturation: careApplicationFormNumber("oxygenSaturation")
+      },
+      toxicity: {
+        grade: careApplicationFormNumber("toxicityGrade"),
+        ecog: careApplicationFormNumber("ecog"),
+        notes: careApplicationFormValue("clinicalNotes")
+      },
+      reason: decision === "FAIL"
+        ? careApplicationFormValue("failReason")
+        : careApplicationFormValue("clinicalOverrideReason"),
+      rescheduledDate: decision === "FAIL"
+        ? careApplicationFormValue("rescheduledDate") || null : null
+    };
+  }
+  if (command === "preparation/complete") {
+    return {
+      preparations: careApplicationPreparationPayload(),
+      verifiedBy: careApplicationFormValue("verifiedBy"),
+      notes: careApplicationFormValue("preparationNotes")
+    };
+  }
+  if (["preparation/start", "preparation/release", "preparation/restart"].includes(command)) {
+    return {
+      notes: command === "preparation/restart"
+        ? careApplicationFormValue("preparationDiscardReason")
+        : careApplicationFormValue("preparationNotes")
+    };
+  }
+  if (command === "administration/start") {
+    return {
+      patientVerified: careApplicationFormChecked("patientVerified"),
+      labelVerified: careApplicationFormChecked("labelVerified"),
+      doubleCheckBy: careApplicationFormValue("doubleCheckBy"),
+      startedAt: careApplicationInstant(careApplicationFormValue("startedAt")),
+      notes: careApplicationFormValue("administrationStartNotes")
+    };
+  }
+  if (command === "administration/interrupt") {
+    return {
+      interruptedAt: careApplicationInstant(careApplicationFormValue("interruptedAt")),
+      reason: careApplicationFormValue("interruptionReason"),
+      actualDose: careApplicationFormValue("interruptionActualDose"),
+      measures: careApplicationFormValue("interruptionMeasures"),
+      patientCondition: careApplicationFormValue("interruptionPatientCondition"),
+      disposition: careApplicationFormValue("interruptionDisposition")
+    };
+  }
+  if (command === "administration/resolve") {
+    return {
+      resolvedAt: new Date().toISOString(),
+      decision: button.dataset.resolution,
+      notes: careApplicationFormValue("interruptionResolutionNotes"),
+      actualDose: careApplicationFormValue("interruptionResolutionDose"),
+      patientCondition: careApplicationFormValue("interruptionResolutionCondition")
+    };
+  }
+  return {
+    completedAt: careApplicationInstant(careApplicationFormValue("completedAt")),
+    actualDose: careApplicationFormValue("actualDose"),
+    reactionOccurred: careApplicationFormChecked("reactionOccurred"),
+    reactionDescription: careApplicationFormValue("reactionDescription"),
+    observation: careApplicationFormValue("administrationObservation")
+  };
+}
+
+function setCareApplicationWorkflowError(message = "") {
+  const output = $("#careApplicationWorkflowError");
+  if (!output) return;
+  output.hidden = !message;
+  output.textContent = message;
+}
+
+async function handleCareApplicationWorkflowCommand(event) {
+  const retry = event.target.closest("[data-care-application-retry]");
+  if (retry) {
+    const { queue, key, returnFocus } = careApplicationWorkflowContext;
+    closeCareModal("careApplicationWorkflowModal");
+    await openCareApplicationWorkflowModal(queue, key, returnFocus);
+    return;
+  }
+  const button = event.target.closest("[data-care-application-command]");
+  if (!button || careApplicationWorkflowBusy) return;
+  const item = normalizeCareApplicationWorkflow(careApplicationWorkflowContext.detail || careApplicationWorkflowContext.item || {});
+  const command = button.dataset.careApplicationCommand;
+  const requiredPermission = careApplicationCommandPermission(command);
+  if (!clinicalHasPermission(requiredPermission)) {
+    setCareApplicationWorkflowError("Su rol no tiene permiso para modificar esta etapa.");
+    return;
+  }
+  if (!validateCareApplicationWorkflowCommand(command, button)) return;
+  if (!confirmCareApplicationWorkflowCommand(command, button, item)) return;
+  const idempotencyKey = globalThis.crypto?.randomUUID?.() || makeId("application-command");
+  const body = {
+    ...careApplicationWorkflowCommandPayload(command, button),
+    expectedRevision: item.revision,
+    idempotencyKey
+  };
+  careApplicationWorkflowBusy = true;
+  setCareApplicationWorkflowError("");
+  $$("button", $("#careApplicationWorkflowActions")).forEach((action) => { action.disabled = true; });
+  button.classList.add("is-loading");
+  try {
+    const payload = await careScheduleJson(careApplicationWorkflowPath(item, command), {
+      method: "POST",
+      body: JSON.stringify(body)
+    });
+    const responseItem = payload.application || payload.workflow || payload.detail || payload.item || payload;
+    const updated = normalizeCareApplicationWorkflow({
+      ...item,
+      ...responseItem,
+      patient: responseItem.patient || item.patient,
+      treatment: responseItem.treatment || item.treatment,
+      appointment: responseItem.appointment || item.appointment,
+      logistics: responseItem.logistics || item.logistics
+    });
+    careApplicationWorkflowContext.detail = updated;
+    if (payload.evolution) mergeWorkflowEvolution(payload, item.patientId);
+    renderCareApplicationWorkflowModal();
+    await Promise.all([
+      loadCareApplicationQueue("pharmacy", { quiet: true }),
+      loadCareApplicationQueue("triage", { quiet: true }),
+      loadCareApplicationQueue("preparation", { quiet: true }),
+      loadCareApplicationQueue("administration", { quiet: true })
+    ]);
+    if (careScheduleMode === "chairs") await loadCareSchedule();
+    if (payload.evolution) await refreshWorkflowClinicalSurfaces(item.patientId, payload);
+    toast(payload.message || "Estado de la aplicacion actualizado");
+  } catch (error) {
+    setCareApplicationWorkflowError(error.message || "No se pudo completar la accion.");
+  } finally {
+    careApplicationWorkflowBusy = false;
+    button.classList.remove("is-loading");
+    $$("button", $("#careApplicationWorkflowActions")).forEach((action) => { action.disabled = false; });
+  }
+}
+
 async function loadCareSchedule() {
   const dateInput = $("#careScheduleDate");
   if (!dateInput) return;
@@ -2466,16 +4245,23 @@ async function loadCareSchedule() {
   const candidateRequestVersion = ++careScheduleCandidateRequestVersion;
   $("#careScheduleStatus").textContent = "Cargando agenda...";
   try {
-    const [settingsPayload, infusionsPayload, candidatesPayload] = await Promise.all([
+    const [settingsPayload, infusionsPayload, candidatesPayload, pharmacyPayload] = await Promise.all([
       careScheduleJson(`/api/clinical/configuration/day-hospital-settings?t=${Date.now()}`),
       careScheduleJson(`/api/clinical/infusions?date=${encodeURIComponent(scheduleDate)}&t=${Date.now()}`),
-      careScheduleJson(`/api/clinical/infusion-candidates?q=${encodeURIComponent(careScheduleMode === "pharmacy" ? $("#careSchedulePharmacySearch")?.value || "" : $("#careScheduleCandidateSearch")?.value || "")}&t=${Date.now()}`),
+      careScheduleJson(`/api/clinical/infusion-candidates?q=${encodeURIComponent($("#careScheduleCandidateSearch")?.value || "")}&includeScheduled=false&onlySchedulingEligible=false&t=${Date.now()}`),
+      careScheduleJson(`/api/clinical/application-workflows?queue=pharmacy&t=${Date.now()}`).catch((error) => ({ queueError: error.message || "Farmacia no disponible" })),
     ]);
     if (requestVersion !== careScheduleRequestVersion) return;
     careScheduleSettings = { ...careScheduleSettings, ...(settingsPayload.items?.[0]?.definition || {}) };
     careScheduleInfusions = infusionsPayload.infusions || [];
     if (candidateRequestVersion === careScheduleCandidateRequestVersion) {
       careScheduleCandidates = candidatesPayload.candidates || [];
+    }
+    if (pharmacyPayload.queueError) {
+      careApplicationQueueLoaded.pharmacy = false;
+    } else {
+      careApplicationQueues.pharmacy = careApplicationWorkflowItems(pharmacyPayload);
+      careApplicationQueueLoaded.pharmacy = true;
     }
     renderCareSchedule();
   } catch (error) {
@@ -2488,11 +4274,10 @@ async function loadCareSchedule() {
 async function loadCareScheduleCandidates(query = "") {
   const requestVersion = ++careScheduleCandidateRequestVersion;
   try {
-    const payload = await careScheduleJson(`/api/clinical/infusion-candidates?q=${encodeURIComponent(query)}&t=${Date.now()}`);
+    const payload = await careScheduleJson(`/api/clinical/infusion-candidates?q=${encodeURIComponent(query)}&includeScheduled=${careScheduleMode === "pharmacy"}&onlySchedulingEligible=${careScheduleMode !== "chairs"}&t=${Date.now()}`);
     if (requestVersion !== careScheduleCandidateRequestVersion) return;
     careScheduleCandidates = payload.candidates || [];
-    if (careScheduleMode === "pharmacy") renderCareSchedulePharmacy();
-    else if (careScheduleMode === "chairs") renderCareScheduleCandidates();
+    if (careScheduleMode === "chairs") renderCareScheduleCandidates();
     renderCareScheduleSearchHighlights();
   } catch (error) {
     if (requestVersion === careScheduleCandidateRequestVersion) {
@@ -2520,35 +4305,35 @@ function renderCareScheduleCandidates() {
     : filter === "medication-with-patient"
       ? (rows.length === 1 ? "en poder del paciente" : "en poder de pacientes")
       : filter === "prescription-confirmed"
-        ? (rows.length === 1 ? "ciclo con prescripción" : "ciclos con prescripción")
+        ? (rows.length === 1 ? "aplicación con prescripción" : "aplicaciones con prescripción")
         : filter === "missing-prescription"
           ? "sin prescripción"
           : filter === "missing-medication"
             ? "sin medicación"
-            : (rows.length === 1 ? "ciclo pendiente" : "ciclos pendientes");
+            : (rows.length === 1 ? "aplicación pendiente" : "aplicaciones pendientes");
   $("#careScheduleCandidateCount").textContent = `${rows.length} ${countLabel}`;
   const emptyTitle = filter === "medication-received"
     ? "Sin medicaciones recibidas"
     : filter === "medication-with-patient"
       ? "Sin medicación en poder del paciente"
       : filter === "prescription-confirmed"
-        ? "Sin ciclos con prescripción"
+        ? "Sin aplicaciones con prescripción"
         : filter === "missing-prescription"
-          ? "Sin ciclos pendientes de prescripción"
+          ? "Sin aplicaciones pendientes de prescripción"
           : filter === "missing-medication"
-            ? "Sin ciclos pendientes de medicación"
-            : "Sin ciclos pendientes";
+            ? "Sin aplicaciones pendientes de medicación"
+            : "Sin aplicaciones pendientes";
   const emptyDescription = filter === "medication-received"
     ? "No hay ciclos con recepción de medicación confirmada que coincidan."
     : filter === "medication-with-patient"
       ? "No hay ciclos cuya medicación esté en poder del paciente y coincidan con la búsqueda."
       : filter === "prescription-confirmed"
-        ? "No hay ciclos con prescripción disponible que coincidan con la búsqueda."
+        ? "No hay aplicaciones con prescripción disponible que coincidan con la búsqueda."
         : filter === "missing-prescription"
-          ? "Todos los ciclos visibles tienen su prescripción disponible."
+          ? "Todas las aplicaciones visibles tienen su prescripción disponible."
           : filter === "missing-medication"
-            ? "Todos los ciclos visibles tienen la medicación recibida o en poder del paciente."
-            : "No hay ciclos de tratamiento sin turno que coincidan.";
+            ? "Todas las aplicaciones visibles tienen la medicación recibida o en poder del paciente."
+            : "No hay aplicaciones de tratamiento sin turno que coincidan.";
   const todayValue = careScheduleDateValue();
   const visibleRows = rows.slice(0, careScheduleCandidateVisibleLimit);
   const cardsMarkup = visibleRows.map((item) => {
@@ -2556,7 +4341,9 @@ function renderCareScheduleCandidates() {
     const dni = careSchedulePatientDni(item);
     const medicationReceived = careScheduleMedicationReceived(item);
     const medicationWithPatient = careScheduleMedicationWithPatient(item);
-    const medicationAvailable = medicationReceived || medicationWithPatient;
+    const medicationSource = careScheduleMedicationSource(item);
+    const patientWillBringMedication = medicationSource === "patient_to_bring";
+    const medicationAvailable = careScheduleMedicationAvailable(item);
     const prescriptionConfirmed = careSchedulePrescriptionConfirmed(item);
     const prescriptionWorkflowState = careSchedulePrescriptionWorkflowState(item);
     const workflowStatus = careScheduleWorkflowStatus(item);
@@ -2568,9 +4355,16 @@ function renderCareScheduleCandidates() {
     const continuityRequested = Boolean(careScheduleOpenRequestId(item, "continuity"));
     const blockedReason = careScheduleCandidateBlockedReason(item);
     const blocked = Boolean(blockedReason);
-    const medicationClass = medicationWithPatient ? " is-medication-with-patient" : medicationReceived ? " is-medication-received" : " is-medication-pending";
-    const medicationLabel = medicationWithPatient ? "La medicacion esta en poder del paciente" : medicationReceived ? "Medicacion recibida" : "Recepcion de medicacion pendiente";
-    const medicationBadge = medicationWithPatient ? `<em class="care-schedule-candidate-custody"><i data-lucide="briefcase-medical"></i>La tiene el paciente</em>` : "";
+    const medicationClass = medicationWithPatient || patientWillBringMedication ? " is-medication-with-patient" : medicationReceived ? " is-medication-received" : " is-medication-pending";
+    const medicationLabel = medicationWithPatient
+      ? "La medicacion esta en poder del paciente"
+      : patientWillBringMedication ? "El paciente debe traer la medicacion"
+        : medicationReceived ? "Medicacion recibida" : "Recepcion de medicacion pendiente";
+    const medicationBadge = medicationWithPatient
+      ? `<em class="care-schedule-candidate-custody"><i data-lucide="briefcase-medical"></i>La tiene el paciente</em>`
+      : patientWillBringMedication
+        ? `<em class="care-schedule-candidate-custody is-to-bring"><i data-lucide="hand-helping"></i>Debe traer medicacion</em>`
+        : "";
     const suggestedDate = careScheduleCandidateDate(item.suggestedDate);
     const businessDays = suggestedDate ? careScheduleBusinessDaysUntil(suggestedDate, todayValue) : null;
     const overdue = Boolean(suggestedDate && suggestedDate < todayValue);
@@ -2589,7 +4383,7 @@ function renderCareScheduleCandidates() {
         : prescriptionWorkflowState === "rejected"
           ? `<span class="care-schedule-candidate-alert is-suspension-alert"><i data-lucide="file-x-2"></i>Prescripción rechazada</span>`
           : `<span class="care-schedule-candidate-alert is-prescription-alert"><i data-lucide="file-x-2"></i>Falta prescripción</span>`;
-    const medicationAlert = medicationAvailable
+    const medicationAlert = medicationAvailable || patientWillBringMedication
       ? ""
       : `<span class="care-schedule-candidate-alert is-medication-alert"><i data-lucide="package-x"></i>Falta medicación</span>`;
     const workflowAlert = resumeFlowState === "ready"
@@ -2627,11 +4421,11 @@ function renderCareScheduleCandidates() {
       ? `<button class="care-schedule-candidate-manage" type="button" draggable="false" data-care-schedule-workflow="${escapeAttr(item.id)}" title="${escapeAttr(managementLabel)}" aria-label="${escapeAttr(managementLabel)} ciclo ${escapeAttr(item.cycleNumber || "")} de ${escapeAttr(item.patientName || "paciente")}"><i data-lucide="${managementIcon}"></i><span>${managementLabel}</span></button>`
       : "";
     const title = blockedReason || `${prescriptionLabel}. ${medicationLabel}. ${dueLabel}. Seleccionar para ver en celeste dónde entra`;
-    return `<article class="care-schedule-candidate${medicationClass}${timingClass}${prescriptionConfirmed ? "" : " is-missing-prescription"}${medicationAvailable ? "" : " is-missing-medication"}${workflowStatus !== "active" ? ` is-${workflowStatus.replaceAll("_", "-")}` : ""}${continuityRequested || prescriptionRequested ? " is-workflow-requested" : ""}${blocked ? " is-workflow-blocked" : ""}${selected ? " is-selected" : ""}" draggable="${!blocked}" role="button" tabindex="0" aria-pressed="${selected}" data-placement-disabled="${blocked}" data-care-schedule-candidate="${escapeHtml(item.id)}" title="${escapeAttr(title)}"><div class="care-schedule-candidate-main"><div class="care-schedule-candidate-copy"><strong>${escapeHtml(item.patientName)}</strong><small>${dni ? `DNI ${escapeHtml(dni)}` : "DNI no informado"}</small>${medicationBadge}<span>${escapeHtml(item.drugScheme || item.scheme)}</span></div><div class="care-schedule-candidate-countdown${overdue ? " is-overdue" : ""}" aria-label="${escapeAttr(countdownAria)}"><b>${escapeHtml(countdownValue)}</b><small>${countdownLabel}</small><time${suggestedDate ? ` datetime="${escapeAttr(suggestedDate)}"` : ""}>${escapeHtml(careScheduleDateLabel(suggestedDate))}</time></div></div>${alertMarkup}<footer><span>Ciclo ${item.cycleNumber}/${item.totalCycles}</span><b>${escapeHtml(careScheduleDurationLabel(item.durationMinutes))}</b>${managementButton}</footer></article>`;
+    return `<article class="care-schedule-candidate${medicationClass}${timingClass}${prescriptionConfirmed ? "" : " is-missing-prescription"}${medicationAvailable ? "" : " is-missing-medication"}${workflowStatus !== "active" ? ` is-${workflowStatus.replaceAll("_", "-")}` : ""}${continuityRequested || prescriptionRequested ? " is-workflow-requested" : ""}${blocked ? " is-workflow-blocked" : ""}${selected ? " is-selected" : ""}" draggable="${!blocked}" role="button" tabindex="0" aria-pressed="${selected}" data-placement-disabled="${blocked}" data-care-schedule-candidate="${escapeHtml(item.id)}" title="${escapeAttr(title)}"><div class="care-schedule-candidate-main"><div class="care-schedule-candidate-copy"><strong>${escapeHtml(item.patientName)}</strong><small>${dni ? `DNI ${escapeHtml(dni)}` : "DNI no informado"}</small>${medicationBadge}<span>${escapeHtml(item.drugScheme || item.scheme)}</span></div><div class="care-schedule-candidate-countdown${overdue ? " is-overdue" : ""}" aria-label="${escapeAttr(countdownAria)}"><b>${escapeHtml(countdownValue)}</b><small>${countdownLabel}</small><time${suggestedDate ? ` datetime="${escapeAttr(suggestedDate)}"` : ""}>${escapeHtml(careScheduleDateLabel(suggestedDate))}</time></div></div>${alertMarkup}<footer><span>Ciclo ${item.cycleNumber}/${item.totalCycles} · Día ${Number(item.applicationDay) || 1}</span><b>${escapeHtml(careScheduleDurationLabel(item.durationMinutes))}</b>${managementButton}</footer></article>`;
   }).join("");
   const remaining = Math.max(0, rows.length - visibleRows.length);
   const loadMoreMarkup = remaining
-    ? `<button class="care-schedule-load-more" type="button" data-care-schedule-load-more><strong>Mostrar ${Math.min(200, remaining)} ciclos más</strong><small>${visibleRows.length} de ${rows.length} visibles · puede buscar un paciente para ver todos sus ciclos</small></button>`
+    ? `<button class="care-schedule-load-more" type="button" data-care-schedule-load-more><strong>Mostrar ${Math.min(200, remaining)} aplicaciones más</strong><small>${visibleRows.length} de ${rows.length} visibles · puede buscar un paciente para ver todas sus aplicaciones</small></button>`
     : "";
   output.innerHTML = rows.length
     ? `${cardsMarkup}${loadMoreMarkup}`
@@ -2640,49 +4434,128 @@ function renderCareScheduleCandidates() {
   refreshIcons();
 }
 
+function carePharmacyDateKey(item) {
+  return String(
+    item.plannedDate ||
+    (item.scheduledAt ? careLocalDateKey(item.scheduledAt) : "")
+  ).slice(0, 10);
+}
+
+function carePharmacyMatchesDateScope(item, scope) {
+  if (scope === "all") return true;
+  const key = carePharmacyDateKey(item);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return true;
+  const base = new Date(`${selectedCareScheduleDate()}T12:00:00`);
+  const target = new Date(`${key}T12:00:00`);
+  const days = Math.round((target.getTime() - base.getTime()) / 86400000);
+  if (scope === "today") return days === 0;
+  if (scope === "next-30") return days <= 30;
+  return days <= 7;
+}
+
+function carePharmacyGroupLabel(dateKey) {
+  if (!dateKey) return "Fecha pendiente";
+  const date = new Date(`${dateKey}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return "Fecha pendiente";
+  const weekday = new Intl.DateTimeFormat("es-AR", { weekday: "long" }).format(date);
+  const label = careScheduleDateLabel(dateKey);
+  return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} · ${label}`;
+}
+
 function renderCareSchedulePharmacy() {
   const output = $("#careSchedulePharmacyRows");
   if (!output) return;
-  const query = careScheduleSearchQuery("pharmacy");
-  const rows = careScheduleCandidates.filter((item) => careScheduleMatchesSearch(item, query));
-  if ($("#careSchedulePharmacyCount")) {
-    $("#careSchedulePharmacyCount").textContent = `${rows.length} ${rows.length === 1 ? "ciclo pendiente" : "ciclos pendientes"}`;
+  const filter = $("#careSchedulePharmacyFilter")?.value || "all";
+  const dateScope = $("#careSchedulePharmacyDateScope")?.value || "next-7";
+  const searchActive = Boolean(careApplicationQueueQuery("pharmacy").trim());
+  const availableRows = careApplicationQueues.pharmacy || [];
+  const rows = availableRows.filter((item) => {
+    if (!careApplicationMatchesLocalSearch(item, "pharmacy")) return false;
+    // Una búsqueda explícita siempre recorre todas las fechas: el farmacéutico
+    // no debe "perder" un paciente porque quedó fuera de la ventana prioritaria.
+    if (!searchActive && !carePharmacyMatchesDateScope(item, dateScope)) return false;
+    const validation = String(item.pharmacyValidationStatus || "pending");
+    const mustBring = item.medicationSource === "patient_to_bring";
+    const patientHas = item.medicationSource === "patient_has_medication";
+    const receivedCenter = item.medicationSource === "received_center";
+    const reserved = item.medicationSource === "center_stock" && careApplicationStockReserved(item);
+    const pendingStock = item.medicationSource === "pending_supplier" ||
+      (item.medicationSource === "center_stock" && !reserved);
+    return filter === "all" ||
+      (filter === "pending-validation" && validation === "pending") ||
+      (filter === "rejected" && ["rejected", "invalid", "denied"].includes(validation)) ||
+      (filter === "patient" && mustBring) ||
+      (filter === "patient-has" && patientHas) ||
+      (filter === "received-center" && receivedCenter) ||
+      (filter === "pending-stock" && pendingStock) ||
+      (filter === "reserved" && reserved);
+  }).sort((left, right) => {
+    const dateOrder = String(left.plannedDate || left.scheduledAt || "")
+      .localeCompare(String(right.plannedDate || right.scheduledAt || ""));
+    if (dateOrder) return dateOrder;
+    const timeOrder = String(left.scheduledAt || "").localeCompare(String(right.scheduledAt || ""));
+    if (timeOrder) return timeOrder;
+    return String(left.patientName || "").localeCompare(String(right.patientName || ""), "es");
+  });
+  const count = $("#careSchedulePharmacyCount");
+  if (count) {
+    const total = availableRows.length;
+    count.textContent = `${rows.length} ${rows.length === 1 ? "aplicación" : "aplicaciones"}${rows.length === total ? "" : ` · ${total} totales`}${searchActive ? " · todas las fechas" : ""}`;
   }
   const visibleRows = rows.slice(0, careSchedulePharmacyVisibleLimit);
-  const rowsMarkup = visibleRows.map((item) => {
-    const patientId = String(item.patientId || "");
-    const treatmentId = String(item.treatmentId || "");
-    const cycleNumber = Math.max(1, Number(item.cycleNumber) || 1);
-    const state = item.medicationState === "received"
-      ? "received"
-      : item.medicationState === "patient" || careScheduleMedicationWithPatient(item)
-        ? "patient"
-        : careScheduleMedicationReceived(item) ? "received" : "pending";
-    const dni = careSchedulePatientDni(item);
-    const insurance = String(item.insurance || "").trim();
-    const affiliate = String(item.affiliateNumber || "").trim();
-    const qr = `<a class="care-pharmacy-qr" href="/api/clinical/patients/${encodeURIComponent(patientId)}/treatments/${encodeURIComponent(treatmentId)}/documents/qr?cycle=${encodeURIComponent(cycleNumber)}" target="_blank" rel="noopener" title="Imprimir la etiqueta de este ciclo. Se podrá escanear después de asignar el turno."><i data-lucide="qr-code"></i><span>Imprimir</span></a>`;
-    return `<tr data-care-pharmacy-candidate="${escapeAttr(item.id)}">
-      <td><strong>${escapeHtml(item.patientName || "Paciente sin nombre")}</strong><small>${dni ? `DNI ${escapeHtml(dni)}` : "DNI no informado"}${insurance ? ` · ${escapeHtml(insurance)}` : ""}${affiliate ? ` · N.º ${escapeHtml(affiliate)}` : ""}</small></td>
-      <td><time datetime="${escapeAttr(item.suggestedDate || "")}">${escapeHtml(careScheduleDateLabel(item.suggestedDate))}</time><small>${Number(item.cycleDays) > 0 ? `Cada ${escapeHtml(item.cycleDays)} días` : "Intervalo no informado"}</small></td>
-      <td><strong>${cycleNumber} de ${Math.max(cycleNumber, Number(item.totalCycles) || cycleNumber)}</strong><small>Próximo ciclo</small></td>
-      <td><strong>${escapeHtml(item.drugScheme || item.scheme || "Esquema no informado")}</strong><small>${escapeHtml(item.diagnosis || "Diagnóstico no informado")}</small></td>
-      <td><strong>${escapeHtml(careScheduleDurationLabel(item.durationMinutes))}</strong><small>Tiempo de sillón</small></td>
-      <td><div class="care-pharmacy-state" role="group" aria-label="Ubicación de la medicación de ${escapeAttr(item.patientName || "paciente")}">
-        <button type="button" class="${state === "pending" ? "active" : ""}" data-care-pharmacy-state="pending" data-patient-id="${escapeAttr(patientId)}" data-treatment-id="${escapeAttr(treatmentId)}" data-cycle-number="${cycleNumber}" title="Recepción pendiente"><i data-lucide="package"></i><span>Pendiente</span></button>
-        <button type="button" class="${state === "received" ? "active" : ""}" data-care-pharmacy-state="received" data-patient-id="${escapeAttr(patientId)}" data-treatment-id="${escapeAttr(treatmentId)}" data-cycle-number="${cycleNumber}" title="Medicación recibida en el centro"><i data-lucide="package-check"></i><span>Recibida</span></button>
-        <button type="button" class="${state === "patient" ? "active" : ""}" data-care-pharmacy-state="patient" data-patient-id="${escapeAttr(patientId)}" data-treatment-id="${escapeAttr(treatmentId)}" data-cycle-number="${cycleNumber}" title="La medicación está en poder del paciente"><i data-lucide="briefcase-medical"></i><span>Paciente</span></button>
-      </div></td>
-      <td>${qr}</td>
+  const groupCounts = rows.reduce((result, item) => {
+    const key = carePharmacyDateKey(item) || "pending";
+    result.set(key, (result.get(key) || 0) + 1);
+    return result;
+  }, new Map());
+  const rowsMarkup = visibleRows.map((item, index) => {
+    const groupKey = carePharmacyDateKey(item) || "pending";
+    const previousKey = index ? carePharmacyDateKey(visibleRows[index - 1]) || "pending" : "";
+    const groupHeader = groupKey !== previousKey
+      ? `<tr class="care-pharmacy-date-group"><th colspan="6" scope="rowgroup"><span>${escapeHtml(carePharmacyGroupLabel(groupKey === "pending" ? "" : groupKey))}</span><b>${groupCounts.get(groupKey) || 0}</b></th></tr>`
+      : "";
+    const validated = careApplicationPharmacyApproved(item);
+    const rejected = ["rejected", "invalid", "denied"].includes(item.pharmacyValidationStatus);
+    const untraceable = validated && item.pharmacyValidationTraceable === false;
+    const mustBring = item.medicationSource === "patient_to_bring";
+    const patientHas = item.medicationSource === "patient_has_medication";
+    const receivedCenter = item.medicationSource === "received_center";
+    const reserved = item.medicationSource === "center_stock" && careApplicationStockReserved(item);
+    const availability = careApplicationMedicationSourceLabel(item.medicationSource) +
+      (reserved ? " · Reservado" : "");
+    const availabilityClass = mustBring ? "patient"
+      : patientHas ? "with-patient"
+        : receivedCenter ? "received"
+          : reserved ? "reserved" : "pending";
+    const availabilityIcon = mustBring ? "briefcase-medical"
+      : patientHas ? "badge-check"
+        : receivedCenter ? "package-check"
+          : reserved ? "lock-keyhole" : "package-search";
+    const actionLabel = rejected ? "Revalidar orden"
+      : !validated ? "Validar orden"
+      : mustBring ? "Confirmar disponibilidad"
+        : item.medicationSource === "pending_supplier" ? "Actualizar procedencia"
+          : item.medicationSource === "center_stock" && !reserved ? "Reservar stock" : "Ver detalle";
+    const actionText = actionLabel;
+    const qr = item.patientId && item.treatmentId
+      ? `<a class="care-pharmacy-qr" href="/api/clinical/patients/${encodeURIComponent(item.patientId)}/treatments/${encodeURIComponent(item.treatmentId)}/documents/qr?cycle=${encodeURIComponent(item.cycleNumber)}&applicationDay=${encodeURIComponent(item.applicationDay)}" target="_blank" rel="noopener" title="Imprimir QR de la aplicación" aria-label="Imprimir QR de ${escapeAttr(item.patientName)}"><i data-lucide="qr-code"></i></a>`
+      : "";
+    return `${groupHeader}<tr data-care-pharmacy-candidate="${escapeAttr(item.workflowKey)}"${untraceable ? ' class="is-untraceable"' : ""}>
+      <td><strong>${escapeHtml(item.patientName)}</strong><small>${item.patientDni ? `DNI ${escapeHtml(item.patientDni)}` : "DNI no informado"}${item.insurance ? ` · ${escapeHtml(item.insurance)}` : ""}</small></td>
+      <td><strong>Ciclo ${item.cycleNumber} · Día ${item.applicationDay}</strong><small>${escapeHtml(item.scheme)} · ${escapeHtml(careScheduleDurationLabel(item.durationMinutes))}</small></td>
+      <td><time datetime="${escapeAttr(item.plannedDate || item.scheduledAt)}">${escapeHtml(careScheduleDateLabel(item.plannedDate || item.scheduledAt))}</time><small>${item.scheduledAt ? careApplicationTimeLabel(item.scheduledAt) : "Turno pendiente"}</small></td>
+      <td><strong>${escapeHtml(careApplicationDrugLabel(item))}</strong><small>${untraceable ? "Validación heredada sin traza · revisar" : validated ? "Orden validada" : rejected ? "Orden rechazada" : "Orden pendiente de validación"}</small></td>
+      <td><span class="care-pharmacy-availability is-${availabilityClass}"><i data-lucide="${availabilityIcon}"></i>${escapeHtml(availability)}</span></td>
+      <td><div class="care-pharmacy-next-action"><button class="tool-button${actionLabel === "Ver detalle" ? "" : " primary"}" type="button" data-care-application-open="${escapeAttr(item.workflowKey)}" data-care-application-queue="pharmacy" title="${escapeAttr(actionLabel)}" aria-label="${escapeAttr(`${actionLabel} de ${item.patientName}`)}"><span>${escapeHtml(actionText)}</span><i data-lucide="chevron-right"></i></button>${qr}</div></td>
     </tr>`;
   }).join("");
   const remaining = Math.max(0, rows.length - visibleRows.length);
   const loadMoreMarkup = remaining
-    ? `<tr class="care-pharmacy-load-more-row"><td colspan="7"><button class="care-schedule-load-more" type="button" data-care-pharmacy-load-more><strong>Mostrar ${Math.min(250, remaining)} ciclos más</strong><small>${visibleRows.length} de ${rows.length} visibles · use el buscador para encontrar un paciente</small></button></td></tr>`
+    ? `<tr class="care-pharmacy-load-more-row"><td colspan="6"><button class="care-schedule-load-more" type="button" data-care-pharmacy-load-more><strong>Mostrar ${Math.min(250, remaining)} aplicaciones más</strong><small>${visibleRows.length} de ${rows.length} visibles · use el buscador para encontrar un paciente</small></button></td></tr>`
     : "";
   output.innerHTML = rows.length
     ? `${rowsMarkup}${loadMoreMarkup}`
-    : `<tr><td colspan="7"><div class="care-empty-state"><i data-lucide="package-search"></i><strong>Sin ciclos pendientes</strong><span>No hay pacientes que coincidan con la búsqueda.</span></div></td></tr>`;
+    : `<tr><td colspan="6"><div class="care-empty-state"><i data-lucide="package-check"></i><strong>Sin aplicaciones en este filtro</strong><span>No hay pacientes que coincidan con la búsqueda y el estado seleccionado.</span></div></td></tr>`;
   applyClinicalPermissions();
   refreshIcons();
 }
@@ -2695,14 +4568,15 @@ async function updateCareSchedulePharmacyState(event) {
   }
   const button = event.target.closest("[data-care-pharmacy-state]");
   if (!button || careScheduleBusy) return;
-  if (!clinicalHasPermission("section.day-hospital.edit")) {
+  if (!clinicalHasPermission("application.pharmacy.manage")) {
     toast("Su rol permite consultar Farmacia, pero no modificarla.");
     return;
   }
   const item = careScheduleCandidates.find((candidate) =>
     String(candidate.patientId) === button.dataset.patientId &&
     String(candidate.treatmentId) === button.dataset.treatmentId &&
-    Number(candidate.cycleNumber) === Number(button.dataset.cycleNumber));
+    Number(candidate.cycleNumber) === Number(button.dataset.cycleNumber) &&
+    Number(candidate.applicationDay) === Number(button.dataset.applicationDay));
   if (!item) return;
   const medicationState = button.dataset.carePharmacyState;
   const previous = {
@@ -2717,7 +4591,7 @@ async function updateCareSchedulePharmacyState(event) {
   careScheduleBusy = true;
   renderCareSchedulePharmacy();
   try {
-    const payload = await careScheduleJson(`/api/clinical/treatment-cycles/${encodeURIComponent(item.patientId)}/${encodeURIComponent(item.treatmentId)}/${encodeURIComponent(item.cycleNumber)}/logistics`, {
+    const payload = await careScheduleJson(`/api/clinical/treatment-cycles/${encodeURIComponent(item.patientId)}/${encodeURIComponent(item.treatmentId)}/${encodeURIComponent(item.cycleNumber)}/logistics?applicationDay=${encodeURIComponent(Number(item.applicationDay) || 1)}`, {
       method: "PATCH",
       body: JSON.stringify({
         expectedVersion: Number(item.logisticsRevision) || 0,
@@ -2763,6 +4637,27 @@ function renderCareScheduleSearchHighlights() {
       node.classList.toggle("is-search-muted", muted);
     }
   }
+}
+
+function focusCareScheduleSearchMatch() {
+  const query = careScheduleSearchQuery();
+  if (!query) return false;
+  const matchingInfusion = careScheduleInfusions.find((infusion) =>
+    infusion.clinicalStatus !== "cancelled"
+    && infusion.scheduledAt
+    && careScheduleMatchesSearch(infusion, query));
+  const chair = careScheduleChair(matchingInfusion?.chair);
+  if (chair < 1) return false;
+  const viewport = careScheduleChairViewport();
+  if (chair >= viewport.first && chair <= viewport.last) return false;
+  const nextOffset = chair < viewport.first
+    ? chair - 1
+    : chair - viewport.visible;
+  careScheduleChairOffset = Math.min(
+    Math.max(0, nextOffset),
+    Math.max(0, viewport.total - viewport.visible)
+  );
+  return careScheduleChairOffset !== viewport.offset;
 }
 
 function syncCareScheduleCandidateSelection() {
@@ -3379,7 +5274,11 @@ function careScheduleHoverCardMarkup(item) {
   const medicationReceived = careScheduleMedicationReceived(item);
   const medicationWithPatient = careScheduleMedicationWithPatient(item);
   const appointmentConfirmed = careScheduleAppointmentConfirmed(item);
-  const prescriptionConfirmed = item.prescriptionConfirmed !== false && Boolean(item.treatmentId);
+  const prescriptionConfirmed = careSchedulePrescriptionConfirmed(item);
+  const pharmacyWorkflow = careScheduleCandidatePharmacy(item);
+  const stockReserved = careScheduleMedicationSource(item) === "center_stock" &&
+    careApplicationStockReserved(pharmacyWorkflow || item);
+  const medicationAvailable = medicationReceived || medicationWithPatient || stockReserved;
   const patientDni = careSchedulePatientDni(item);
   const insurance = String(item.insurance || "").trim();
   const affiliateNumber = String(item.affiliateNumber || "").trim();
@@ -3392,11 +5291,11 @@ function careScheduleHoverCardMarkup(item) {
       <div><dt>Obra social</dt><dd>${escapeHtml(insurance || "No informada")}${affiliateNumber ? ` · N.º ${escapeHtml(affiliateNumber)}` : " · Número no informado"}</dd></div>
       <div><dt>Diagnóstico</dt><dd>${escapeHtml(item.diagnosis || "No informado")}</dd></div>
       <div><dt>Esquema</dt><dd>${escapeHtml(careScheduleInfusionScheme(item))}</dd></div>
-      <div><dt>Ciclo y duración</dt><dd>Ciclo ${escapeHtml(Number(item.cycleNumber) || 1)} · ${escapeHtml(careScheduleDurationLabel(durationMinutes))}</dd></div>
+      <div><dt>Aplicación y duración</dt><dd>Ciclo ${escapeHtml(Number(item.cycleNumber) || 1)} · Día ${escapeHtml(Number(item.applicationDay) || 1)} · ${escapeHtml(careScheduleDurationLabel(durationMinutes))}</dd></div>
     </dl>
     <footer>
       ${status("Prescripción", prescriptionConfirmed, "Confirmada", "No confirmada")}
-      ${status("Medicación", medicationReceived, "Recibida", "No confirmada")}
+      ${status("Medicación", medicationAvailable, medicationReceived ? "Recibida" : medicationWithPatient ? "La tiene el paciente" : "Stock reservado", "No confirmada")}
       ${status("La tiene el paciente", medicationWithPatient, "Sí", "No")}
       ${status("Turno", appointmentConfirmed, "Confirmado", "No confirmado")}
     </footer>`;
@@ -3446,8 +5345,9 @@ function hideCareScheduleHoverCard() {
 
 function renderCareSchedule() {
   hideCareScheduleHoverCard();
-  if (careScheduleMode === "pharmacy") {
-    renderCareSchedulePharmacy();
+  if (careScheduleMode !== "chairs") return;
+  if (careChairMode === "room") {
+    renderCareApplicationQueue("administration");
     return;
   }
   renderCareScheduleCandidates();
@@ -3532,13 +5432,14 @@ function renderCareSchedule() {
     const contentSegment = segments[primarySegment];
     const contentStyle = `grid-column:${contentSegment.columnStart}/${contentSegment.columnEnd};grid-row:${contentSegment.row}/${contentSegment.rowEnd}`;
     const contentHasChairGap = chair > chairViewport.first && contentSegment.columnStart === chairColumnStart;
-    html += `${appointmentPieceMarkup}<article class="care-schedule-appointment care-schedule-appointment-content${segments.length > 1 ? " is-fragmented" : ""} ${appointmentStatusClass}${infusion.optimistic ? " is-saving" : ""}${contentHasChairGap ? " has-chair-gap" : ""}" draggable="false" data-care-schedule-infusion="${escapeHtml(infusion.id)}" data-care-schedule-segments="${segments.length}" style="${contentStyle}" aria-label="${escapeHtml(infusion.patientName || "Paciente")}. ${occupiedRange}. Haga clic para ver toda la informacion del turno" aria-busy="${infusion.optimistic ? "true" : "false"}"><header><div class="care-schedule-appointment-identity"><strong>${escapeHtml(infusion.patientName || "Paciente")}</strong><small>${patientDni ? `DNI ${escapeHtml(patientDni)}` : "DNI no informado"}</small><time class="care-schedule-appointment-range">${occupiedRange}</time></div>${infusion.optimistic ? "" : `<span class="care-schedule-appointment-actions"><button class="care-schedule-detail-button" type="button" draggable="false" data-care-schedule-detail="${escapeHtml(infusion.id)}" title="Abrir detalle del turno" aria-label="Abrir detalle del turno de ${escapeHtml(infusion.patientName || "paciente")}"><i data-lucide="file-text"></i></button><button class="care-schedule-move-handle" type="button" draggable="true" data-care-schedule-move="${escapeHtml(infusion.id)}" title="Mover turno a otro horario o sillon" aria-label="Mover turno de ${escapeHtml(infusion.patientName || "paciente")} a otro horario o sillon"><i data-lucide="move"></i></button><button type="button" draggable="false" data-care-schedule-remove="${escapeHtml(infusion.id)}" title="Quitar turno del sillon" aria-label="Quitar del sillon el turno de ${escapeHtml(infusion.patientName || "paciente")}"><i data-lucide="x"></i></button></span>`}</header><span class="care-schedule-appointment-scheme">${escapeHtml(careScheduleInfusionScheme(infusion))}</span><footer><b>${escapeHtml(careScheduleDurationLabel(careScheduleItemDuration(infusion)))}</b><small>${infusion.optimistic ? "Guardando" : `Ciclo ${Number(infusion.cycleNumber) || 1}`}</small></footer></article>`;
+    html += `${appointmentPieceMarkup}<article class="care-schedule-appointment care-schedule-appointment-content${segments.length > 1 ? " is-fragmented" : ""} ${appointmentStatusClass}${infusion.optimistic ? " is-saving" : ""}${contentHasChairGap ? " has-chair-gap" : ""}" draggable="false" data-care-schedule-infusion="${escapeHtml(infusion.id)}" data-care-schedule-segments="${segments.length}" style="${contentStyle}" aria-label="${escapeHtml(infusion.patientName || "Paciente")}. ${occupiedRange}. Haga clic para ver toda la informacion del turno" aria-busy="${infusion.optimistic ? "true" : "false"}"><header><div class="care-schedule-appointment-identity"><strong>${escapeHtml(infusion.patientName || "Paciente")}</strong><small>${patientDni ? `DNI ${escapeHtml(patientDni)}` : "DNI no informado"}</small><time class="care-schedule-appointment-range">${occupiedRange}</time></div>${infusion.optimistic ? "" : `<span class="care-schedule-appointment-actions"><button class="care-schedule-detail-button" type="button" draggable="false" data-care-schedule-detail="${escapeHtml(infusion.id)}" title="Abrir detalle del turno" aria-label="Abrir detalle del turno de ${escapeHtml(infusion.patientName || "paciente")}"><i data-lucide="file-text"></i></button><button class="care-schedule-move-handle" type="button" draggable="true" data-care-schedule-move="${escapeHtml(infusion.id)}" title="Mover turno a otro horario o sillon" aria-label="Mover turno de ${escapeHtml(infusion.patientName || "paciente")} a otro horario o sillon"><i data-lucide="move"></i></button><button type="button" draggable="false" data-care-schedule-remove="${escapeHtml(infusion.id)}" title="Quitar turno del sillon" aria-label="Quitar del sillon el turno de ${escapeHtml(infusion.patientName || "paciente")}"><i data-lucide="x"></i></button></span>`}</header><span class="care-schedule-appointment-scheme">${escapeHtml(careScheduleInfusionScheme(infusion))}</span><footer><b>${escapeHtml(careScheduleDurationLabel(careScheduleItemDuration(infusion)))}</b><small>${infusion.optimistic ? "Guardando" : `Ciclo ${Number(infusion.cycleNumber) || 1} · Día ${Number(infusion.applicationDay) || 1}`}</small></footer></article>`;
   }
   grid.innerHTML = html;
   const activeInfusionCount = careScheduleInfusions.filter((infusion) =>
     infusion.clinicalStatus !== "cancelled").length;
   const unplaced = activeInfusionCount - scheduledCount;
-  const scheduleSummary = `${careScheduleSettings.chairCount} sillones · casilleros de ${careScheduleSettings.slotMinutes} min · ${scheduledCount} turnos en grilla${unplaced ? ` · ${unplaced} sin sillon o fuera de jornada` : ""}`;
+  const scheduledLabel = scheduledCount === 1 ? "turno" : "turnos";
+  const scheduleSummary = `${careScheduleSettings.chairCount} sillones · casilleros de ${careScheduleSettings.slotMinutes} min · ${scheduledCount} ${scheduledLabel} en grilla${unplaced ? ` · ${unplaced} sin sillon o fuera de jornada` : ""}`;
   $("#careScheduleStatus").dataset.summary = scheduleSummary;
   $("#careScheduleStatus").textContent = scheduleSummary;
   updateCareScheduleChairViewportControls(chairViewport);
@@ -3552,7 +5453,7 @@ function beginCareScheduleDrag(event) {
   clearCareScheduleDraggingVisuals();
   careScheduleDropTarget = null;
   careScheduleDrag = null;
-  if (!clinicalHasPermission("section.day-hospital.edit")) {
+  if (!clinicalHasPermission("application.schedule.manage")) {
     event.preventDefault();
     return;
   }
@@ -3673,7 +5574,7 @@ function handleCareScheduleDragOver(event) {
 
 async function dropCareScheduleItem(event) {
   event.preventDefault();
-  if (!clinicalHasPermission("section.day-hospital.edit")) return;
+  if (!clinicalHasPermission("application.schedule.manage")) return;
   const target = careScheduleDropTarget || careScheduleTarget(event.target.closest(".care-schedule-slot"));
   clearCareScheduleDragTarget(true);
   clearCareScheduleDraggingVisuals();
@@ -3697,19 +5598,20 @@ async function dropCareScheduleItem(event) {
       affiliateNumber: item.affiliateNumber || "",
       diagnosis: item.diagnosis || "",
       cycleNumber: item.cycleNumber,
+      applicationDay: Number(item.applicationDay) || 1,
       scheduledAt,
       chair: String(target.chair),
       durationMinutes: careScheduleItemDuration(item),
       clinicalStatus: "planned",
       pharmacyStatus: "pending",
       administrationStatus: "not_started",
-      sourceRef: { scheduler: { scheme: item.scheme || "", drugScheme: item.drugScheme || item.scheme || "", timeBasis: "local-wall-clock-v2", prescriptionConfirmed: careSchedulePrescriptionConfirmed(item), medicationReceived: careScheduleMedicationReceived(item), medicationWithPatient: careScheduleMedicationWithPatient(item), medicationLocation: careScheduleMedicationWithPatient(item) ? "patient" : "", appointmentConfirmed: false } },
+      sourceRef: { scheduler: { scheme: item.scheme || "", drugScheme: item.drugScheme || item.scheme || "", applicationDay: Number(item.applicationDay) || 1, durationSource: item.durationSource || "", timeBasis: "local-wall-clock-v2", prescriptionConfirmed: careSchedulePrescriptionConfirmed(item), medicationReceived: careScheduleMedicationReceived(item), medicationWithPatient: careScheduleMedicationWithPatient(item), medicationLocation: careScheduleMedicationWithPatient(item) ? "patient" : "", appointmentConfirmed: false } },
       prescriptionConfirmed: careSchedulePrescriptionConfirmed(item),
       medicationReceived: careScheduleMedicationReceived(item),
       medicationWithPatient: careScheduleMedicationWithPatient(item),
       appointmentConfirmed: false,
       optimistic: true,
-      medications: [],
+      medications: item.applicationDrugs || item.medications || [],
     }];
   } else {
     careScheduleInfusions = careScheduleInfusions.map((infusion) => String(infusion.id) === String(drag.data.id)
@@ -3720,7 +5622,7 @@ async function dropCareScheduleItem(event) {
   try {
     if (drag.type === "candidate") {
       const item = drag.data;
-      const payload = await careScheduleJson("/api/clinical/infusions", { method: "POST", body: JSON.stringify({ patientId: item.patientId, treatmentId: item.treatmentId, cycleNumber: item.cycleNumber, scheduledAt, chair: String(target.chair), durationMinutes: careScheduleItemDuration(item), clinicalStatus: "planned", pharmacyStatus: "pending", administrationStatus: "not_started", notes: "Turno asignado desde el turnero por sillon", sourceRef: { scheduler: { scheme: item.scheme || "", drugScheme: item.drugScheme || item.scheme || "", timeBasis: "local-wall-clock-v2", prescriptionConfirmed: careSchedulePrescriptionConfirmed(item), medicationReceived: careScheduleMedicationReceived(item), medicationWithPatient: careScheduleMedicationWithPatient(item), medicationLocation: careScheduleMedicationWithPatient(item) ? "patient" : "", appointmentConfirmed: false } }, medications: [] }) });
+      const payload = await careScheduleJson("/api/clinical/infusions", { method: "POST", body: JSON.stringify({ patientId: item.patientId, treatmentId: item.treatmentId, cycleNumber: item.cycleNumber, applicationDay: Number(item.applicationDay) || 1, scheduledAt, chair: String(target.chair), durationMinutes: careScheduleItemDuration(item), clinicalStatus: "planned", pharmacyStatus: "pending", administrationStatus: "not_started", notes: "Turno asignado desde el turnero por sillon", sourceRef: { scheduler: { scheme: item.scheme || "", drugScheme: item.drugScheme || item.scheme || "", applicationDay: Number(item.applicationDay) || 1, durationSource: item.durationSource || "", timeBasis: "local-wall-clock-v2", prescriptionConfirmed: careSchedulePrescriptionConfirmed(item), medicationReceived: careScheduleMedicationReceived(item), medicationWithPatient: careScheduleMedicationWithPatient(item), medicationLocation: careScheduleMedicationWithPatient(item) ? "patient" : "", appointmentConfirmed: false } }, medications: item.applicationDrugs || item.medications || [] }) });
       careScheduleInfusions = careScheduleInfusions.map((infusion) => infusion.id === optimisticId
         ? { ...infusion, ...(payload.infusion || {}), patientName: item.patientName, optimistic: false }
         : infusion);
@@ -3760,7 +5662,7 @@ async function removeCareScheduleAppointment(event) {
     if (infusionId) openCareScheduleDetailModal(infusionId);
     return;
   }
-  if (!clinicalHasPermission("section.day-hospital.edit")) {
+  if (!clinicalHasPermission("application.schedule.manage")) {
     toast("Su rol permite consultar el turnero, pero no modificarlo.");
     return;
   }
@@ -3779,8 +5681,6 @@ async function removeCareScheduleAppointment(event) {
         scheduledAt: null,
         chair: null,
         clinicalStatus: "cancelled",
-        pharmacyStatus: "cancelled",
-        administrationStatus: "cancelled",
         reason: "Turno eliminado desde el turnero por sillon",
       }),
     });
@@ -3840,7 +5740,7 @@ function resetCareQrScanner() {
 }
 
 function openCareQrScannerModal() {
-  if (!clinicalHasPermission("section.day-hospital.edit")) {
+  if (!clinicalHasPermission("application.administration.manage")) {
     toast("Su rol permite consultar Hospital de día, pero no registrar escaneos.");
     return;
   }
@@ -4036,6 +5936,7 @@ function normalizeCareQrInfusion(payload) {
     patientId: String(infusion.patientId || patient.id || "").trim(),
     treatmentId: String(infusion.treatmentId || treatment.id || "").trim(),
     cycleNumber: Number(infusion.cycleNumber) || 1,
+    applicationDay: Number(infusion.applicationDay) || 1,
     patientName: infusion.patientName || patient.fullName || patient.name || "Paciente sin nombre",
     patientDni: infusion.patientDni || patient.dni || "",
     medicalRecord: infusion.medicalRecord || patient.medicalRecord || "",
@@ -4048,7 +5949,8 @@ function enrichCareQrInfusion(item) {
   const candidate = careScheduleCandidates.find((entry) =>
     String(entry.patientId || "") === String(item.patientId || "") &&
     String(entry.treatmentId || "") === String(item.treatmentId || "") &&
-    Number(entry.cycleNumber) === Number(item.cycleNumber)) || {};
+    Number(entry.cycleNumber) === Number(item.cycleNumber) &&
+    Number(entry.applicationDay) === Number(item.applicationDay)) || {};
   const patient = state?.patient || {};
   return {
     ...candidate,
@@ -4089,7 +5991,7 @@ function renderCareQrResolved(payload) {
     <dl>
       <div><dt>Documento</dt><dd>${escapeHtml(patient.dni ? `DNI ${patient.dni}` : "DNI no informado")}</dd></div>
       <div><dt>Tratamiento</dt><dd>${escapeHtml(careQrEntityLabel(treatment.scheme, infusion.scheme))}</dd></div>
-      <div><dt>Ciclo</dt><dd>${escapeHtml(infusion.cycleNumber)}</dd></div>
+      <div><dt>Aplicación</dt><dd>Ciclo ${escapeHtml(infusion.cycleNumber)} · Día ${escapeHtml(infusion.applicationDay)}</dd></div>
       <div><dt>Turno</dt><dd>${escapeHtml(appointment)}</dd></div>
     </dl>
     <div class="care-qr-result-actions">
@@ -4140,8 +6042,8 @@ async function openResolvedCareQrAdministration() {
   if (careQrScannerBusy) return;
   const payload = careQrScannerResolved;
   const infusion = normalizeCareQrInfusion(payload);
-  if (!payload?.patient?.id || !payload?.treatment?.id || !infusion.id) {
-    setCareQrScannerStatus("error", "Vuelva a identificar el QR", "No hay una aplicación confirmada para abrir.");
+  if (!payload?.patient?.id || !payload?.treatment?.id || !infusion.cycleNumber || !infusion.applicationDay) {
+    setCareQrScannerStatus("error", "Vuelva a identificar el QR", "El código no identifica una aplicación completa.");
     return;
   }
   const requestVersion = ++careQrScannerRequestVersion;
@@ -4153,21 +6055,27 @@ async function openResolvedCareQrAdministration() {
   try {
     await activateCareQrPatient(payload.patient.id);
     if (requestVersion !== careQrScannerRequestVersion) return;
-    const latestPayload = await careScheduleJson(
-      `/api/clinical/infusions?patientId=${encodeURIComponent(payload.patient.id)}&t=${Date.now()}`
-    );
-    if (requestVersion !== careQrScannerRequestVersion) return;
-    const latestInfusion = (latestPayload.infusions || []).find((item) =>
-      String(item.id) === String(infusion.id));
-    if (!latestInfusion) throw new Error("La aplicación ya no está disponible. Actualice el turno y vuelva a escanear.");
-    const enrichedInfusion = enrichCareQrInfusion({ ...infusion, ...latestInfusion });
-    mergeCareQrInfusion(enrichedInfusion);
+    const workflowSeed = normalizeCareApplicationWorkflow({
+      ...infusion,
+      patient: payload.patient,
+      treatment: payload.treatment,
+      patientId: payload.patient.id,
+      treatmentId: payload.treatment.id
+    });
+    const workflowKey = workflowSeed.workflowKey;
+    careApplicationQueues.administration = [
+      workflowSeed,
+      ...careApplicationQueues.administration.filter((item) => item.workflowKey !== workflowKey)
+    ];
     careQrScannerBusy = false;
     closeCareQrScannerModal({ restoreFocus: false });
-    openCareScheduleDetailModal(enrichedInfusion.id, {
-      source: "qr",
-      qrScan: { ...payload, infusion: enrichedInfusion }
-    });
+    setCareHospitalTab("chairs");
+    setCareChairMode("room");
+    await openCareApplicationWorkflowModal(
+      "administration",
+      workflowKey,
+      $("#openCareQrScannerBtn")
+    );
     toast(payload.idempotent || payload.scan?.idempotent
       ? "QR ya registrado; ficha de administración abierta"
       : "QR registrado; ficha de administración abierta");
@@ -4198,7 +6106,7 @@ function handleCareQrResolvedAction(event) {
 async function resolveCareQrCode(rawCode) {
   const code = String(rawCode || "").trim();
   if (careQrScannerBusy) return;
-  if (!clinicalHasPermission("section.day-hospital.edit")) {
+  if (!clinicalHasPermission("application.administration.manage")) {
     setCareQrScannerStatus("error", "Acción no permitida", "El registro del escaneo requiere permiso de edición en Hospital de día.");
     return;
   }
@@ -4297,7 +6205,7 @@ function careQrAdministrationState(item) {
   const administrationReady = administrationStatus === "completed";
   const clinicalReady = clinicalStatus === "observation";
   const completed = clinicalStatus === "completed";
-  const unavailable = ["cancelled"].includes(clinicalStatus) || ["cancelled", "withheld"].includes(administrationStatus);
+  const unavailable = clinicalStatus === "cancelled" || administrationStatus === "cancelled";
   const blockers = [];
   if (!completed && !clinicalReady) blockers.push("El estado clínico debe estar En observación.");
   if (!completed && !pharmacyReady) blockers.push("Farmacia debe estar Liberada o No requerida.");
@@ -4334,7 +6242,7 @@ function careQrAdministrationState(item) {
 
 function renderCareQrAdministrationCompletion(item) {
   const stateInfo = careQrAdministrationState(item);
-  const canEdit = clinicalHasPermission("section.day-hospital.edit");
+  const canEdit = clinicalHasPermission("application.administration.manage");
   const statusLabel = CARE_INFUSION_LABELS[stateInfo.clinicalStatus] || stateInfo.clinicalStatus;
   const pharmacyLabel = CARE_INFUSION_LABELS[stateInfo.pharmacyStatus] || stateInfo.pharmacyStatus;
   const administrationLabel = CARE_INFUSION_LABELS[stateInfo.administrationStatus] || stateInfo.administrationStatus;
@@ -4346,10 +6254,8 @@ function renderCareQrAdministrationCompletion(item) {
     </section>`;
   }
   const stateMessage = stateInfo.unavailable
-    ? "La aplicación está cancelada o suspendida y no admite finalización."
-    : stateInfo.allowed
-      ? "Todo listo para cerrar. Confirme la administración y deje una observación clínica."
-      : "Complete los puntos pendientes antes de cerrar la aplicación.";
+    ? "La aplicación está cancelada o suspendida y no admite administración."
+    : "Abra la ficha operativa para iniciar, interrumpir, reanudar o completar la administración. Cada acción quedará vinculada al usuario activo y a esta lectura del QR.";
   const checklist = [
     ["Estado clínico", stateInfo.clinicalReady, stateInfo.clinicalReady ? "En observación" : statusLabel],
     ["Farmacia", stateInfo.pharmacyReady, pharmacyLabel],
@@ -4364,28 +6270,15 @@ function renderCareQrAdministrationCompletion(item) {
   const checklistMarkup = checklist.map(([label, ready, value]) =>
     `<li class="care-qr-check ${ready ? "is-ready" : "is-pending"}"><i data-lucide="${ready ? "circle-check-big" : "circle-dashed"}"></i><span><strong>${escapeHtml(label)}</strong><small>${escapeHtml(value)}</small></span></li>`
   ).join("");
-  const nextStep = getCareInfusionNextStep(item);
-  const nextStepMarkup = nextStep && !stateInfo.unavailable
-    ? `<div class="care-qr-next-step"><span><strong>Siguiente paso</strong><small>${escapeHtml(nextStep.label)} para continuar el circuito.</small></span><button class="tool-button primary" type="button" data-care-infusion-action="advance" data-infusion-id="${escapeAttr(item.id || "")}" data-version="${escapeAttr(item.revision || "")}"${canEdit && !careInfusionMutationBusy ? "" : " disabled"}><i data-lucide="arrow-right"></i><span>${escapeHtml(nextStep.label)}</span></button></div>`
-    : "";
-  return `<section class="care-qr-administration" aria-label="Finalización de la administración">
-    <header><i data-lucide="clipboard-check"></i><div><small>Administración por QR</small><strong>Finalizar aplicación</strong><span>${escapeHtml(stateMessage)}</span></div>
+  return `<section class="care-qr-administration" aria-label="Control de la administración">
+    <header><i data-lucide="clipboard-check"></i><div><small>Administración por QR</small><strong>Ficha de administración</strong><span>${escapeHtml(stateMessage)}</span></div>
       <button class="tool-button care-qr-open-treatment" type="button" data-care-qr-open-treatment data-treatment-id="${escapeAttr(item.treatmentId || "")}" data-cycle-number="${escapeAttr(Number(item.cycleNumber) || 1)}"><i data-lucide="notebook-tabs"></i><span>Abrir tratamiento completo</span></button>
     </header>
-    <ul class="care-qr-closing-checklist" aria-label="Requisitos para finalizar">${checklistMarkup}</ul>
-    ${nextStepMarkup}
+    <ul class="care-qr-closing-checklist" aria-label="Estado del circuito">${checklistMarkup}</ul>
     <form id="careQrAdministrationCompletionForm" novalidate>
-      <label class="care-qr-confirmation">
-        <input id="careQrAdministrationConfirmed" name="confirmed" type="checkbox"${stateInfo.allowed && canEdit ? "" : " disabled"}>
-        <span><strong>Confirmo que la administración fue completada</strong><small>Esta acción queda vinculada al usuario activo y a la lectura del QR.</small></span>
-      </label>
-      <label class="care-qr-observation" for="careQrAdministrationObservation">
-        <span>Observación de finalización</span>
-        <textarea id="careQrAdministrationObservation" name="observation" rows="3" minlength="3" maxlength="3000" required placeholder="Registre tolerancia, incidencias o condición al egreso"${stateInfo.allowed && canEdit ? "" : " disabled"}></textarea>
-      </label>
       <div class="care-qr-administration-actions">
-        <p id="careQrAdministrationStatus" role="status" aria-live="polite">${canEdit ? escapeHtml(stateMessage) : "Su rol no permite finalizar aplicaciones."}</p>
-        <button class="tool-button primary" id="careQrAdministrationCompleteBtn" type="submit" disabled><i data-lucide="check-check"></i><span>Finalizar aplicación</span></button>
+        <p id="careQrAdministrationStatus" role="status" aria-live="polite">${canEdit ? escapeHtml(stateMessage) : "Su rol permite consultar, pero no administrar aplicaciones."}</p>
+        <button class="tool-button primary" id="careQrAdministrationCompleteBtn" type="submit" disabled><i data-lucide="clipboard-check"></i><span>Abrir ficha de administración</span></button>
       </div>
     </form>
   </section>`;
@@ -4396,15 +6289,11 @@ function syncCareQrAdministrationCompletion(event) {
   if (!form || careScheduleDetailSource !== "qr") return;
   const item = careScheduleInfusions.find((infusion) => String(infusion.id) === careScheduleDetailInfusionId);
   const stateInfo = careQrAdministrationState(item);
-  const confirmed = Boolean(form.elements.confirmed?.checked);
-  const observation = String(form.elements.observation?.value || "").trim();
   const button = $("#careQrAdministrationCompleteBtn", form);
   if (button) {
     button.disabled = careQrFinalizeBusy ||
-      !clinicalHasPermission("section.day-hospital.edit") ||
-      !stateInfo.allowed ||
-      !confirmed ||
-      observation.length < 3;
+      !clinicalHasPermission("application.administration.manage") ||
+      stateInfo.unavailable;
   }
 }
 
@@ -4445,73 +6334,18 @@ async function openCareQrTreatmentFromDetail(event) {
 async function submitCareQrAdministrationCompletion(event) {
   if (!event.target.matches("#careQrAdministrationCompletionForm")) return;
   event.preventDefault();
-  if (careQrFinalizeBusy || careScheduleDetailSource !== "qr") return;
-  if (!clinicalHasPermission("section.day-hospital.edit")) {
-    setCareQrAdministrationStatus("Su rol no permite finalizar aplicaciones.", "error");
-    return;
-  }
-  const form = event.target;
   const item = careScheduleInfusions.find((infusion) => String(infusion.id) === careScheduleDetailInfusionId);
   if (!item) {
     setCareQrAdministrationStatus("La aplicación ya no está disponible. Vuelva a escanear el QR.", "error");
     return;
   }
-  const stateInfo = careQrAdministrationState(item);
-  if (!stateInfo.allowed) {
-    setCareQrAdministrationStatus("El estado actual no permite finalizar. Avance primero hasta En observación.", "error");
-    syncCareQrAdministrationCompletion();
-    return;
-  }
-  const confirmed = Boolean(form.elements.confirmed?.checked);
-  const observation = String(form.elements.observation?.value || "").trim();
-  if (!confirmed || observation.length < 3) {
-    setCareQrAdministrationStatus("Confirme la administración y escriba una observación de al menos 3 caracteres.", "error");
-    syncCareQrAdministrationCompletion();
-    return;
-  }
-  const expectedVersion = Number(item.revision);
-  if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 1) {
-    setCareQrAdministrationStatus("La aplicación no tiene una versión válida. Vuelva a escanear el QR.", "error");
-    return;
-  }
-  careQrFinalizeOperationId ||= makeId("qr-finalize");
-  careQrFinalizeBusy = true;
-  syncCareQrAdministrationCompletion();
-  setCareQrAdministrationStatus("Registrando la finalización y la evolución clínica...", "loading");
-  try {
-    const payload = await careScheduleJson(`/api/clinical/infusions/${encodeURIComponent(item.id)}/finalize`, {
-      method: "POST",
-      body: JSON.stringify({
-        expectedVersion,
-        observation,
-        operationId: careQrFinalizeOperationId,
-        confirmed: true
-      })
-    });
-    if (payload.ok === false || !payload.infusion?.id) {
-      throw new Error(payload.error || "El servidor no confirmó la finalización.");
-    }
-    const completed = { ...item, ...payload.infusion };
-    mergeCareQrInfusion(completed);
-    if (careScheduleDetailQrScan) careScheduleDetailQrScan = { ...careScheduleDetailQrScan, infusion: completed };
-    if (getActiveLiraPatientId() === String(completed.patientId || "")) {
-      try {
-        await loadState({ forceServer: true });
-        syncClinicalActorToState();
-        renderAll();
-      } catch {
-        // La finalización ya quedó confirmada; la historia podrá refrescarse manualmente.
-      }
-    }
-    renderCareSchedule();
-    renderCareScheduleDetail();
-    toast(payload.idempotent ? "La aplicación ya estaba finalizada" : "Aplicación finalizada y evolución registrada");
-  } catch (error) {
-    setCareQrAdministrationStatus(error.message || "No se pudo finalizar la aplicación.", "error");
-  } finally {
-    careQrFinalizeBusy = false;
-    syncCareQrAdministrationCompletion();
-  }
+  const workflow = normalizeCareApplicationWorkflow(item);
+  careApplicationQueues.administration = [
+    workflow,
+    ...careApplicationQueues.administration.filter((entry) => entry.workflowKey !== workflow.workflowKey)
+  ];
+  closeCareScheduleDetailModal({ restoreFocus: false });
+  await openCareApplicationWorkflowModal("administration", workflow.workflowKey);
 }
 
 function renderCareScheduleDetail() {
@@ -4530,8 +6364,14 @@ function renderCareScheduleDetail() {
     ? new Intl.DateTimeFormat("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false }).format(scheduled)
     : "Sin hora";
   const medicationReceived = careScheduleMedicationReceived(item);
+  const medicationWithPatient = careScheduleMedicationWithPatient(item);
+  const medicationSource = careScheduleMedicationSource(item);
   const appointmentConfirmed = careScheduleAppointmentConfirmed(item);
-  const prescriptionConfirmed = item.prescriptionConfirmed !== false && Boolean(item.treatmentId);
+  const prescriptionConfirmed = careSchedulePrescriptionConfirmed(item);
+  const pharmacyWorkflow = careScheduleCandidatePharmacy(item);
+  const stockReserved = medicationSource === "center_stock" &&
+    careApplicationStockReserved(pharmacyWorkflow || item);
+  const medicationAvailable = medicationReceived || medicationWithPatient || stockReserved;
   const patientDni = careSchedulePatientDni(item);
   const insurance = String(item.insurance || "").trim();
   const affiliateNumber = String(item.affiliateNumber || "").trim();
@@ -4551,13 +6391,16 @@ function renderCareScheduleDetail() {
       <div><dt>Diagnóstico</dt><dd>${escapeHtml(item.diagnosis || "No informado")}</dd></div>
       <div><dt>Esquema</dt><dd>${escapeHtml(careScheduleInfusionScheme(item))}</dd></div>
       <div><dt>Turno</dt><dd>${escapeHtml(dateLabel)} · ${escapeHtml(timeLabel)} · Sillón ${escapeHtml(careScheduleChair(item.chair) || "—")}</dd></div>
-      <div><dt>Ciclo y duración</dt><dd>Ciclo ${escapeHtml(Number(item.cycleNumber) || 1)} · ${escapeHtml(careScheduleDurationLabel(careScheduleItemDuration(item)))}</dd></div>
+      <div><dt>Aplicación y duración</dt><dd>Ciclo ${escapeHtml(Number(item.cycleNumber) || 1)} · Día ${escapeHtml(Number(item.applicationDay) || 1)} · ${escapeHtml(careScheduleDurationLabel(careScheduleItemDuration(item)))}</dd></div>
     </dl>
     <section class="care-schedule-detail-confirmations" aria-label="Confirmaciones del turno">
       ${careScheduleDetailStatus("Prescripción", prescriptionConfirmed, "Confirmada", "No confirmada")}
-      <button type="button" data-care-schedule-detail-flag="medicationReceived" class="${medicationReceived ? "is-confirmed" : "is-pending"}" aria-pressed="${medicationReceived}">
-        <i data-lucide="${medicationReceived ? "package-check" : "package"}"></i><span>Recepción de medicación</span><strong>${medicationReceived ? "Recibida" : "No confirmada"}</strong><small>${medicationReceived ? "Haga clic para desmarcar" : "Haga clic para confirmar"}</small>
-      </button>
+      ${careScheduleDetailStatus(
+        "Medicación",
+        medicationAvailable,
+        medicationReceived ? "Recibida en el centro" : medicationWithPatient ? "La tiene el paciente" : "Stock reservado en el centro",
+        medicationSource === "patient_to_bring" ? "Debe traerla el paciente" : "Pendiente de Farmacia"
+      )}
       <button type="button" data-care-schedule-detail-flag="appointmentConfirmed" class="${appointmentConfirmed ? "is-confirmed" : "is-pending"}" aria-pressed="${appointmentConfirmed}">
         <i data-lucide="${appointmentConfirmed ? "calendar-check-2" : "calendar-clock"}"></i><span>Confirmación del turno</span><strong>${appointmentConfirmed ? "Confirmado" : "No confirmado"}</strong><small>${appointmentConfirmed ? "Haga clic para desmarcar" : "Haga clic para confirmar"}</small>
       </button>
@@ -4570,17 +6413,15 @@ function renderCareScheduleDetail() {
 async function updateCareScheduleDetailFlag(event) {
   const button = event.target.closest("[data-care-schedule-detail-flag]");
   if (!button || careScheduleBusy) return;
-  if (!clinicalHasPermission("section.day-hospital.edit")) {
-    toast("Su rol permite consultar el turno, pero no modificarlo.");
+  const flag = button.dataset.careScheduleDetailFlag;
+  if (flag !== "appointmentConfirmed") return;
+  if (!clinicalHasPermission("application.schedule.manage")) {
+    toast("Su rol permite consultar el turno, pero no modificar este dato.");
     return;
   }
-  const flag = button.dataset.careScheduleDetailFlag;
-  if (!["medicationReceived", "appointmentConfirmed"].includes(flag)) return;
   const item = careScheduleInfusions.find((infusion) => String(infusion.id) === careScheduleDetailInfusionId);
   if (!item) return;
-  const nextValue = flag === "medicationReceived"
-    ? !careScheduleMedicationReceived(item)
-    : !careScheduleAppointmentConfirmed(item);
+  const nextValue = !careScheduleAppointmentConfirmed(item);
   const scheduler = {
     ...(item.sourceRef?.scheduler || {}),
     [flag]: nextValue,
@@ -4594,19 +6435,16 @@ async function updateCareScheduleDetailFlag(event) {
       method: "PATCH",
       body: JSON.stringify({
         expectedVersion: item.revision,
+        appointmentConfirmed: nextValue,
         sourceRef,
-        reason: flag === "medicationReceived"
-          ? "Actualización de recepción de medicación desde el turnero"
-          : "Actualización de confirmación del turno",
+        reason: "Actualización de confirmación del turno",
       }),
     });
     careScheduleInfusions = careScheduleInfusions.map((infusion) => String(infusion.id) === String(item.id)
       ? { ...infusion, ...(payload.infusion || {}), sourceRef, [flag]: nextValue }
       : infusion);
     renderCareSchedule();
-    toast(flag === "medicationReceived"
-      ? nextValue ? "Recepción de medicación confirmada" : "Recepción de medicación desmarcada"
-      : nextValue ? "Turno confirmado" : "Confirmación de turno desmarcada");
+    toast(nextValue ? "Turno confirmado" : "Confirmación de turno desmarcada");
   } catch (error) {
     toast(error.message);
     if (error.code === "VERSION_CONFLICT") await loadCareSchedule();
@@ -4732,10 +6570,6 @@ function renderCareWorkspace() {
     .forEach((button) => {
       button.disabled = !patientId || careBusy || !clinicalHasPermission("section.prescriptions.edit");
     });
-  if ($("#openCareInfusionModalBtn")) {
-    $("#openCareInfusionModalBtn").disabled =
-      !patientId || careBusy || !clinicalHasPermission("section.day-hospital.edit");
-  }
   setCareView(careView, { refresh: false });
   if (!patientId) {
     careTreatments = [];
@@ -5120,7 +6954,13 @@ async function openCareTreatmentManagerModal({ mode = careScheduleMode } = {}) {
   if (!wasOpen) showCareModal("careTreatmentManagerModal");
   setCareHospitalTab(mode);
   window.requestAnimationFrame(() => $(`[data-care-hospital-tab="${careScheduleMode}"]`)?.focus());
-  if (careScheduleMode === "chairs" || careScheduleMode === "pharmacy") await loadCareSchedule();
+  if (careScheduleMode === "chairs") {
+    setCareChairMode(careChairMode);
+    await loadCareSchedule();
+    if (careChairMode === "room") await loadCareApplicationQueue("administration");
+  } else if (["pharmacy", "triage", "preparation"].includes(careScheduleMode)) {
+    await loadCareApplicationQueue(careScheduleMode);
+  }
   else if (careScheduleMode === "treatments" && getActiveLiraPatientId() && !careTreatments.length && !careBusy) await refreshCareWorkspace();
 }
 
@@ -5135,6 +6975,7 @@ function closeCareTreatmentManagerModal({ restoreFocus = true } = {}) {
   clearCareScheduleDragTarget(true);
   clearCareScheduleDraggingVisuals();
   closeCareScheduleDetailModal({ restoreFocus: false });
+  closeCareApplicationWorkflowModal({ restoreFocus: false });
   closeCareModal("careTreatmentManagerModal");
   $("#openCareInfusionManagerBtn")?.setAttribute("aria-expanded", "false");
   careTreatmentManagerState.mode = "list";
@@ -5187,7 +7028,7 @@ function renderCareTreatmentManagerActions() {
     const actions = getCareTreatmentManagerView().actions.filter((action) => action.name !== "view");
     output.innerHTML = actions.map((action) => {
       const permission = action.name === "new" ? "section.prescriptions.edit"
-        : action.name === "schedule" ? "section.day-hospital.edit" : "section.day-hospital.edit";
+        : action.name === "schedule" ? "application.schedule.manage" : "section.prescriptions.edit";
       const allowed = clinicalHasPermission(permission);
       return `
       <button class="tool-button${action.primary ? " primary" : ""}${action.danger ? " danger" : ""}" type="button" data-care-manager-action="${escapeAttr(action.name)}" data-permission="${escapeAttr(permission)}"${!allowed || disabledByContext || (action.selection && !selected) ? " disabled" : ""}>
@@ -5530,8 +7371,13 @@ function renderCareTreatmentCycleStrip(item) {
   const sessions = careInfusions.filter((session) => careField(session, "treatmentId", "treatment_id") === treatmentId);
   return Array.from({ length: count }, (_, index) => {
     const cycle = index + 1;
-    const session = sessions.find((candidate) => Number(careField(candidate, "cycleNumber", "cycle_number")) === cycle);
-    const stateValue = careField(session, "clinicalStatus", "clinical_status", "status");
+    const cycleSessions = sessions.filter((candidate) =>
+      Number(careField(candidate, "cycleNumber", "cycle_number")) === cycle);
+    const stateValue = cycleSessions.length && cycleSessions.every((session) =>
+      /complet|finaliz|termin/.test(normalizeSearchText(
+        careField(session, "clinicalStatus", "clinical_status", "status"))))
+      ? "completed"
+      : cycleSessions.length ? "in_progress" : "planned";
     const stateClass = careInfusionVisualState(stateValue);
     return `<span class="care-treatment-cycle ${stateClass}">Ciclo ${cycle}</span>`;
   }).join("");
@@ -5546,10 +7392,11 @@ function renderCareTreatmentApplications(item) {
   return `<ol class="care-treatment-application-timeline">${sessions.map((session) => {
     const status = careField(session, "clinicalStatus", "clinical_status", "status") || "planned";
     const cycle = careField(session, "cycleNumber", "cycle_number") || "—";
+    const applicationDay = careField(session, "applicationDay", "application_day") || 1;
     const date = careField(session, "scheduledAt", "scheduled_at");
     const chair = careField(session, "chair", "sillon");
     const statusClass = careInfusionVisualState(status);
-    return `<li class="${statusClass}"><span></span><div><strong>Ciclo ${escapeHtml(cycle)}</strong><small>${escapeHtml(formatCareDateTime(date))}${chair ? ` · Sillon ${escapeHtml(chair)}` : ""}</small><em>${escapeHtml(CARE_INFUSION_LABELS[status] || status)}</em></div></li>`;
+    return `<li class="${statusClass}"><span></span><div><strong>Ciclo ${escapeHtml(cycle)} · Día ${escapeHtml(applicationDay)}</strong><small>${escapeHtml(formatCareDateTime(date))}${chair ? ` · Sillon ${escapeHtml(chair)}` : ""}</small><em>${escapeHtml(CARE_INFUSION_LABELS[status] || status)}</em></div></li>`;
   }).join("")}</ol>`;
 }
 
@@ -5610,11 +7457,44 @@ async function loadCareTreatmentLocalScheme(item) {
   }
 }
 
+const CARE_MAX_APPLICATION_DAY = 3650;
+
 function careTreatmentApplicationDayNumbers(value) {
   const days = [...String(value || "").matchAll(/\d+/g)]
     .map((match) => Number(match[0]))
-    .filter((number) => Number.isSafeInteger(number) && number > 0 && number <= 365);
+    .filter((number) =>
+      Number.isSafeInteger(number) && number > 0 && number <= CARE_MAX_APPLICATION_DAY);
   return [...new Set(days.length ? days : [1])].sort((left, right) => left - right);
+}
+
+function careTreatmentOptionalBoolean(record, ...fields) {
+  for (const field of fields) {
+    const value = record?.[field];
+    if (value === undefined || value === null || value === "") continue;
+    if (typeof value === "boolean") return value;
+    const normalized = normalizeSearchText(value);
+    if (["1", "true", "si", "yes"].includes(normalized)) return true;
+    if (["0", "false", "no"].includes(normalized)) return false;
+  }
+  return null;
+}
+
+function careTreatmentRequiresDayHospital(drug) {
+  const source = drug?.source && typeof drug.source === "object" ? drug.source : {};
+  const chairRequired = careTreatmentOptionalBoolean(drug, "chairRequired") ??
+    careTreatmentOptionalBoolean(source, "chairRequired");
+  if (chairRequired !== null) return chairRequired;
+  const route = normalizeSearchText(
+    careField(drug, "route", "viaAdministracion", "via") ||
+    careField(source, "route", "viaAdministracion", "via")
+  );
+  if (route.includes("oral")) return false;
+  const explicit = careTreatmentOptionalBoolean(
+    drug, "dayHospital", "seAplicaEnHdd", "usesDayHospital"
+  ) ?? careTreatmentOptionalBoolean(
+    source, "dayHospital", "seAplicaEnHdd", "usesDayHospital"
+  );
+  return explicit ?? true;
 }
 
 function careTreatmentLocalMedicationState(medication) {
@@ -5640,7 +7520,8 @@ function careTreatmentLocalDrugs(item, scheme, sessions) {
       administrationTime: careField(component, "administrationTime", "tiempoAdministracion"),
       creatinine: calculation.creatinina,
       targetAuc: calculation.targetAUC,
-      totalDoseText: careField(component, "totalDoseText", "prescribedDoseText", "doseText", "dosisDiaria")
+      totalDoseText: careField(component, "totalDoseText", "prescribedDoseText", "doseText", "dosisDiaria"),
+      source: component
     }));
   }
   const medications = sessions.flatMap((session) =>
@@ -5654,7 +7535,9 @@ function careTreatmentLocalDrugs(item, scheme, sessions) {
       applicationDays: "1",
       route: careField(medication, "route", "via"),
       administrationTime: "",
-      totalDoseText: careField(medication, "prescribedDoseText", "prescribed_dose_text", "doseText")
+      totalDoseText: careField(medication, "prescribedDoseText", "prescribed_dose_text", "doseText"),
+      chairRequired: true,
+      source: medication
     }];
   })).values()];
 }
@@ -5668,6 +7551,7 @@ function careTreatmentLocalApplication(session) {
     : notes ? [{ observation: notes, user: "Equipo tratante" }] : [];
   return {
     applicationId: careField(session, "id", "sessionId") || `local-${cycleNumber}-${scheduledAt || "sin-fecha"}`,
+    applicationDay: Number(careField(session, "applicationDay", "application_day")) || 1,
     sourceCycleId: "",
     date: formatCareDateTime(scheduledAt),
     scheduledAt,
@@ -5685,6 +7569,8 @@ function buildCareTreatmentLocalDetail(item, scheme = null) {
     Number(careField(item, "cantidadCiclos", "cycles", "cycleCount")) || initialCycle
   ));
   const drugs = careTreatmentLocalDrugs(item, scheme, sessions);
+  const dayHospitalDrugs = drugs.filter(careTreatmentRequiresDayHospital);
+  const homeMedications = drugs.filter((drug) => !careTreatmentRequiresDayHospital(drug));
   const cycles = Array.from({ length: totalCycles - initialCycle + 1 }, (_, index) => {
     const number = initialCycle + index;
     const cycleSessions = sessions.filter((session) =>
@@ -5693,14 +7579,21 @@ function buildCareTreatmentLocalDetail(item, scheme = null) {
       normalizeSearchText(careField(session, "clinicalStatus", "clinical_status", "status")));
     const completed = statuses.length > 0 && statuses.every((status) => /complete|finaliz|termin/.test(status));
     const cycleState = completed ? "completed" : cycleSessions.length ? "current" : "pending";
-    const storedMedications = cycleSessions.flatMap((session) =>
-      Array.isArray(session?.medications) ? session.medications : []);
-    const dayNumbers = [...new Set(drugs.flatMap((drug) =>
-      careTreatmentApplicationDayNumbers(drug.applicationDays)))];
+    const dayNumbers = [...new Set([
+      ...dayHospitalDrugs.flatMap((drug) =>
+        careTreatmentApplicationDayNumbers(drug.applicationDays)),
+      ...cycleSessions.map((session) =>
+        Number(careField(session, "applicationDay", "application_day")))
+        .filter((day) =>
+          Number.isSafeInteger(day) && day > 0 && day <= CARE_MAX_APPLICATION_DAY)
+    ])];
     const days = dayNumbers.sort((left, right) => left - right).map((day) => {
-      const scheduledDrugs = drugs.filter((drug) =>
+      const scheduledDrugs = dayHospitalDrugs.filter((drug) =>
         careTreatmentApplicationDayNumbers(drug.applicationDays).includes(day));
-      const medicationRows = day === dayNumbers[0] && storedMedications.length
+      const daySession = cycleSessions.find((session) =>
+        Number(careField(session, "applicationDay", "application_day")) === Number(day));
+      const storedMedications = Array.isArray(daySession?.medications) ? daySession.medications : [];
+      const medicationRows = storedMedications.length
         ? storedMedications.map((medication) => ({
           drugName: careField(medication, "drugName", "drug_name", "name") || "Droga",
           actualDoseText: careField(medication, "prescribedDoseText", "prescribed_dose_text", "doseText"),
@@ -5713,7 +7606,14 @@ function buildCareTreatmentLocalDetail(item, scheme = null) {
           prescribedDoseText: "",
           status: "planned"
         }));
-      return { day, rest: false, status: completed ? "completed" : "pending", medications: medicationRows };
+      return {
+        day,
+        rest: false,
+        status: daySession
+          ? careField(daySession, "clinicalStatus", "clinical_status", "status") || "current"
+          : completed ? "completed" : "pending",
+        medications: medicationRows
+      };
     });
     return {
       number,
@@ -5722,6 +7622,7 @@ function buildCareTreatmentLocalDetail(item, scheme = null) {
       disabled: false,
       sourceCycleId: "",
       drugs,
+      homeMedications,
       applications: cycleSessions.map(careTreatmentLocalApplication),
       days
     };
@@ -5796,20 +7697,23 @@ function renderCareExactCycleLegend() {
 
 function careTreatmentValueWithUnit(value, unit) {
   const textValue = String(value || "").trim();
+  const textUnit = String(unit || "").trim();
   if (!textValue) return "";
-  return /[a-z%]/i.test(textValue) ? textValue : `${textValue} ${unit}`;
+  return /[a-z%]/i.test(textValue) || !textUnit ? textValue : `${textValue} ${textUnit}`;
 }
 
 function renderCareExactDrugs(cycle) {
   const drugs = Array.isArray(cycle?.drugs) ? cycle.drugs : [];
   if (!drugs.length) return `<div class="care-treatment-detail-empty">Este ciclo no tiene drogas prescriptas.</div>`;
   return `<div class="care-treatment-drug-cards">${drugs.map((drug) => {
+    const doseUnit = String(drug.doseUnit || drug.unidadDosis || drug.unidad || "").trim();
     const rows = [
       ["Método de cálculo de dosis:", drug.calculationMethod],
       drug.creatinine && ["Creatinina:", careTreatmentValueWithUnit(drug.creatinine, "mg/dl")],
       drug.targetAuc && ["Target AUC (área bajo la curva):", careTreatmentValueWithUnit(drug.targetAuc, "mg/ml/min")],
-      ["Dosis diaria calculada:", drug.calculatedDoseText],
-      ["Dosis diaria real:", drug.prescribedDoseText],
+      ["Dosis diaria calculada:", careTreatmentValueWithUnit(drug.calculatedDoseText, doseUnit)],
+      ["Dosis diaria real:", careTreatmentValueWithUnit(drug.prescribedDoseText, doseUnit)],
+      ["Unidad de dosis:", doseUnit || "No configurada · confirmar en Farmacia"],
       ["Días de aplicación:", drug.applicationDays],
       ["Vía de administración:", drug.route],
       ["Tiempo de administración:", drug.administrationTime]
@@ -5817,7 +7721,7 @@ function renderCareExactDrugs(cycle) {
     return `<article>
       <header><strong>${escapeHtml(drug.drugName || "Droga")}</strong></header>
       <ul>${rows.map(([label, value]) => `<li><strong>${escapeHtml(label)}</strong>${value ? ` ${escapeHtml(value)}` : ""}</li>`).join("")}</ul>
-      <footer><strong>Cantidad total:</strong>${drug.totalDoseText ? ` ${escapeHtml(drug.totalDoseText)}` : ""}</footer>
+      <footer><strong>Cantidad total:</strong>${drug.totalDoseText ? ` ${escapeHtml(careTreatmentValueWithUnit(drug.totalDoseText, doseUnit))}` : ""}</footer>
     </article>`;
   }).join("")}</div>`;
 }
@@ -5828,18 +7732,77 @@ function careApplicationMedicationIcon(status) {
   return "house";
 }
 
+function careTreatmentMedicationIsHome(medication, cycle) {
+  const careSetting = normalizeSearchText(careField(
+    medication,
+    "careSetting", "care_setting", "setting"
+  ));
+  if (/home|domicili/.test(careSetting)) return true;
+  if (/day.hospital|hospital.de.dia|chair|sillon/.test(careSetting)) return false;
+
+  const source = medication?.source && typeof medication.source === "object"
+    ? medication.source
+    : {};
+  const explicitChair = careTreatmentOptionalBoolean(medication, "chairRequired") ??
+    careTreatmentOptionalBoolean(source, "chairRequired");
+  const route = normalizeSearchText(
+    careField(medication, "route", "viaAdministracion", "via") ||
+    careField(source, "route", "viaAdministracion", "via")
+  );
+  if (explicitChair === false || route.includes("oral")) return true;
+  if (explicitChair === true) return false;
+
+  const medicationName = normalizeSearchText(careField(
+    medication,
+    "drugName", "drug_name", "name", "droga"
+  ));
+  if (!medicationName) return false;
+  const matchingHome = (cycle?.homeMedications || []).some((drug) =>
+    normalizeSearchText(careField(drug, "drugName", "drug_name", "name", "droga")) === medicationName);
+  const matchingChair = (cycle?.drugs || []).some((drug) =>
+    careTreatmentRequiresDayHospital(drug) &&
+    normalizeSearchText(careField(drug, "drugName", "drug_name", "name", "droga")) === medicationName);
+  return matchingHome && !matchingChair;
+}
+
+function renderCareTreatmentHomeMedications(cycle) {
+  const medications = Array.isArray(cycle?.homeMedications) ? cycle.homeMedications : [];
+  if (!medications.length) return "";
+  const items = medications.map((medication) => {
+    const name = careField(medication, "drugName", "drug_name", "name", "droga") || "Medicacion";
+    const dose = careTreatmentValueWithUnit(
+      careField(medication, "prescribedDoseText", "actualDoseText", "doseText", "dosisDiaria"),
+      careField(medication, "doseUnit", "unidadDosis", "unidad")
+    );
+    const days = careField(medication, "applicationDays", "day", "dia");
+    return `<li><strong>${escapeHtml(name)}</strong>${dose ? ` · ${escapeHtml(dose)}` : ""}${days ? ` · dia(s) ${escapeHtml(days)}` : ""}</li>`;
+  }).join("");
+  return `<aside class="care-treatment-home-medications" aria-label="Medicacion domiciliaria del ciclo">
+    <i data-lucide="house"></i>
+    <div><strong>Medicacion domiciliaria</strong><span>No se prepara ni ocupa turno en Hospital de dia.</span><ul>${items}</ul></div>
+  </aside>`;
+}
+
 function renderCareExactApplicationDays(cycle, observationLabel = "Signos vitales y Obs.") {
   const days = Array.isArray(cycle?.days) ? cycle.days : [];
-  if (!days.length) return `<div class="care-treatment-detail-empty">Este ciclo aún no tiene aplicaciones registradas.</div>`;
-  return `<ol class="lira-treatment-application-days">${days.map((day, index) => {
-    const storedMedications = Array.isArray(day.medications) ? day.medications : [];
+  const homeMedications = renderCareTreatmentHomeMedications(cycle);
+  if (!days.length) {
+    return `${homeMedications}<div class="care-treatment-detail-empty">${homeMedications
+      ? "Este ciclo no requiere aplicaciones en Hospital de Dia."
+      : "Este ciclo aun no tiene aplicaciones registradas."}</div>`;
+  }
+  return `${homeMedications}<ol class="lira-treatment-application-days">${days.map((day, index) => {
+    const storedMedications = (Array.isArray(day.medications) ? day.medications : [])
+      .filter((medication) => !careTreatmentMedicationIsHome(medication, cycle));
     const plannedDrugs = (cycle.drugs || []).filter((drug) =>
+      careTreatmentRequiresDayHospital(drug) &&
       careTreatmentApplicationDayNumbers(drug.applicationDays).includes(Number(day.day)));
     const usesPlannedDrugs = !storedMedications.length && !day.rest;
     const medications = usesPlannedDrugs ? plannedDrugs.map((drug) => ({
       drugName: drug.drugName,
       actualDoseText: drug.prescribedDoseText,
       prescribedDoseText: "",
+      doseUnit: drug.doseUnit || "",
       status: "planned"
     })) : storedMedications;
     const rawState = String(day.status || "pending").trim().toLowerCase();
@@ -5862,7 +7825,7 @@ function renderCareExactApplicationDays(cycle, observationLabel = "Signos vitale
       : "";
     const content = day.rest
       ? `<strong class="lira-treatment-rest">DESCANSO</strong>`
-      : `${observationButton}${medications.map((medication) => `<p class="is-${escapeAttr(medication.status || "planned")}">${usesPlannedDrugs || medication.status === "planned" ? "" : `<i data-lucide="${careApplicationMedicationIcon(medication.status)}"></i>`}<span>${escapeHtml(medication.drugName)}:</span> ${escapeHtml(medication.actualDoseText || medication.prescribedDoseText || "")}${medication.prescribedDoseText && medication.actualDoseText ? ` <small>(${escapeHtml(medication.prescribedDoseText)})</small>` : ""}</p>`).join("")}`;
+      : `${observationButton}${medications.map((medication) => `<p class="is-${escapeAttr(medication.status || "planned")}">${usesPlannedDrugs || medication.status === "planned" ? "" : `<i data-lucide="${careApplicationMedicationIcon(medication.status)}"></i>`}<span>${escapeHtml(medication.drugName)}:</span> ${escapeHtml(careTreatmentValueWithUnit(medication.actualDoseText || medication.prescribedDoseText || "", medication.doseUnit))}${medication.prescribedDoseText && medication.actualDoseText ? ` <small>(${escapeHtml(careTreatmentValueWithUnit(medication.prescribedDoseText, medication.doseUnit))})</small>` : ""}</p>`).join("")}`;
     return `<li class="${visualState}" aria-label="Día ${escapeAttr(day.day)}: ${escapeAttr(stateLabel)}"><div class="lira-treatment-day-content">${content}</div><div class="lira-treatment-day-time" title="${escapeAttr(stateLabel)}"><h4>Día ${escapeHtml(day.day)}</h4><small>${escapeHtml(stateLabel)}</small></div></li>`;
   }).join("")}</ol>`;
 }
@@ -5910,10 +7873,20 @@ function renderCareExactDocuments(detail, cycle, patientId, treatmentId) {
   const availability = detail.documentAvailability || {};
   const sheetEnabled = actions.treatmentSheet && (actions.treatmentSheetCycles || []).includes(Number(cycle?.number));
   const sheetAvailable = (availability.treatmentSheetCycles || []).includes(Number(cycle?.number));
+  const applicationQrLinks = (cycle?.days || [])
+    .filter((day) => !day.rest && Number(day.day) > 0)
+    .map((day) => [
+      "qr",
+      `Abrir QR del ciclo ${cycle.number}, día ${day.day}`,
+      `QR D${day.day}`,
+      "qr-code",
+      { cycle: cycle.number, applicationDay: day.day },
+      true
+    ]);
   const links = [
     actions.prescription && ["prescription", "Descargar prescripción", "Prescripción", "file-down", {}, availability.prescription !== false],
     sheetEnabled && ["treatment-sheet", "Descargar hoja de tratamiento", "Hoja tratamiento", "clipboard-down", { cycle: cycle.number }, sheetAvailable || !detail.documentAvailability],
-    cycle?.number && ["qr", "Abrir QR para imprimir", "QR", "qr-code", { cycle: cycle.number }, true]
+    ...applicationQrLinks
   ].filter(Boolean);
   return `<div class="lira-treatment-downloads" aria-label="Documentos y actualización del tratamiento"><button class="lira-treatment-document-button" type="button" data-care-manager-detail-action="refresh-detail" title="Actualizar estados del tratamiento" aria-label="Actualizar estados del tratamiento"><i data-lucide="refresh-cw"></i><span>Actualizar</span></button>${links.map(([kind, label, shortLabel, icon, parameters, available]) => available
     ? `<a class="lira-treatment-document-button" href="${escapeAttr(careTreatmentDocumentUrl(patientId, treatmentId, kind, parameters))}" target="_blank" rel="noopener" title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}"><i data-lucide="${escapeAttr(icon)}"></i><span>${escapeHtml(shortLabel)}</span></a>`
@@ -7005,15 +8978,30 @@ function populateCareForms() {
       option.dataset.protocolGroupLabel = String(scheme.protocolGroupLabel || "");
     }
     renderCareProtocolCompatibility();
+    filterCareTreatmentSchemeOptions($("#careTreatmentSchemeSearch")?.value || "");
     updateCareTreatmentSubmitAvailability();
   }
-  const infusionForm = $("#careInfusionForm");
-  if (infusionForm) {
-    const treatmentSelect = selectByNames(infusionForm, "treatmentId", "tratamiento", "treatment");
-    fillCareSelect(treatmentSelect, careTreatments.map((item) => ({
-      id: careTreatmentId(item),
-      nombre: careField(item, "esquema", "scheme") || `Tratamiento ${careTreatmentId(item)}`
-    })), "Seleccione tratamiento...");
+}
+
+function filterCareTreatmentSchemeOptions(query = "") {
+  const select = $("#careTreatmentScheme");
+  if (!select) return;
+  const normalized = normalizeSearchText(query);
+  let visible = 0;
+  [...select.options].forEach((option, index) => {
+    if (index === 0) {
+      option.hidden = false;
+      return;
+    }
+    const matches = !normalized || normalizeSearchText(option.textContent).includes(normalized);
+    option.hidden = !matches && !option.selected;
+    if (matches) visible += 1;
+  });
+  const status = $("#careTreatmentSchemeSearchStatus");
+  if (status) {
+    status.textContent = normalized
+      ? `${visible} protocolos coinciden. Seleccione uno en la lista.`
+      : `${Math.max(0, select.options.length - 1)} protocolos disponibles. Puede buscarlos por nombre.`;
   }
 }
 
@@ -7068,7 +9056,7 @@ function renderCareTreatmentProjection() {
     refreshIcons();
     return;
   }
-  const projectedCount = Math.max(0, totalCycles - initialCycle + 1);
+  const projectedCount = totalCycles;
   const visibleCount = Math.min(projectedCount, 12);
   const dates = Array.from({ length: visibleCount }, (_, index) => {
     const cycle = initialCycle + index;
@@ -7095,6 +9083,7 @@ function openCareTreatmentModal() {
     delete form.dataset.clinicalEntryId;
     form.dataset.clinicalEntryId = makeId("treatment-entry");
   }
+  if ($("#careTreatmentSchemeSearch")) $("#careTreatmentSchemeSearch").value = "";
   populateCareForms();
   const firstCycleDate = $("#careTreatmentFirstCycleDate");
   if (firstCycleDate && !firstCycleDate.value) firstCycleDate.value = careScheduleDateValue();
@@ -7495,79 +9484,6 @@ async function submitCareTreatment(event) {
     toast(error.message || "No se pudo crear el tratamiento");
   } finally {
     updateCareTreatmentSubmitAvailability();
-  }
-}
-
-function openCareInfusionModal(treatmentId = "") {
-  if (!getActiveLiraPatientId()) {
-    openLiraImportModal();
-    toast("Seleccione un paciente antes de programar una infusión");
-    return;
-  }
-  const form = $("#careInfusionForm");
-  form?.reset();
-  populateCareForms();
-  const treatment = selectByNames(form, "treatmentId", "tratamiento", "treatment");
-  if (treatmentId && treatment) treatment.value = treatmentId;
-  const date = selectByNames(form, "date", "fecha");
-  const time = selectByNames(form, "time", "hora");
-  const next = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  next.setMinutes(0, 0, 0);
-  const local = new Date(next.getTime() - next.getTimezoneOffset() * 60000).toISOString();
-  if (date && !date.value) date.value = local.slice(0, 10);
-  if (time && !time.value) time.value = local.slice(11, 16);
-  careInfusionModalReturnFocus = document.activeElement;
-  showCareModal("careInfusionModal");
-}
-
-function closeCareInfusionModal() {
-  const modal = $("#careInfusionModal");
-  if (!modal?.classList.contains("open")) return;
-  const returnFocus = careInfusionModalReturnFocus;
-  careInfusionModalReturnFocus = null;
-  closeCareModal("careInfusionModal");
-  if (returnFocus?.isConnected) window.requestAnimationFrame(() => returnFocus.focus());
-}
-
-async function submitCareInfusion(event) {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const patientId = getActiveLiraPatientId();
-  if (!patientId) return;
-  const fields = Object.fromEntries(new FormData(form).entries());
-  const scheduledAt = fields.scheduledAt || fields.fechaHora || (fields.date && fields.time ? new Date(`${fields.date}T${fields.time}:00`).toISOString() : "");
-  const body = {
-    ...fields,
-    patientId,
-    treatmentId: fields.treatmentId || fields.tratamiento || fields.treatment,
-    cycleNumber: Number(fields.cycleNumber || fields.ciclo || fields.cycle),
-    scheduledAt,
-    chair: fields.chair || fields.sillon || "",
-    notes: fields.notes || fields.notas || "",
-    medications: []
-  };
-  const submit = $('button[type="submit"]', form);
-  if (submit) submit.disabled = true;
-  try {
-    const response = await fetch("/api/clinical/infusions", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || "No se pudo programar la infusión");
-    const detailWasOpen = $("#careTreatmentManagerModal")?.classList.contains("is-detail");
-    const detailRecord = detailWasOpen ? selectedCareTreatmentManagerRecord() : null;
-    const detailPane = careTreatmentManagerState.detailPane;
-    closeCareInfusionModal();
-    setCareView("infusion", { refresh: false });
-    await loadCareInfusions();
-    if (detailRecord && $("#careTreatmentManagerModal")?.classList.contains("open")) {
-      openCareTreatmentManagerDetail(detailRecord, detailPane);
-    }
-    toast("Ciclo programado en Hospital de Dia");
-  } catch (error) {
-    toast(error.message || "No se pudo programar la infusión");
-  } finally {
-    if (submit) submit.disabled = false;
   }
 }
 

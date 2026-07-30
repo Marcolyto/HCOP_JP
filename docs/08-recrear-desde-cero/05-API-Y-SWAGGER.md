@@ -89,15 +89,13 @@ Swagger debe ser útil para un tercero sin leer Java.
 El proyecto actual genera Markdown y HTML desde la API:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File `
-  .\scripts\generate-api-docs.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-api-docs.ps1
 ```
 
 Y valida:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File `
-  .\scripts\generate-api-docs.ps1 -Check
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-api-docs.ps1 -Check
 ```
 
 Al agregar una ruta:

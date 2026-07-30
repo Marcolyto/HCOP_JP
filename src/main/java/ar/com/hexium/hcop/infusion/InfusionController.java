@@ -2,10 +2,9 @@ package ar.com.hexium.hcop.infusion;
 
 import ar.com.hexium.hcop.auth.AuthContext;
 import ar.com.hexium.hcop.auth.SessionPrincipal;
-import ar.com.hexium.hcop.infusion.InfusionService.Finalization;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDate;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
@@ -43,7 +42,7 @@ public class InfusionController {
   ResponseEntity<Map<String, Object>> create(
       @RequestBody JsonNode body,
       HttpServletRequest request) {
-    auth.requirePermission(request, "section.day-hospital.edit");
+    auth.requirePermission(request, "application.schedule.manage");
     SessionPrincipal actor = auth.require(request);
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(Map.of("ok", true, "infusion", infusions.create(body, actor)));
@@ -54,16 +53,23 @@ public class InfusionController {
       @PathVariable long id,
       @RequestBody JsonNode body,
       HttpServletRequest request) {
-    auth.requirePermission(request, "section.day-hospital.edit");
+    auth.requirePermission(request, "application.schedule.manage");
     return Map.of("ok", true, "infusion", infusions.update(id, body, auth.require(request)));
   }
 
   @GetMapping("/api/clinical/infusion-candidates")
   Map<String, Object> candidates(
       @RequestParam(defaultValue = "") String q,
+      @RequestParam(defaultValue = "false") boolean includeScheduled,
+      @Parameter(
+          description =
+              "Si es true, devuelve sólo aplicaciones que ya cumplen los requisitos de Farmacia "
+                  + "para recibir un turno; false también incluye las bloqueadas para seguimiento.")
+      @RequestParam(defaultValue = "true") boolean onlySchedulingEligible,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.day-hospital.view");
-    List<Map<String, Object>> result = infusions.candidates(q);
+    List<Map<String, Object>> result =
+        infusions.candidates(q, includeScheduled, onlySchedulingEligible);
     return Map.of("ok", true, "candidates", result, "total", result.size());
   }
 
@@ -72,28 +78,14 @@ public class InfusionController {
       @PathVariable long patientId,
       @PathVariable String treatmentId,
       @PathVariable int cycleNumber,
+      @RequestParam(defaultValue = "1") int applicationDay,
       @RequestBody JsonNode body,
       HttpServletRequest request) {
-    auth.requirePermission(request, "section.day-hospital.edit");
+    auth.requirePermission(request, "application.pharmacy.manage");
     return Map.of(
         "ok", true,
         "logistics", infusions.updateLogistics(
-            patientId, treatmentId, cycleNumber, body, auth.require(request)));
+            patientId, treatmentId, cycleNumber, applicationDay, body, auth.require(request)));
   }
 
-  @PostMapping("/api/clinical/infusions/{id}/finalize")
-  Map<String, Object> finalizeInfusion(
-      @PathVariable long id,
-      @RequestBody JsonNode body,
-      HttpServletRequest request) {
-    auth.requirePermission(request, "section.day-hospital.edit");
-    Finalization result = infusions.finalizeInfusion(id, body, auth.require(request));
-    Map<String, Object> response = new LinkedHashMap<>();
-    response.put("ok", true);
-    response.put("infusion", result.infusion());
-    response.put("evolution", result.evolution());
-    response.put("documentRevision", result.documentRevision());
-    response.put("idempotent", result.idempotent());
-    return response;
-  }
 }

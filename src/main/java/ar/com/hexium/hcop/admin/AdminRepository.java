@@ -223,14 +223,18 @@ public class AdminRepository {
 
   public List<Map<String, Object>> usersWithPermission(String permission) {
     return jdbc.query("""
-        SELECT DISTINCT u.id, u.username, u.email, u.display_name, u.specialty, u.license_number,
+        SELECT u.id, u.username, u.email, u.display_name, u.specialty, u.license_number,
                u.enabled, u.last_login_at, u.created_at, u.updated_at
           FROM local_users u
-          JOIN local_user_roles ur ON ur.user_id = u.id
-          JOIN local_roles r ON r.id = ur.role_id AND r.enabled = true
-          JOIN local_role_permissions rp ON rp.role_id = r.id
-          JOIN local_permissions p ON p.id = rp.permission_id
-         WHERE u.enabled = true AND p.permission_key = ?
+         WHERE u.enabled = true
+           AND EXISTS (
+             SELECT 1
+               FROM local_user_roles ur
+               JOIN local_roles r ON r.id = ur.role_id AND r.enabled = true
+               JOIN local_role_permissions rp ON rp.role_id = r.id
+               JOIN local_permissions p ON p.id = rp.permission_id
+              WHERE ur.user_id = u.id AND p.permission_key = ?
+           )
          ORDER BY lower(COALESCE(u.display_name, u.username))
         """, (result, row) -> user(result), permission);
   }

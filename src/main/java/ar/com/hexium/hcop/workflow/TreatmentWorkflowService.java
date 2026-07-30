@@ -50,7 +50,7 @@ public class TreatmentWorkflowService {
     if (reason.length() < 3) {
       throw new ApiException(HttpStatus.BAD_REQUEST, "Indique el motivo de la suspensión.");
     }
-    int cycle = boundedCycle(body.path("cycleNumber").asInt(1));
+    int cycle = treatmentCycle(treatment, body.path("cycleNumber").asInt(treatment.initialCycle()));
     LocalDate resumeDate = "temporary_hold".equals(status) ? date(body, "resumeDate") : null;
     ManagementState state = workflows.upsertManagement(
         patientId, treatmentId, status, cycle, reason, resumeDate, true, actor.userId());
@@ -78,6 +78,12 @@ public class TreatmentWorkflowService {
     if (!"temporary_hold".equals(current.status())) {
       throw new ApiException(HttpStatus.CONFLICT, "El tratamiento ya está activo.");
     }
+    if (!"confirmed".equals(
+        workflows.prescriptionState(patientId, treatmentId, current.effectiveFromCycle()))) {
+      throw new ApiException(
+          HttpStatus.CONFLICT,
+          "Confirme primero la nueva prescripción del ciclo antes de reanudar el tratamiento.");
+    }
     String reason = text(body, "reason");
     if (reason.length() < 3) throw new ApiException(HttpStatus.BAD_REQUEST, "Indique el motivo para reanudar.");
     ManagementState state = workflows.upsertManagement(
@@ -97,10 +103,11 @@ public class TreatmentWorkflowService {
     }
     long patientId = positiveLong(body, "patientId");
     String treatmentId = text(body, "treatmentId");
-    int cycle = boundedCycle(body.path("cycleNumber").asInt(1));
+    int requestedCycle = boundedCycle(body.path("cycleNumber").asInt(1));
     long assignedTo = positiveLong(body, "assignedToUserId");
     String message = text(body, "message");
     TreatmentSummary treatment = requireTreatment(patientId, treatmentId);
+    int cycle = treatmentCycle(treatment, requestedCycle);
     ObjectNode context = mapper.createObjectNode();
     context.put("patientName", treatment.patientName());
     context.put("patientDni", treatment.patientDni());
@@ -290,6 +297,18 @@ public class TreatmentWorkflowService {
   private int boundedCycle(int cycle) {
     if (cycle < 1 || cycle > 500) throw new ApiException(HttpStatus.BAD_REQUEST, "Ciclo inválido.");
     return cycle;
+  }
+
+  private int treatmentCycle(TreatmentSummary treatment, int cycle) {
+    int validCycle = boundedCycle(cycle);
+    long lastCycle = (long) treatment.initialCycle() + treatment.cycleCount() - 1L;
+    if (validCycle < treatment.initialCycle() || validCycle > lastCycle) {
+      throw new ApiException(
+          HttpStatus.BAD_REQUEST,
+          "El ciclo indicado no pertenece al tratamiento. Rango válido: "
+              + treatment.initialCycle() + " a " + lastCycle + ".");
+    }
+    return validCycle;
   }
 
   private long positiveLong(JsonNode body, String key) {

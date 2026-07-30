@@ -1,5 +1,6 @@
 package ar.com.hexium.hcop.treatment;
 
+import ar.com.hexium.hcop.infusion.TreatmentApplicationLogisticsService;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -18,11 +19,17 @@ public class TreatmentRepository {
   private final JdbcTemplate jdbc;
   private final ObjectMapper mapper;
   private final Clock clock;
+  private final TreatmentApplicationLogisticsService applicationLogistics;
 
-  public TreatmentRepository(JdbcTemplate jdbc, ObjectMapper mapper, Clock clock) {
+  public TreatmentRepository(
+      JdbcTemplate jdbc,
+      ObjectMapper mapper,
+      Clock clock,
+      TreatmentApplicationLogisticsService applicationLogistics) {
     this.jdbc = jdbc;
     this.mapper = mapper;
     this.clock = clock;
+    this.applicationLogistics = applicationLogistics;
   }
 
   public List<Treatment> list(long patientId) {
@@ -40,9 +47,16 @@ public class TreatmentRepository {
         .stream().findFirst();
   }
 
-  public Treatment insert(NewTreatment input, long actorId) {
+  public Optional<Treatment> findByClinicalEntryId(long patientId, String clinicalEntryId) {
+    if (clinicalEntryId == null || clinicalEntryId.isBlank()) return Optional.empty();
+    return jdbc.query(selectSql() + """
+         WHERE patient_id = ? AND payload ->> 'clinicalEntryId' = ?
+        """, this::map, patientId, clinicalEntryId).stream().findFirst();
+  }
+
+  public InsertResult insert(NewTreatment input, long actorId) {
     Instant now = clock.instant();
-    jdbc.update("""
+    int inserted = jdbc.update("""
         INSERT INTO clinical_treatments (
           id, patient_id, diagnosis_id, created_on, first_cycle_date, initial_cycle,
           cycle_count, cycle_days, treatment_type, intent, diagnosis, scheme_id,
@@ -51,6 +65,7 @@ public class TreatmentRepository {
         ) VALUES (?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''),
                   NULLIF(?, ''), NULLIF(?, ''), ?, NULLIF(?, ''), ?, NULLIF(?, ''),
                   ?, ?, CAST(? AS jsonb), ?, ?, ?, ?)
+        ON CONFLICT DO NOTHING
         """,
         input.id(), input.patientId(), input.diagnosisId(), Date.valueOf(input.createdOn()),
         input.firstCycleDate() == null ? null : Date.valueOf(input.firstCycleDate()),
@@ -59,6 +74,13 @@ public class TreatmentRepository {
         input.schemeName(), input.oncologist(), input.status(), input.consentStatus(),
         input.consentAvailable(), input.durationMinutes(), input.payload().toString(),
         actorId, actorId, java.sql.Timestamp.from(now), java.sql.Timestamp.from(now));
+    if (inserted == 0) {
+      String entryId = input.payload().path("clinicalEntryId").asText("");
+      Treatment existing = findByClinicalEntryId(input.patientId(), entryId)
+          .orElseThrow(() -> new IllegalStateException(
+              "No se pudo recuperar el tratamiento después de un reintento idempotente."));
+      return new InsertResult(existing, false);
+    }
     jdbc.update("""
         INSERT INTO treatment_details (treatment_id, detail_json, revision, updated_by, updated_at)
         VALUES (?, CAST(? AS jsonb), 1, ?, ?)
@@ -74,9 +96,10 @@ public class TreatmentRepository {
           ) VALUES (?, ?, ?, ?, 'pending', 'confirmed', 1, ?, ?, ?)
           """, input.patientId(), input.id(), cycle,
           planned == null ? null : Date.valueOf(planned), actorId,
-          java.sql.Timestamp.from(now), java.sql.Timestamp.from(now));
+           java.sql.Timestamp.from(now), java.sql.Timestamp.from(now));
     }
-    return find(input.patientId(), input.id()).orElseThrow();
+    applicationLogistics.synchronizeTreatment(input.id());
+    return new InsertResult(find(input.patientId(), input.id()).orElseThrow(), true);
   }
 
   public JsonNode detail(String treatmentId) {
@@ -135,6 +158,9 @@ public class TreatmentRepository {
       String diagnosis, String schemeId, String schemeName, String oncologist, String status,
       String consentStatus, boolean consentAvailable, Integer durationMinutes, JsonNode payload,
       JsonNode detail) {
+  }
+
+  public record InsertResult(Treatment treatment, boolean created) {
   }
 
   public record Treatment(

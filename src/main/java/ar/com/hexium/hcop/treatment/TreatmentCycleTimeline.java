@@ -8,8 +8,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -25,7 +23,6 @@ import tools.jackson.databind.node.ObjectNode;
  */
 @Component
 public class TreatmentCycleTimeline {
-  private static final Pattern DAY_NUMBER = Pattern.compile("\\d+");
   private static final Set<String> COMPLETED = Set.of("completed", "finalized", "finished");
   private static final Set<String> CANCELLED = Set.of("cancelled", "canceled", "suspended", "paused");
   private final ObjectMapper mapper;
@@ -64,7 +61,10 @@ public class TreatmentCycleTimeline {
   private void enrichCycle(ObjectNode cycle, List<Map<String, Object>> sessions) {
     TreeSet<Integer> plannedDays = plannedDays(cycle.path("drugs"));
     Map<Integer, ObjectNode> existingDays = existingDays(cycle.path("days"));
-    plannedDays.addAll(existingDays.keySet());
+    existingDays.forEach((day, value) -> {
+      if (plannedDays.contains(day) || hasRecordedApplication(value)) plannedDays.add(day);
+    });
+    cycle.set("homeMedications", homeMedications(cycle.path("drugs")));
 
     List<ApplicationRecord> applications = new ArrayList<>();
     int sessionIndex = 0;
@@ -79,7 +79,6 @@ public class TreatmentCycleTimeline {
       if (!application.path("observations").isArray()) application.set("observations", mapper.createArrayNode());
       applications.add(new ApplicationRecord(applicationDay, application, applicationState(session)));
     }
-    if (plannedDays.isEmpty()) plannedDays.add(1);
 
     ArrayNode applicationNodes = mapper.createArrayNode();
     applications.forEach(item -> applicationNodes.add(item.application()));
@@ -117,7 +116,23 @@ public class TreatmentCycleTimeline {
   private TreeSet<Integer> plannedDays(JsonNode drugs) {
     TreeSet<Integer> result = new TreeSet<>();
     if (!drugs.isArray()) return result;
-    for (JsonNode drug : drugs) result.addAll(dayNumbers(drug.path("applicationDays").asText("")));
+    for (JsonNode drug : drugs) {
+      if (!DayHospitalApplicationPolicy.requiresDayHospital(drug)) continue;
+      result.addAll(DayHospitalApplicationPolicy.applicationDays(drug));
+    }
+    return result;
+  }
+
+  private ArrayNode homeMedications(JsonNode drugs) {
+    ArrayNode result = mapper.createArrayNode();
+    if (!drugs.isArray()) return result;
+    for (JsonNode drug : drugs) {
+      if (DayHospitalApplicationPolicy.requiresDayHospital(drug)) continue;
+      if (!(drug instanceof ObjectNode source)) continue;
+      ObjectNode medication = source.deepCopy();
+      medication.put("careSetting", "home");
+      result.add(medication);
+    }
     return result;
   }
 
@@ -125,21 +140,17 @@ public class TreatmentCycleTimeline {
     Map<Integer, ObjectNode> result = new LinkedHashMap<>();
     if (!days.isArray()) return result;
     for (JsonNode value : days) {
-      if (value instanceof ObjectNode day && day.path("day").asInt() > 0) {
+      if (value instanceof ObjectNode day
+          && DayHospitalApplicationPolicy.isValidApplicationDay(day.path("day").asInt())) {
         result.put(day.path("day").asInt(), day);
       }
     }
     return result;
   }
 
-  private TreeSet<Integer> dayNumbers(String value) {
-    TreeSet<Integer> result = new TreeSet<>();
-    Matcher matcher = DAY_NUMBER.matcher(value == null ? "" : value);
-    while (matcher.find()) {
-      int day = integer(matcher.group(), 0);
-      if (day > 0 && day <= 366) result.add(day);
-    }
-    return result;
+  private boolean hasRecordedApplication(ObjectNode day) {
+    return !day.path("applicationId").asText("").isBlank()
+        || !day.path("sourceApplicationId").asText("").isBlank();
   }
 
   private int applicationDay(Map<String, Object> session, TreeSet<Integer> plannedDays, int index) {
@@ -148,7 +159,7 @@ public class TreatmentCycleTimeline {
       direct = source.path("scheduler").path("applicationDay").asInt(
           source.path("applicationDay").asInt(0));
     }
-    if (direct > 0) return direct;
+    if (DayHospitalApplicationPolicy.isValidApplicationDay(direct)) return direct;
     if (!plannedDays.isEmpty() && index < plannedDays.size()) {
       return new ArrayList<>(plannedDays).get(index);
     }
@@ -208,13 +219,16 @@ public class TreatmentCycleTimeline {
     ArrayNode planned = mapper.createArrayNode();
     if (!drugs.isArray()) return planned;
     for (JsonNode drug : drugs) {
-      TreeSet<Integer> days = dayNumbers(drug.path("applicationDays").asText(""));
+      if (!DayHospitalApplicationPolicy.requiresDayHospital(drug)) continue;
+      Set<Integer> days = DayHospitalApplicationPolicy.applicationDays(drug);
       if (!days.isEmpty() && !days.contains(dayNumber)) continue;
       ObjectNode medication = planned.addObject();
       medication.put("drugName", drug.path("drugName").asText("Droga"));
       medication.put("actualDoseText", drug.path("prescribedDoseText").asText(""));
       medication.put("prescribedDoseText", "");
+      medication.put("doseUnit", drug.path("doseUnit").asText(""));
       medication.put("status", "planned");
+      medication.put("careSetting", "day_hospital");
     }
     return planned;
   }

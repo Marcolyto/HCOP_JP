@@ -62,13 +62,13 @@ El archivo [ENDPOINTS.md](ENDPOINTS.md) y la página
 `/docs/api-endpoints.html` se generan con:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-api-docs.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-api-docs.ps1
 ```
 
 HCOP JP debe estar iniciado. Para verificar sin sobrescribir:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-api-docs.ps1 -Check
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-api-docs.ps1 -Check
 ```
 
 El segundo comando es parte de la validación del repositorio y falla si se

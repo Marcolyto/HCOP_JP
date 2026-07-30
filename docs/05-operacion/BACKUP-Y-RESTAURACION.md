@@ -16,7 +16,8 @@ docker compose exec -T database pg_restore -U hcop -d hcop_jp --clean --if-exist
 
 ## Archivos clínicos
 
-El volumen `hcop_jp_storage` debe respaldarse junto con PostgreSQL. La base sola
+El volumen `hcop_jp_storage` —incluidas las guías PDF cargadas desde
+Configuración— debe respaldarse junto con PostgreSQL. La base sola
 conserva metadatos, pero no los binarios.
 
 ## Consistencia

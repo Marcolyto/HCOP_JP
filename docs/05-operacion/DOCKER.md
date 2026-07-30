@@ -45,3 +45,7 @@ opción elimina la base.
 - `compose.yaml`: desarrollo/construcción local;
 - `compose.github.yaml`: usa la imagen publicada;
 - `.env`: secretos locales, nunca se sube a GitHub.
+
+La interfaz visible también está dentro de esta misma aplicación: Spring Boot
+sirve `src/main/resources/static` desde el `.jar`. No hay que instalar ni
+levantar un segundo front ni conservar una copia de `HCOP_lira`.

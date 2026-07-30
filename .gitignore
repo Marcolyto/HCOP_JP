@@ -1,9 +1,12 @@
 .env
 target/
+/target-*/
+docs/media/**/.frames/
 runtime/storage/
 runtime/postgres-data/
 runtime/logs/
 runtime/*.log
+/runtime/qa-*/
 /migration/
 *.pid
 .idea/

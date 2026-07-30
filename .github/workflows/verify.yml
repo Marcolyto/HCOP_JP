@@ -5,6 +5,12 @@ on:
     branches: ["main", "master", "codex/**", "agent/**"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      publish_image:
+        description: "Publicar la imagen GHCR después de aprobar todas las pruebas"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -25,7 +31,7 @@ jobs:
   docker:
     name: Producto Docker integral
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - name: Construir e iniciar
@@ -50,3 +56,37 @@ jobs:
       - name: Detener
         if: always()
         run: docker compose down --volumes
+
+  publish:
+    name: Publicar imagen verificada
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish_image)
+    needs: [java, docker]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/marcolyto/hcop_jp
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

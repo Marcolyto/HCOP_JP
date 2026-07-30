@@ -1,13 +1,15 @@
 @echo off
-setlocal
+setlocal EnableExtensions
 cd /d "%~dp0"
-docker compose down
-if errorlevel 1 exit /b 1
-docker compose up --build -d --wait
-if errorlevel 1 (
-  echo No se pudo reiniciar HCOP JP. Verifique Docker Desktop.
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\instalar-desde-github.ps1" -Mode SourceRestart -InstallDir "%~dp0"
+set "HCOP_RESULT=%ERRORLEVEL%"
+if "%HCOP_RESULT%"=="3010" (
+  echo.
+  echo Reinicie Windows y vuelva a ejecutar reiniciar.bat.
   pause
-  exit /b 1
+) else if not "%HCOP_RESULT%"=="0" (
+  echo.
+  echo No se pudo reiniciar HCOP JP. Revise el registro indicado arriba.
+  pause
 )
-echo HCOP JP fue reiniciado y esta saludable.
-endlocal
+exit /b %HCOP_RESULT%

@@ -2,12 +2,13 @@ name: hcop-jp
 
 services:
   database:
-    image: postgres:18.4-alpine
+    image: ${HCOP_POSTGRES_IMAGE:-postgres:18.4-alpine}
     restart: unless-stopped
+    shm_size: 128mb
     environment:
       POSTGRES_DB: ${HCOP_DB_NAME:-hcop_jp}
       POSTGRES_USER: ${HCOP_DB_USER:-hcop}
-      POSTGRES_PASSWORD: ${HCOP_DB_PASSWORD}
+      POSTGRES_PASSWORD: ${HCOP_DB_PASSWORD:?Falta HCOP_DB_PASSWORD en .env}
     volumes:
       - hcop_postgres:/var/lib/postgresql
     healthcheck:
@@ -20,21 +21,25 @@ services:
       - hcop_internal
 
   application:
-    image: ghcr.io/marcolyto/hcop_jp:latest
+    image: ${HCOP_IMAGE:-ghcr.io/marcolyto/hcop_jp:latest}
     restart: unless-stopped
-    pull_policy: always
+    init: true
+    stop_grace_period: 45s
+    # El actualizador ejecuta `compose pull`; el inicio diario también funciona
+    # sin Internet cuando la imagen verificada ya está en el equipo.
+    pull_policy: ${HCOP_PULL_POLICY:-missing}
     depends_on:
       database:
         condition: service_healthy
     environment:
       HCOP_DB_URL: jdbc:postgresql://database:5432/${HCOP_DB_NAME:-hcop_jp}
       HCOP_DB_USER: ${HCOP_DB_USER:-hcop}
-      HCOP_DB_PASSWORD: ${HCOP_DB_PASSWORD}
+      HCOP_DB_PASSWORD: ${HCOP_DB_PASSWORD:?Falta HCOP_DB_PASSWORD en .env}
       HCOP_BOOTSTRAP_USERNAME: ${HCOP_BOOTSTRAP_USERNAME:-marcolyto}
-      HCOP_BOOTSTRAP_PASSWORD: ${HCOP_BOOTSTRAP_PASSWORD}
+      HCOP_BOOTSTRAP_PASSWORD: ${HCOP_BOOTSTRAP_PASSWORD:?Falta HCOP_BOOTSTRAP_PASSWORD en .env}
       HCOP_BOOTSTRAP_SECOND_USERNAME: ${HCOP_BOOTSTRAP_SECOND_USERNAME:-marcolyto2}
-      HCOP_QR_SECRET: ${HCOP_QR_SECRET}
-      HCOP_ENCRYPTION_SECRET: ${HCOP_ENCRYPTION_SECRET}
+      HCOP_QR_SECRET: ${HCOP_QR_SECRET:?Falta HCOP_QR_SECRET en .env}
+      HCOP_ENCRYPTION_SECRET: ${HCOP_ENCRYPTION_SECRET:?Falta HCOP_ENCRYPTION_SECRET en .env}
       HCOP_PUBLIC_BASE_URL: ${HCOP_PUBLIC_BASE_URL:-http://localhost:5180}
       HCOP_BIND_ADDRESS: 0.0.0.0
       HCOP_PORT: 5180

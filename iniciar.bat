@@ -1,26 +1,15 @@
 @echo off
-setlocal
+setlocal EnableExtensions
 cd /d "%~dp0"
-where docker >nul 2>nul
-if errorlevel 1 (
-  echo Docker Desktop no esta instalado o no esta iniciado.
-  echo Consulte docs\00-inicio\INSTALACION-DESDE-GITHUB.md
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\instalar-desde-github.ps1" -Mode SourceStart -InstallDir "%~dp0"
+set "HCOP_RESULT=%ERRORLEVEL%"
+if "%HCOP_RESULT%"=="3010" (
+  echo.
+  echo Reinicie Windows y vuelva a ejecutar iniciar.bat.
   pause
-  exit /b 1
-)
-if exist ".env" (
-  docker compose --env-file .env up --build -d --wait
-) else (
-  docker compose up --build -d --wait
-)
-if errorlevel 1 (
-  echo No se pudo iniciar HCOP JP. Revise Docker Desktop y vuelva a intentar.
+) else if not "%HCOP_RESULT%"=="0" (
+  echo.
+  echo No se pudo iniciar HCOP JP. Revise el registro indicado arriba.
   pause
-  exit /b 1
 )
-echo.
-echo HCOP JP esta funcionando. Abra http://localhost:5180
-echo Usuario inicial: marcolyto
-echo Swagger: http://localhost:5180/swagger-ui.html
-start "" "http://localhost:5180"
-endlocal
+exit /b %HCOP_RESULT%

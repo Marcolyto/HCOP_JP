@@ -13,8 +13,8 @@ el archivo `.env`; el JAR también acepta estas variables directamente.
 | `HCOP_PUBLIC_BASE_URL` | `http://127.0.0.1:5180` | URL absoluta usada al construir enlaces/QR. | Sí |
 | `HCOP_SESSION_MINUTES` | `43200` | Duración máxima de sesión en minutos. | Sí |
 | `HCOP_RUNTIME_ROOT` | `./runtime` | Raíz de datos externos al JAR. | Sí |
-| `HCOP_CATALOG_ROOT` | `${HCOP_RUNTIME_ROOT}/catalogs` | Catálogos locales editables. | Sí |
-| `HCOP_STORAGE_ROOT` | `${HCOP_RUNTIME_ROOT}/storage` | Archivos clínicos privados. | Sí |
+| `HCOP_CATALOG_ROOT` | `${HCOP_RUNTIME_ROOT}/catalogs` | Catálogos de referencia incluidos con la versión. | No; se reconstruyen desde la imagen. |
+| `HCOP_STORAGE_ROOT` | `${HCOP_RUNTIME_ROOT}/storage` | Archivos clínicos privados y guías PDF agregadas desde Configuración. | Sí |
 
 `HCOP_BIND_ADDRESS=0.0.0.0` permite acceso por intranet, pero también debe
 existir una regla de firewall y una ruta de red. Consulte

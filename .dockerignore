@@ -2,9 +2,16 @@
 .github
 .idea
 .vscode
+docs
+scripts
 target
+target-*
 runtime/postgres-data
 runtime/storage
+runtime/qa-*
 migration
+compose*.yaml
+*.bat
+*.md
 *.log
 .env

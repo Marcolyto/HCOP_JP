@@ -2,8 +2,9 @@ name: hcop-jp
 
 services:
   database:
-    image: postgres:18.4-alpine
+    image: ${HCOP_POSTGRES_IMAGE:-postgres:18.4-alpine}
     restart: unless-stopped
+    shm_size: 128mb
     environment:
       POSTGRES_DB: ${HCOP_DB_NAME:-hcop_jp}
       POSTGRES_USER: ${HCOP_DB_USER:-hcop}
@@ -25,6 +26,8 @@ services:
       dockerfile: Dockerfile
     image: hcop-jp:local
     restart: unless-stopped
+    init: true
+    stop_grace_period: 45s
     depends_on:
       database:
         condition: service_healthy

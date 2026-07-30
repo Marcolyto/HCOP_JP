@@ -28,7 +28,7 @@ public class GuideCatalogService {
   private final ConfigurationService configurations;
 
   public GuideCatalogService(HcopProperties properties, ConfigurationService configurations) {
-    this.root = properties.catalogRoot().resolve("guides").normalize();
+    this.root = properties.storageRoot().resolve("guides").normalize();
     this.configurations = configurations;
   }
 

@@ -10,7 +10,7 @@ repositorio `HCOP_JP`.
 |---|---|---|
 | `src/main/java/ar/com/hexium/hcop/` | Backend Java: dominio, casos de uso, controladores, seguridad y adaptadores | Código del servidor |
 | `src/main/resources/static/` | Frontend vigente que Spring Boot sirve al navegador | Interfaz actual |
-| `frontend/` | Ubicación reservada para Angular; todavía no existe en este corte | Interfaz futura |
+| `frontend/` | Proyecto Angular inicial, publicado bajo `/app/` | Interfaz en convivencia |
 | `src/main/resources/db/migration/` | 11 migraciones Flyway ordenadas `V001` a `V011` | Esquema PostgreSQL |
 | `src/main/resources/application.yml` | Valores de configuración Spring no secretos | Configuración base |
 | `runtime/catalogs/` | Catálogos clínicos distribuidos con la imagen | Datos de referencia |
@@ -135,7 +135,7 @@ No se deben guardar pacientes, estudios cargados ni documentos generados
 dentro de `static/`. Esos archivos pertenecen al volumen persistente
 `/opt/hcop/runtime/storage`.
 
-## Frontend Angular futuro
+## Frontend Angular actual y siguiente alcance
 
 La decisión vigente reserva `frontend/` como proyecto Angular independiente:
 
@@ -164,10 +164,32 @@ frontend/src/app
     └── configuration
 ```
 
-En este corte la carpeta todavía no fue creada: la interfaz servida sigue
-siendo `static/`. Durante la convivencia, Angular se publicará bajo `/app` y la
-interfaz anterior bajo `/legacy`. Al alcanzar paridad completa, Angular pasará
-a `/`.
+El proyecto ya existe y hoy entrega el primer recorrido completo: inicio de
+sesión, consulta y activación de paciente, y cierre del contexto clínico. La
+interfaz servida históricamente continúa en `static/` bajo `/`; Angular se
+entrega bajo `/app/`.
+
+| Ruta | Contenido actual |
+|---|---|
+| `frontend/package.json` y `frontend/package-lock.json` | Dependencias reproducibles y órdenes de compilación/prueba de Angular |
+| `frontend/angular.json` | Configuración de compilación; publica el frontend bajo `/app/` |
+| `frontend/src/main.ts` | Arranque de Angular |
+| `frontend/src/index.html` | Documento base y `base href` de la aplicación Angular |
+| `frontend/src/styles.scss` | Variables y estilos globales del lenguaje clínico |
+| `frontend/src/app/app.ts` y `app.html` | Raíz de la aplicación y carga de la sesión vigente |
+| `frontend/src/app/app.config.ts` | Router, HTTP y proveedores globales |
+| `frontend/src/app/app.routes.ts` | Rutas protegidas: login y espacio de paciente |
+| `frontend/src/app/core/api/` | Cliente HTTP común y normalización del error API |
+| `frontend/src/app/core/auth/` | Sesión, inicio/cierre de sesión, paciente activo y guardia de rutas |
+| `frontend/src/app/core/patients/` | Tipos de datos que consume el espacio de paciente |
+| `frontend/src/app/layout/` | Cabecera y marco clínico reutilizable |
+| `frontend/src/app/features/auth/` | Pantalla de acceso |
+| `frontend/src/app/features/patients/` | Buscador, apertura y cierre de paciente activo |
+
+Durante la convivencia, la interfaz anterior se conservará como `/legacy` antes
+de que Angular pase definitivamente a `/`. El estado, autenticación, permisos y
+datos continúan siendo responsabilidad del backend Java; Angular no duplica
+reglas clínicas ni almacenamiento.
 
 ## Backend Java
 

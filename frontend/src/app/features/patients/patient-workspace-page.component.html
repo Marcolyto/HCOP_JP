@@ -1,0 +1,78 @@
+<section class="workspace-page">
+  <header class="page-heading">
+    <div>
+      <p class="eyebrow">Primer recorrido Angular</p>
+      <h1>Pacientes e historia activa</h1>
+      <p>Busque y abra un paciente. El contexto se guarda en la sesión del servidor y también es reconocido por la interfaz vigente.</p>
+    </div>
+    <a class="legacy-button" href="/">Nueva historia y funciones completas</a>
+  </header>
+
+  <section class="search-card" aria-label="Buscar pacientes">
+    <form (ngSubmit)="search()">
+      <label for="patient-search">Paciente, DNI o historia clínica</label>
+      <div class="search-row">
+        <input id="patient-search" [formControl]="query" placeholder="Escriba para buscar" autocomplete="off" />
+        <button type="submit" [disabled]="searching()">{{ searching() ? 'Buscando…' : 'Buscar' }}</button>
+      </div>
+    </form>
+
+    @if (results().length) {
+      <div class="results" role="list">
+        @for (patient of results(); track patient.id) {
+          <button type="button" role="listitem" class="patient-result" (click)="openFromList(patient)">
+            <span><strong>{{ patient.fullName }}</strong><small>{{ patientLabel(patient) }}</small></span>
+            <span aria-hidden="true">›</span>
+          </button>
+        }
+      </div>
+    }
+  </section>
+
+  @if (error(); as message) { <p class="error" role="alert">{{ message }}</p> }
+
+  @if (loading()) {
+    <section class="empty-state"><strong>Abriendo historia clínica…</strong><span>Se está recuperando el contexto clínico desde PostgreSQL.</span></section>
+  } @else if (workspace(); as data) {
+    <section class="active-patient" aria-labelledby="active-patient-title">
+      <header>
+        <div>
+          <p class="eyebrow">Paciente activo</p>
+          <h2 id="active-patient-title">{{ data.patient.fullName }}</h2>
+          <p>DNI {{ data.patient.dni || 'sin registrar' }} · HC {{ data.patient.medicalRecord || 'sin registrar' }}</p>
+        </div>
+        <button type="button" class="secondary" (click)="closePatient()">Cerrar paciente</button>
+      </header>
+
+      <dl class="patient-details">
+        <div><dt>Obra social</dt><dd>{{ data.patient.insurance || 'Sin registrar' }}</dd></div>
+        <div><dt>Afiliado</dt><dd>{{ data.patient.affiliateNumber || 'Sin registrar' }}</dd></div>
+        <div><dt>Sexo</dt><dd>{{ data.patient.sex || 'Sin registrar' }}</dd></div>
+        <div><dt>Nacimiento</dt><dd>{{ data.patient.birthDate || 'Sin registrar' }}</dd></div>
+      </dl>
+
+      <div class="summary-grid">
+        <article><span>Tratamientos</span><strong>{{ data.treatments.oncology.length }}</strong></article>
+        <article><span>Aplicaciones</span><strong>{{ data.infusions.length }}</strong></article>
+        @for (item of data.counts | keyvalue; track item.key) {
+          <article><span>{{ item.key }}</span><strong>{{ item.value }}</strong></article>
+        }
+      </div>
+
+      <section class="clinical-summary">
+        <h3>Tratamientos oncológicos</h3>
+        @if (data.treatments.oncology.length) {
+          <ul>
+            @for (treatment of data.treatments.oncology; track $index) {
+              <li><strong>{{ treatment.scheme || 'Esquema sin nombre' }}</strong><span>{{ treatment.diagnosis || 'Diagnóstico sin registrar' }} · {{ treatment.status || 'Sin estado' }}</span></li>
+            }
+          </ul>
+        } @else {
+          <p>No hay tratamientos registrados. Use la interfaz actual mientras se migra el formulario de prescripción.</p>
+        }
+      </section>
+    </section>
+  } @else {
+    <section class="empty-state"><strong>No hay un paciente abierto.</strong><span>Busque un paciente para iniciar el contexto clínico Angular.</span></section>
+  }
+</section>

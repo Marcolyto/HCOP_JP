@@ -61,9 +61,14 @@ foreach ($page in $pages) {
   }
 }
 
+$angular = Invoke-WebRequest -UseBasicParsing -Uri "$baseUrl/app/" -Method Get -WebSession $session
+if ($angular.StatusCode -ne 200 -or $angular.Content -notmatch "<app-root") {
+  throw "La interfaz Angular no esta disponible bajo /app/."
+}
+
 $openApi = Invoke-RestMethod -Uri "$baseUrl/v3/api-docs" -Method Get -WebSession $session
 if ([string]::IsNullOrWhiteSpace([string]$openApi.openapi) -or $null -eq $openApi.paths) {
   throw "La documentacion OpenAPI no esta disponible."
 }
 
-Write-Host "HCOP JP operativo: salud, autenticacion, nucleo clinico, configuracion y OpenAPI verificados."
+Write-Host "HCOP JP operativo: salud, autenticacion, nucleo clinico, configuracion, Angular y OpenAPI verificados."

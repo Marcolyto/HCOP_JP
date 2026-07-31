@@ -27,6 +27,8 @@ frontend anterior sólo se retira cuando la matriz de paridad está completa.
   COIR, protocolos locales, drogas y administración versionada.
 - [Migración de Guías](MIGRACION-GUIAS.md): separación entre metadatos
   versionados y archivos, validación PDF y descargas seguras.
+- [Migración del frontend Angular](MIGRACION-FRONTEND-ANGULAR.md): proyecto
+  Angular, sesión, paciente activo, build Docker y convivencia bajo `/app/`.
 - [ADR-0001](adr/ADR-0001-MONOLITO-MODULAR-HEXAGONAL.md): monolito modular
   hexagonal.
 - [ADR-0002](adr/ADR-0002-ANGULAR-Y-CONVIVENCIA.md): Angular y convivencia

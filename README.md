@@ -113,8 +113,9 @@ HCOP JP evoluciona como monolito modular hexagonal, con migración incremental:
   persistencia, archivos y catálogos;
 - los módulos todavía no migrados conservan su estructura MVC mientras se
   verifica la paridad;
-- `static` mantiene temporalmente la interfaz vigente;
-- Angular se incorporará por recorridos completos, sin una reescritura masiva;
+- `static` mantiene temporalmente la interfaz vigente en `/`;
+- Angular ya entrega login y paciente activo en `/app/` y se ampliará por
+  recorridos completos, sin una reescritura masiva;
 - `db/migration` conserva la evolución reproducible de PostgreSQL mediante
   Flyway.
 

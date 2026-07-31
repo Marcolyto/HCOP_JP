@@ -95,6 +95,7 @@ Con el sistema iniciado también existe una versión navegable en
 ## 09 · Migración Angular y arquitectura hexagonal
 
 - [Programa de migración](09-migracion-angular-hexagonal/README.md)
+- [Primer corte de frontend Angular](09-migracion-angular-hexagonal/MIGRACION-FRONTEND-ANGULAR.md)
 - [Línea base verificada](09-migracion-angular-hexagonal/BASELINE-2026-07-30.md)
 - [Matriz de paridad funcional](09-migracion-angular-hexagonal/MATRIZ-DE-PARIDAD.md)
 - [Arquitectura objetivo](09-migracion-angular-hexagonal/ARQUITECTURA-OBJETIVO.md)

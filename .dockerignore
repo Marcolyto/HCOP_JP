@@ -6,6 +6,9 @@ docs
 scripts
 target
 target-*
+frontend/node_modules
+frontend/.angular
+frontend/dist
 runtime/postgres-data
 runtime/storage
 runtime/qa-*

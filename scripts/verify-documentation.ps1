@@ -51,6 +51,7 @@ $publicPaths = @(
   "/docs/manual-usuario.html",
   "/docs/referencia-tecnica.html",
   "/docs/api-endpoints.html",
+  "/app/",
   "/swagger-ui.html",
   "/v3/api-docs/hcop-jp-completa"
 )

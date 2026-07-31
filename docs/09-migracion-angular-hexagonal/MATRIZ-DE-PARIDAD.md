@@ -14,7 +14,7 @@ la implementación anterior.
 | Paciente activo | Abrir, nuevo y cerrar paciente | `/api/clinical/patients/**`, `/api/auth/active-patient` | Mantener paciente al navegar/recargar y liberarlo sólo mediante cierre explícito | En convivencia | Pendiente |
 | Hoja clínica | Panel izquierdo | `/api/hc`, documento JSON versionado | Orden, formularios, evoluciones, edición, impresión y conflicto `409` sin pérdida | En convivencia (lectura y edición narrativa base) | Pendiente |
 | Diagnóstico | Modal desde la hoja | Diagnósticos, SNOMED, CIE-10 y AJCC | Selección obligatoria, TNM/estadio, varios diagnósticos y evolución resultante | En convivencia (alta con TNM y tres clasificaciones) | Pendiente |
-| Estudios | Solapa Estudios | `/api/media/**`, `clinical_files` | Carga múltiple, pegado, plantillas, orden, edición, dibujo, descarga y eliminación de sesión | Pendiente | Pendiente |
+| Estudios | Solapa Estudios | `/api/media/**`, `clinical_files` | Carga múltiple, pegado, plantillas, orden, edición, dibujo, descarga y eliminación de sesión | En convivencia (lista, filtro, carga múltiple y eliminación de carga propia) | Pendiente |
 | Prescripción general | Solapa Prescripción | APIs de prescripción y hoja | Medicamentos, prácticas, estudios y documentos con datos de cobertura completos | Pendiente | Pendiente |
 | Protocolos | Solapa y Configuración | `/api/config/protocols/**` | Búsqueda, detalle, drogas, dosis, preparación, tiempos, edición y versionado | Pendiente | En convivencia |
 | Nuevo tratamiento | Hospital de Día | `/api/clinical/patients/{id}/treatments` | Diagnóstico existente, protocolo, antropometría, dosis, requisitos, ciclos y evolución atómica | Pendiente | Pendiente |

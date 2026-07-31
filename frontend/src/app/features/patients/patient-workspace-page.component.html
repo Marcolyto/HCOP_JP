@@ -9,7 +9,7 @@
   </header>
 
   <section class="search-card" aria-label="Buscar pacientes">
-    <form (ngSubmit)="search()">
+    <form (submit)="$event.preventDefault(); search()">
       <label for="patient-search">Paciente, DNI o historia clínica</label>
       <div class="search-row">
         <input id="patient-search" [formControl]="query" placeholder="Escriba para buscar" autocomplete="off" />
@@ -43,6 +43,7 @@
         </div>
         <div class="patient-actions">
           <a class="secondary" [routerLink]="['/patients', data.patientId, 'history']">Ver historia clínica</a>
+          <a class="secondary" [routerLink]="['/patients', data.patientId, 'studies']">Estudios</a>
           <button type="button" class="secondary" (click)="closePatient()">Cerrar paciente</button>
         </div>
       </header>

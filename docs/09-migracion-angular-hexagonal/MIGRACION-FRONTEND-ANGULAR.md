@@ -24,6 +24,11 @@ El primer recorrido Angular tiene cuatro piezas:
    diagnóstico con sitio AJCC 8, TNM, estadio editable, SNOMED CT y CIE-10.
    El estadio se solicita al servidor mediante `POST /api/ajcc8/stage` y el
    registro queda en el documento clínico versionado.
+8. `#/patients/{id}/studies`: lista y filtra estudios del documento activo,
+   permite seleccionar varios archivos o arrastrarlos, los carga mediante
+   `/api/media/studies`, vincula sus metadatos en `PUT /api/hc` y muestra
+   imágenes, PDF, video o el enlace al archivo. Una carga realizada en la
+   sesión conserva su token de eliminación temporal.
 
 Cerrar un paciente utiliza `PUT /api/auth/active-patient` con `null`. Por lo
 tanto, el contexto pertenece al servidor y la interfaz anterior lo reconoce
@@ -72,20 +77,22 @@ versión.
 
 ## Estado de paridad
 
-Login, sesión, paciente activo, lectura y edición base de hoja clínica y alta
-de diagnóstico quedan `En convivencia` en Angular. Esto
+Login, sesión, paciente activo, lectura y edición base de hoja clínica, alta
+de diagnóstico y biblioteca básica de estudios quedan `En convivencia` en
+Angular. Esto
 significa que el recorrido base funciona con la autoridad actual del servidor,
 pero todavía falta demostrar la paridad completa de permisos, recuperación,
 errores y apariencia en todas las resoluciones.
 
-No se migraron todavía los estudios, prescripción,
+No se migraron todavía las anotaciones de imágenes, plantillas anatómicas,
+pegado desde portapapeles, prescripción,
 tratamientos, Farmacia, sillones, triaje, preparación ni administración. Esas
 capacidades continúan en la interfaz vigente y se abrirán desde el enlace
 explícito **Interfaz actual**.
 
 ## Próximo corte
 
-El siguiente recorrido debe migrar **estudios y prescripción**. La hoja y el
+El siguiente recorrido debe completar **Estudios y prescripción**. La hoja y el
 diagnóstico Angular necesitan aún comparación visual, pruebas E2E repetibles,
 permisos por rol y todos los formularios especializados antes de retirar sus
 entradas de la pantalla anterior.

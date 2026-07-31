@@ -188,6 +188,7 @@ entrega bajo `/app/`.
 | `frontend/src/app/features/clinical-history/` | Lectura Angular de situación oncológica, hoja y evoluciones |
 | `frontend/src/app/features/clinical-history-editor/` | Formulario versionado de hoja clínica con control de conflicto |
 | `frontend/src/app/features/diagnosis/` | Alta de diagnóstico AJCC 8, TNM, SNOMED CT y CIE-10 |
+| `frontend/src/app/features/studies/` | Biblioteca de estudios, filtro, carga múltiple y visor básico |
 
 Durante la convivencia, la interfaz anterior se conservará como `/legacy` antes
 de que Angular pase definitivamente a `/`. El estado, autenticación, permisos y

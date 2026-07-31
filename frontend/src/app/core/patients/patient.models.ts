@@ -31,6 +31,39 @@ export interface ClinicalDocument {
   exam?: ClinicalExam;
   narrative?: ClinicalNarrative;
   evolutions?: ClinicalEvolution[];
+  studies?: ClinicalStudy[];
+  [key: string]: unknown;
+}
+
+export interface ClinicalStudyAttachment {
+  id?: string;
+  fileName?: string;
+  contentType?: string;
+  size?: number;
+  category?: string;
+  previewable?: boolean;
+  url?: string;
+  uploadedAt?: string;
+  storedName?: string;
+  [key: string]: unknown;
+}
+
+export interface ClinicalStudy {
+  id?: string;
+  date?: string;
+  datePrecision?: string;
+  type?: string;
+  title?: string;
+  source?: string;
+  summary?: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
+  fileCategory?: string;
+  fileUrl?: string;
+  attachments?: ClinicalStudyAttachment[];
+  createdAt?: string;
+  updatedAt?: string;
   [key: string]: unknown;
 }
 

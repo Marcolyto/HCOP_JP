@@ -43,7 +43,11 @@ export class PatientWorkspacePageComponent {
     this.api.get<PatientSearchResponse>('/api/clinical/patients', { q: this.query.value }).pipe(
       finalize(() => this.searching.set(false))
     ).subscribe({
-      next: (response) => this.results.set(response.patients),
+      next: (response) => this.results.set(response.patients.map((patient) => ({
+        ...patient,
+        dni: patient.dni || (patient as PatientSummary & { numeroDocumento?: string }).numeroDocumento,
+        medicalRecord: patient.medicalRecord || (patient as PatientSummary & { numeroHC?: string }).numeroHC
+      }))),
       error: (error: unknown) => this.error.set(ApiError.from(error).message)
     });
   }

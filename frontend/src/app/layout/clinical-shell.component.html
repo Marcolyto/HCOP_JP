@@ -7,7 +7,7 @@
 
     <nav aria-label="Navegación principal">
       <a routerLink="/patients">Pacientes</a>
-      @if (auth.session()?.activePatientId; as patientId) { <a [routerLink]="['/patients', patientId, 'history']">Historia</a> }
+      @if (auth.session()?.activePatientId; as patientId) { <a [routerLink]="['/patients', patientId, 'history']">Historia</a><a [routerLink]="['/patients', patientId, 'studies']">Estudios</a> }
       <a href="/" title="Abrir la interfaz clínica vigente">Interfaz actual</a>
     </nav>
 

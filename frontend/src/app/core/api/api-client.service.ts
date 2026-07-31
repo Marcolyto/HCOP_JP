@@ -1,4 +1,4 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, throwError } from 'rxjs';
 import { ApiError } from './api-error';
@@ -17,6 +17,15 @@ export class ApiClientService {
 
   post<T>(path: string, body: unknown = {}): Observable<T> {
     return this.http.post<T>(path, body, { withCredentials: true }).pipe(this.asApiError());
+  }
+
+  upload<T>(path: string, file: File): Observable<T> {
+    const headers = new HttpHeaders({ 'Content-Type': file.type || 'application/octet-stream' });
+    return this.http.post<T>(path, file, { headers, withCredentials: true }).pipe(this.asApiError());
+  }
+
+  delete<T>(path: string, headers: Record<string, string> = {}): Observable<T> {
+    return this.http.delete<T>(path, { headers: new HttpHeaders(headers), withCredentials: true }).pipe(this.asApiError());
   }
 
   put<T>(path: string, body: unknown = {}): Observable<T> {

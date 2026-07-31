@@ -185,6 +185,9 @@ entrega bajo `/app/`.
 | `frontend/src/app/layout/` | Cabecera y marco clínico reutilizable |
 | `frontend/src/app/features/auth/` | Pantalla de acceso |
 | `frontend/src/app/features/patients/` | Buscador, apertura y cierre de paciente activo |
+| `frontend/src/app/features/clinical-history/` | Lectura Angular de situación oncológica, hoja y evoluciones |
+| `frontend/src/app/features/clinical-history-editor/` | Formulario versionado de hoja clínica con control de conflicto |
+| `frontend/src/app/features/diagnosis/` | Alta de diagnóstico AJCC 8, TNM, SNOMED CT y CIE-10 |
 
 Durante la convivencia, la interfaz anterior se conservará como `/legacy` antes
 de que Angular pase definitivamente a `/`. El estado, autenticación, permisos y

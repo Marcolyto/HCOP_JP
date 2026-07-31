@@ -26,9 +26,24 @@ export interface PatientWorkspaceResponse {
 }
 
 export interface ClinicalDocument {
+  meta?: ClinicalDocumentMeta;
   oncology?: ClinicalOncology;
+  exam?: ClinicalExam;
   narrative?: ClinicalNarrative;
   evolutions?: ClinicalEvolution[];
+  [key: string]: unknown;
+}
+
+export interface ClinicalDocumentMeta {
+  persistenceRevision?: number;
+  updatedAt?: string;
+  [key: string]: unknown;
+}
+
+export interface ClinicalExam {
+  weightKg?: string | number;
+  heightM?: string | number;
+  [key: string]: unknown;
 }
 
 export interface ClinicalOncology {
@@ -43,6 +58,9 @@ export interface ClinicalOncology {
   status?: string;
   performanceStatus?: string;
   biomarkers?: string;
+  diagnosticClassifications?: Record<string, unknown>;
+  tnm?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 export interface ClinicalDiagnosis {
@@ -56,6 +74,10 @@ export interface ClinicalDiagnosis {
   stage?: string;
   estadio?: string;
   classifications?: Record<string, unknown>;
+  diagnosticClassifications?: Record<string, unknown>;
+  tnm?: Record<string, unknown>;
+  createdAt?: string;
+  [key: string]: unknown;
 }
 
 export interface ClinicalNarrative {

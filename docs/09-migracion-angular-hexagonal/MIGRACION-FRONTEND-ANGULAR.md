@@ -17,6 +17,13 @@ El primer recorrido Angular tiene cuatro piezas:
    obtenidos de la respuesta de espacio de trabajo existente.
 5. `#/patients/{id}/history`: lectura de situación oncológica, hoja clínica y
    evoluciones desde el mismo documento JSON versionado del paciente.
+6. `#/patients/{id}/history/edit`: edición reactiva de la hoja clínica. Lee
+   el documento activo, conserva sus secciones no editadas y lo guarda por
+   `PUT /api/hc`; ante un `409` permite recargar la versión vigente.
+7. `#/patients/{id}/diagnosis/new`: agrega, sin reemplazar los anteriores, un
+   diagnóstico con sitio AJCC 8, TNM, estadio editable, SNOMED CT y CIE-10.
+   El estadio se solicita al servidor mediante `POST /api/ajcc8/stage` y el
+   registro queda en el documento clínico versionado.
 
 Cerrar un paciente utiliza `PUT /api/auth/active-patient` con `null`. Por lo
 tanto, el contexto pertenece al servidor y la interfaz anterior lo reconoce
@@ -65,20 +72,20 @@ versión.
 
 ## Estado de paridad
 
-Login, sesión y paciente activo quedan `En convivencia` en Angular. Esto
+Login, sesión, paciente activo, lectura y edición base de hoja clínica y alta
+de diagnóstico quedan `En convivencia` en Angular. Esto
 significa que el recorrido base funciona con la autoridad actual del servidor,
 pero todavía falta demostrar la paridad completa de permisos, recuperación,
 errores y apariencia en todas las resoluciones.
 
-No se migraron todavía la edición de hoja clínica, el alta/edición de diagnósticos,
-estudios, prescripción,
+No se migraron todavía los estudios, prescripción,
 tratamientos, Farmacia, sillones, triaje, preparación ni administración. Esas
 capacidades continúan en la interfaz vigente y se abrirán desde el enlace
 explícito **Interfaz actual**.
 
 ## Próximo corte
 
-El siguiente recorrido debe completar **hoja clínica + diagnóstico**: permitirá
-editar la hoja versionada, agregar diagnósticos con AJCC, CIE-10 y SNOMED y
-resolver el conflicto `409` sin pérdida. Sólo entonces se retirará esa función
-de la pantalla anterior para los usuarios que habiliten Angular.
+El siguiente recorrido debe migrar **estudios y prescripción**. La hoja y el
+diagnóstico Angular necesitan aún comparación visual, pruebas E2E repetibles,
+permisos por rol y todos los formularios especializados antes de retirar sus
+entradas de la pantalla anterior.

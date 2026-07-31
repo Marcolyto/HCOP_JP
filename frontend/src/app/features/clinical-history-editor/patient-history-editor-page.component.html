@@ -1,0 +1,14 @@
+<section class="editor-page">
+  @if (loading()) {
+    <section class="editor-message"><strong>Preparando editor clínico…</strong><span>Se recupera la última versión guardada.</span></section>
+  } @else {
+    <header class="editor-heading"><div><p>Historia clínica · edición versionada</p><h1>{{ patientName() }}</h1><span>Los cambios se guardan sobre la última versión. Si otra ventana modificó la historia, no se sobrescribe.</span></div>@if (patientId(); as id) { <a [routerLink]="['/patients', id, 'history']">Cancelar</a> }</header>
+    @if (error(); as message) { <section class="editor-error" role="alert"><strong>{{ conflict() ? 'La historia fue modificada en otra ventana.' : 'No se pudo guardar.' }}</strong><span>{{ message }}</span>@if (conflict()) { <button type="button" (click)="reload()">Recargar última versión</button> }</section> }
+    <form [formGroup]="form" (ngSubmit)="save()" novalidate>
+      <section class="editor-card"><h2>Consulta y antecedentes</h2><div class="form-grid"><label class="wide"><span>Motivo de consulta</span><textarea formControlName="chiefComplaint" rows="3"></textarea></label><label class="wide"><span>Antecedentes de enfermedad actual</span><textarea formControlName="currentIllness" rows="5"></textarea></label><label><span>Antecedentes personales</span><textarea formControlName="backgroundClinical" rows="4"></textarea></label><label><span>Medicación actual</span><textarea formControlName="currentMedication" rows="4"></textarea></label><label><span>Antecedentes oncológicos familiares</span><textarea formControlName="familyOncology" rows="4"></textarea></label><label><span>Antecedentes ginecológicos</span><textarea formControlName="gynecology" rows="4"></textarea></label></div></section>
+      <section class="editor-card"><h2>Examen físico</h2><div class="form-grid metrics"><label><span>Peso (kg)</span><input type="number" min="0" step="0.1" inputmode="decimal" formControlName="weightKg"></label><label><span>Talla (cm)</span><input type="number" min="0" step="0.1" inputmode="decimal" formControlName="heightCm"></label><article><span>IMC</span><strong>{{ bmi() }}</strong></article><article><span>Superficie corporal</span><strong>{{ bodySurface() }} m²</strong></article><label class="wide"><span>Examen físico</span><textarea formControlName="physicalExam" rows="5"></textarea></label></div></section>
+      <section class="editor-card"><h2>Conclusión y plan</h2><div class="form-grid"><label class="wide"><span>Conclusión / resumen</span><textarea formControlName="summary" rows="4"></textarea></label><label class="wide"><span>Plan</span><textarea formControlName="plan" rows="4"></textarea></label></div></section>
+      <footer class="editor-actions"><button type="submit" [disabled]="saving()">{{ saving() ? 'Guardando…' : 'Guardar historia clínica' }}</button></footer>
+    </form>
+  }
+</section>

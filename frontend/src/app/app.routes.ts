@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
 import { ClinicalShellComponent } from './layout/clinical-shell.component';
 import { LoginPageComponent } from './features/auth/login-page.component';
+import { PatientHistoryPageComponent } from './features/clinical-history/patient-history-page.component';
 import { PatientWorkspacePageComponent } from './features/patients/patient-workspace-page.component';
 
 export const routes: Routes = [
@@ -17,6 +18,7 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'patients' },
       { path: 'patients', component: PatientWorkspacePageComponent, title: 'Pacientes · HCOP AJP' },
+      { path: 'patients/:patientId/history', component: PatientHistoryPageComponent, title: 'Historia clínica · HCOP AJP' },
       { path: 'patients/:patientId', component: PatientWorkspacePageComponent, title: 'Paciente · HCOP AJP' }
     ]
   },

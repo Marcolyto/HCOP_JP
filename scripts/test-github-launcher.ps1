@@ -18,6 +18,7 @@ foreach ($name in @(
   "Write-AtomicUtf8",
   "ConvertTo-EnvLiteral",
   "ConvertFrom-EnvLiteral",
+  "Read-InitialHostPort",
   "Get-EnvironmentValues",
   "Set-EnvironmentValue",
   "ConvertTo-ProcessArgument",
@@ -86,6 +87,13 @@ if ($decodedSecret -ne $sampleSecret) {
   throw "La codificación de secretos de .env no conserva barras y comillas."
 }
 
+$script:DefaultHostPort = 5180
+$HostPort = 5192
+if ((Read-InitialHostPort) -ne "5192") {
+  throw "El lanzador no respeta el puerto indicado sin interacción."
+}
+$HostPort = 0
+
 $environmentTestRoot = Join-Path `
   ([IO.Path]::GetTempPath()) `
   ("hcop-launcher-env-test-" + [guid]::NewGuid().ToString("N"))
@@ -144,6 +152,7 @@ if ([int]$migrationValidation.defaultPort -ne 5181 -or
   nativeErrorCaptured = $true
   successfulProgressCaptured = $true
   environmentSecretRoundTrip = $true
+  explicitHostPort = $true
   shortPasswordRepair = $true
   staticValidation = $validation.ok
   migrationStaticValidation = $migrationValidation.ok

@@ -4,6 +4,8 @@
   [ValidateSet("Stable", "Migration")]
   [string]$Channel = "Stable",
   [string]$DataDirectory = "",
+  [ValidateRange(0, 65535)]
+  [int]$HostPort = 0,
   [switch]$NoOpenBrowser
 )
 
@@ -299,6 +301,22 @@ function Get-EnvironmentValues([string]$Path) {
   return $values
 }
 
+function Read-InitialHostPort {
+  if ($HostPort -gt 0) {
+    return [string]$HostPort
+  }
+
+  while ($true) {
+    $port = Read-Host "Puerto web [$($script:DefaultHostPort)]"
+    if ([string]::IsNullOrWhiteSpace($port)) { return [string]$script:DefaultHostPort }
+    $port = $port.Trim()
+    if ($port -match "^\d{1,5}$" -and [int]$port -ge 1 -and [int]$port -le 65535) {
+      return $port
+    }
+    Write-Warn "Ingrese un puerto entre 1 y 65535."
+  }
+}
+
 function Set-ApplicationUrlFromEnvironment([string]$Path) {
   if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
     $script:ApplicationUrl = "http://localhost:$($script:DefaultHostPort)"
@@ -411,9 +429,10 @@ Recupere $($script:DefaultDataDirectory)\.env desde su copia de seguridad o rest
   }
 
   $credentials = Read-InitialCredentials
+  $selectedHostPort = Read-InitialHostPort
   try {
     $content = (@(
-      "HCOP_PORT=$($script:DefaultHostPort)",
+      "HCOP_PORT=$selectedHostPort",
       "HCOP_DB_NAME=$($script:DatabaseName)",
       "HCOP_DB_USER=hcop",
       "HCOP_DB_PASSWORD=$(ConvertTo-EnvLiteral (New-RandomHex 32))",
@@ -422,7 +441,7 @@ Recupere $($script:DefaultDataDirectory)\.env desde su copia de seguridad o rest
       "HCOP_BOOTSTRAP_SECOND_USERNAME=marcolyto2",
       "HCOP_QR_SECRET=$(ConvertTo-EnvLiteral (New-RandomHex 48))",
       "HCOP_ENCRYPTION_SECRET=$(ConvertTo-EnvLiteral (New-RandomHex 48))",
-      "HCOP_PUBLIC_BASE_URL=http://localhost:$($script:DefaultHostPort)"
+      "HCOP_PUBLIC_BASE_URL=http://localhost:$selectedHostPort"
     ) -join "`r`n") + "`r`n"
     Write-AtomicUtf8 $Path $content
     Protect-EnvironmentFile $Path
@@ -430,6 +449,7 @@ Recupere $($script:DefaultDataDirectory)\.env desde su copia de seguridad o rest
   } finally {
     $credentials.Password = $null
     $credentials = $null
+    $selectedHostPort = $null
     $content = $null
   }
 }

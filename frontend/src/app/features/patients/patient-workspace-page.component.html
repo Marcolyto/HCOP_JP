@@ -41,7 +41,10 @@
           <h2 id="active-patient-title">{{ data.patient.fullName }}</h2>
           <p>DNI {{ data.patient.dni || 'sin registrar' }} · HC {{ data.patient.medicalRecord || 'sin registrar' }}</p>
         </div>
-        <button type="button" class="secondary" (click)="closePatient()">Cerrar paciente</button>
+        <div class="patient-actions">
+          <a class="secondary" [routerLink]="['/patients', data.patientId, 'history']">Ver historia clínica</a>
+          <button type="button" class="secondary" (click)="closePatient()">Cerrar paciente</button>
+        </div>
       </header>
 
       <dl class="patient-details">

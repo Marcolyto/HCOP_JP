@@ -25,7 +25,7 @@ button:disabled { opacity: .65; }
 .active-patient { margin-top: 1.2rem; padding: 1.35rem; }
 .active-patient > header { align-items: flex-start; border-bottom: 1px solid #e2ebf0; display: flex; justify-content: space-between; padding-bottom: 1rem; }
 .active-patient header p:not(.eyebrow) { color: #647d8e; font-size: .9rem; margin: .35rem 0 0; }
-.secondary { background: #fff; border-color: #c5d4de; color: #496575; font-size: .82rem; }
+.patient-actions { display: flex; gap: .5rem; }.secondary { background: #fff; border-color: #c5d4de; color: #496575; font-size: .82rem; }.patient-actions a { text-decoration: none; }
 .patient-details { display: grid; gap: 1rem; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 1.2rem 0; }
 dt { color: #6f8594; font-size: .72rem; font-weight: 700; text-transform: uppercase; } dd { color: #35546a; margin: .25rem 0 0; }
 .summary-grid { display: grid; gap: .8rem; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
@@ -40,6 +40,6 @@ dt { color: #6f8594; font-size: .72rem; font-weight: 700; text-transform: upperc
 
 @media (max-width: 760px) {
   .workspace-page { padding: 1rem; }
-  .page-heading, .active-patient > header { flex-direction: column; }
+  .page-heading, .active-patient > header { flex-direction: column; }.patient-actions { flex-wrap: wrap; }
   .patient-details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

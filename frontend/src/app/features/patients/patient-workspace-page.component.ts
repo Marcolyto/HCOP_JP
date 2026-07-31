@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ApiClientService } from '../../core/api/api-client.service';
 import { ApiError } from '../../core/api/api-error';
@@ -11,7 +11,7 @@ import { PatientSearchResponse, PatientSummary, PatientWorkspaceResponse } from 
 
 @Component({
   selector: 'app-patient-workspace-page',
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink],
   templateUrl: './patient-workspace-page.component.html',
   styleUrl: './patient-workspace-page.component.scss'
 })

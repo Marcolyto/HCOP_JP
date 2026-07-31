@@ -48,8 +48,8 @@ lo ejecuta; no canaliza código de Internet directamente al intérprete:
 $hcopScript = Join-Path $env:TEMP "EJECUTAR-DOCKER-DESDE-GITHUB.ps1"; Invoke-WebRequest "https://raw.githubusercontent.com/Marcolyto/HCOP_JP/main/EJECUTAR-DOCKER-DESDE-GITHUB.ps1" -OutFile $hcopScript; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $hcopScript
 ```
 
-En la primera ejecución solicita las credenciales iniciales sin mostrarlas,
-genera los demás secretos una sola vez y guarda todo en
+En la primera ejecución solicita las credenciales iniciales y el puerto web
+(puede presionar Enter para aceptar 5180), genera los demás secretos una sola vez y guarda todo en
 `%LOCALAPPDATA%\HCOP_JP-Docker`. Los datos clínicos quedan en volúmenes Docker
 persistentes. El repositorio y la imagen Docker publicados son públicos, por lo
 que esta modalidad no requiere autenticación en GitHub.
@@ -76,7 +76,8 @@ instalar Docker Desktop.
 3. Acepte la instalación de Docker Desktop si Windows la solicita.
 4. Elija usuario, contraseña y puerto o presione Enter para usar los valores
    sugeridos.
-5. El instalador abre `http://localhost:5180`.
+5. El instalador abre la dirección del puerto elegido (por defecto,
+   `http://localhost:5180`).
 
 El repositorio y la imagen Docker publicados son públicos. La instalación no
 requiere iniciar sesión en GitHub, GitHub CLI ni tokens personales.

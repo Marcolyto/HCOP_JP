@@ -12,7 +12,7 @@ la implementación anterior.
 | Login y sesión | Pantalla de acceso | `/api/auth/**`, usuarios y sesiones | Login, cierre, expiración, cookie segura, recuperación de contexto y errores equivalentes | En convivencia | Pendiente |
 | Usuario y permisos | Cabecera y Configuración | `/api/admin/**`, RBAC | Misma visibilidad y prohibición efectiva por rol; el servidor continúa siendo la barrera final | Pendiente | Pendiente |
 | Paciente activo | Abrir, nuevo y cerrar paciente | `/api/clinical/patients/**`, `/api/auth/active-patient` | Mantener paciente al navegar/recargar y liberarlo sólo mediante cierre explícito | En convivencia | Pendiente |
-| Hoja clínica | Panel izquierdo | `/api/hc`, documento JSON versionado | Orden, formularios, evoluciones, edición, impresión y conflicto `409` sin pérdida | Pendiente | Pendiente |
+| Hoja clínica | Panel izquierdo | `/api/hc`, documento JSON versionado | Orden, formularios, evoluciones, edición, impresión y conflicto `409` sin pérdida | En convivencia (lectura) | Pendiente |
 | Diagnóstico | Modal desde la hoja | Diagnósticos, SNOMED, CIE-10 y AJCC | Selección obligatoria, TNM/estadio, varios diagnósticos y evolución resultante | Pendiente | Pendiente |
 | Estudios | Solapa Estudios | `/api/media/**`, `clinical_files` | Carga múltiple, pegado, plantillas, orden, edición, dibujo, descarga y eliminación de sesión | Pendiente | Pendiente |
 | Prescripción general | Solapa Prescripción | APIs de prescripción y hoja | Medicamentos, prácticas, estudios y documentos con datos de cobertura completos | Pendiente | Pendiente |

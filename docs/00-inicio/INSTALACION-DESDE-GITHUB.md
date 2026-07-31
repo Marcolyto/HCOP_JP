@@ -26,6 +26,8 @@ El ejecutor:
   `%LOCALAPPDATA%\HCOP_JP-Docker`;
 - solicita y confirma la contraseña inicial sin mostrarla; exige al menos 10
   caracteres;
+- en el primer inicio permite elegir el puerto web; al presionar Enter conserva
+  el sugerido (`5180` para estable y `5181` para la rama de migración);
 - genera los secretos internos una sola vez y nunca los rota al reiniciar o
   actualizar;
 - detecta una contraseña inicial antigua de menos de 10 caracteres y permite
@@ -35,7 +37,8 @@ El ejecutor:
 - en el inicio usa las imágenes locales y sólo descarga si todavía falta alguna;
 - en la actualización descarga explícitamente `latest`;
 - espera la salud de PostgreSQL y HCOP JP;
-- abre <http://localhost:5180> únicamente cuando la aplicación está lista;
+- abre la dirección elegida, por ejemplo <http://localhost:5180>, únicamente
+  cuando la aplicación está lista;
 - conserva pacientes y documentos en los volúmenes `hcop_jp_postgres` y
   `hcop_jp_storage`.
 
@@ -58,6 +61,16 @@ powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Mode Status
 # Detener sin eliminar base ni archivos
 powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Mode Stop
 ```
+
+Para una instalación automatizada o para elegirlo sin esperar la pregunta,
+indique el puerto una sola vez en el primer inicio:
+
+```powershell
+powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -HostPort 5190
+```
+
+La elección queda guardada en `%LOCALAPPDATA%\HCOP_JP-Docker\.env`. No se
+modifica en actualizaciones ni reinicios.
 
 El archivo `EJECUTAR-DOCKER-DESDE-GITHUB.bat` aporta doble clic cuando se
 descarga junto al `.ps1`; sin argumentos inicia HCOP JP y también acepta

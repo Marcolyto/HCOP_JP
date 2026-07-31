@@ -15,6 +15,8 @@ El primer recorrido Angular tiene cuatro piezas:
    `POST /api/clinical/patients/{id}/activate`.
 4. `#/patients/{id}`: resumen del paciente activo, tratamientos y aplicaciones
    obtenidos de la respuesta de espacio de trabajo existente.
+5. `#/patients/{id}/history`: lectura de situación oncológica, hoja clínica y
+   evoluciones desde el mismo documento JSON versionado del paciente.
 
 Cerrar un paciente utiliza `PUT /api/auth/active-patient` con `null`. Por lo
 tanto, el contexto pertenece al servidor y la interfaz anterior lo reconoce
@@ -68,14 +70,15 @@ significa que el recorrido base funciona con la autoridad actual del servidor,
 pero todavía falta demostrar la paridad completa de permisos, recuperación,
 errores y apariencia en todas las resoluciones.
 
-No se migraron todavía la hoja clínica, diagnósticos, estudios, prescripción,
+No se migraron todavía la edición de hoja clínica, el alta/edición de diagnósticos,
+estudios, prescripción,
 tratamientos, Farmacia, sillones, triaje, preparación ni administración. Esas
 capacidades continúan en la interfaz vigente y se abrirán desde el enlace
 explícito **Interfaz actual**.
 
 ## Próximo corte
 
-El siguiente recorrido debe ser **hoja clínica + diagnóstico**: permitirá abrir
-un paciente Angular, leer y guardar la hoja versionada y agregar un diagnóstico
-con AJCC, CIE-10 y SNOMED. Sólo entonces se retirará esa función de la pantalla
-anterior para los usuarios que habiliten Angular.
+El siguiente recorrido debe completar **hoja clínica + diagnóstico**: permitirá
+editar la hoja versionada, agregar diagnósticos con AJCC, CIE-10 y SNOMED y
+resolver el conflicto `409` sin pérdida. Sólo entonces se retirará esa función
+de la pantalla anterior para los usuarios que habiliten Angular.

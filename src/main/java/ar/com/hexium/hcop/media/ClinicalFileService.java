@@ -1,6 +1,6 @@
 package ar.com.hexium.hcop.media;
 
-import ar.com.hexium.hcop.auth.AuthService;
+import ar.com.hexium.hcop.auth.application.port.out.SessionTokenPort;
 import ar.com.hexium.hcop.auth.SessionPrincipal;
 import ar.com.hexium.hcop.common.ApiException;
 import ar.com.hexium.hcop.config.HcopProperties;
@@ -49,7 +49,7 @@ public class ClinicalFileService {
       Map.entry(".mkv", "video/x-matroska"));
   private final ClinicalFileRepository files;
   private final PatientService patients;
-  private final AuthService auth;
+  private final SessionTokenPort tokens;
   private final HcopProperties properties;
   private final ObjectMapper mapper;
   private final Clock clock;
@@ -59,13 +59,13 @@ public class ClinicalFileService {
   public ClinicalFileService(
       ClinicalFileRepository files,
       PatientService patients,
-      AuthService auth,
+      SessionTokenPort tokens,
       HcopProperties properties,
       ObjectMapper mapper,
       Clock clock) {
     this.files = files;
     this.patients = patients;
-    this.auth = auth;
+    this.tokens = tokens;
     this.properties = properties;
     this.mapper = mapper;
     this.clock = clock;
@@ -117,7 +117,7 @@ public class ClinicalFileService {
     Instant now = clock.instant();
     String deleteToken = UUID.randomUUID().toString().replace("-", "") +
         UUID.randomUUID().toString().replace("-", "");
-    String deleteTokenHash = auth.sha256(deleteToken);
+    String deleteTokenHash = tokens.fingerprint(deleteToken);
     try {
       StoredFile stored = files.insert(
           id, patientId, "", "study", originalName, storageKey, contentType,
@@ -163,7 +163,7 @@ public class ClinicalFileService {
       return files.insert(
           id, null, "", "image", safeName(fileName + extension),
           "images/" + id + extension, normalizedType, bytes.length, sha, metadata,
-          actor.userId(), auth.sha256(rawSessionToken), now.plus(Duration.ofHours(24)), now);
+          actor.userId(), tokens.fingerprint(rawSessionToken), now.plus(Duration.ofHours(24)), now);
     } catch (RuntimeException databaseError) {
       deleteQuietly(destination);
       throw databaseError;
@@ -186,7 +186,7 @@ public class ClinicalFileService {
 
   public void deleteStudy(String name, String deleteToken) {
     StoredFile file = requireByStorageName("studies", name);
-    String tokenHash = auth.sha256(deleteToken);
+    String tokenHash = tokens.fingerprint(deleteToken);
     if (!files.deleteGranted(file.id(), tokenHash, clock.instant())) {
       throw new ApiException(
           HttpStatus.FORBIDDEN,

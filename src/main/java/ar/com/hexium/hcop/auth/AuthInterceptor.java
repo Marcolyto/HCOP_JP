@@ -1,9 +1,9 @@
 package ar.com.hexium.hcop.auth;
 
+import ar.com.hexium.hcop.common.api.AuthenticationRequiredResponse;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -36,11 +36,7 @@ public class AuthInterceptor implements HandlerInterceptor {
     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
     response.setContentType("application/json");
     response.setCharacterEncoding("UTF-8");
-    mapper.writeValue(response.getOutputStream(), Map.of(
-        "ok", false,
-        "authenticated", false,
-        "loginRequired", true,
-        "error", "Debe iniciar sesión."));
+    mapper.writeValue(response.getOutputStream(), AuthenticationRequiredResponse.required());
     return false;
   }
 

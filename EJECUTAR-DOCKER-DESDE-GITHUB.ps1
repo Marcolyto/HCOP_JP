@@ -1,16 +1,32 @@
 ﻿param(
   [ValidateSet("Start", "Update", "Stop", "Status", "ValidateOnly")]
   [string]$Mode = "Start",
-  [string]$DataDirectory = (Join-Path $env:LOCALAPPDATA "HCOP_JP-Docker"),
+  [ValidateSet("Stable", "Migration")]
+  [string]$Channel = "Stable",
+  [string]$DataDirectory = "",
+  [ValidateRange(0, 65535)]
+  [int]$HostPort = 0,
   [switch]$NoOpenBrowser
 )
 
 $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$script:ApplicationImage = "ghcr.io/marcolyto/hcop_jp:latest"
+$script:ProjectName = if ($Channel -eq "Migration") { "hcop-ajp" } else { "hcop-jp" }
+$script:ResourcePrefix = if ($Channel -eq "Migration") { "hcop_ajp" } else { "hcop_jp" }
+$script:DatabaseName = if ($Channel -eq "Migration") { "hcop_ajp" } else { "hcop_jp" }
+$script:DefaultHostPort = if ($Channel -eq "Migration") { 5181 } else { 5180 }
+$defaultDirectoryName = if ($Channel -eq "Migration") { "HCOP_AJP-Docker" } else { "HCOP_JP-Docker" }
+$script:DefaultDataDirectory = Join-Path $env:LOCALAPPDATA $defaultDirectoryName
+$script:ApplicationImage = if ($Channel -eq "Migration") {
+  "ghcr.io/marcolyto/hcop_jp:angular-hexagonal-migration"
+} else {
+  "ghcr.io/marcolyto/hcop_jp:latest"
+}
 $script:PostgresImage = "postgres:18.4-alpine"
-$script:ApplicationUrl = "http://localhost:5180"
+$script:ApplicationUrl = "http://localhost:$($script:DefaultHostPort)"
+$script:PostgresVolume = "$($script:ResourcePrefix)_postgres"
+$script:StorageVolume = "$($script:ResourcePrefix)_storage"
 $script:LogPath = $null
 $script:TranscriptStarted = $false
 $script:OperationMutex = $null
@@ -102,8 +118,8 @@ function Write-AtomicUtf8([string]$Path, [string]$Content) {
 }
 
 function Get-ComposeDocument {
-  return @'
-name: hcop-jp
+  $document = @'
+name: __PROJECT_NAME__
 
 services:
   database:
@@ -111,7 +127,7 @@ services:
     restart: unless-stopped
     shm_size: 128mb
     environment:
-      POSTGRES_DB: ${HCOP_DB_NAME:-hcop_jp}
+      POSTGRES_DB: ${HCOP_DB_NAME:-__DATABASE_NAME__}
       POSTGRES_USER: ${HCOP_DB_USER:-hcop}
       POSTGRES_PASSWORD: ${HCOP_DB_PASSWORD:?Falta HCOP_DB_PASSWORD en .env}
     volumes:
@@ -126,7 +142,7 @@ services:
       - hcop_internal
 
   application:
-    image: ghcr.io/marcolyto/hcop_jp:latest
+    image: __APPLICATION_IMAGE__
     pull_policy: missing
     restart: unless-stopped
     init: true
@@ -135,7 +151,7 @@ services:
       database:
         condition: service_healthy
     environment:
-      HCOP_DB_URL: jdbc:postgresql://database:5432/${HCOP_DB_NAME:-hcop_jp}
+      HCOP_DB_URL: jdbc:postgresql://database:5432/${HCOP_DB_NAME:-__DATABASE_NAME__}
       HCOP_DB_USER: ${HCOP_DB_USER:-hcop}
       HCOP_DB_PASSWORD: ${HCOP_DB_PASSWORD:?Falta HCOP_DB_PASSWORD en .env}
       HCOP_BOOTSTRAP_USERNAME: ${HCOP_BOOTSTRAP_USERNAME:-marcolyto}
@@ -143,11 +159,11 @@ services:
       HCOP_BOOTSTRAP_SECOND_USERNAME: ${HCOP_BOOTSTRAP_SECOND_USERNAME:-marcolyto2}
       HCOP_QR_SECRET: ${HCOP_QR_SECRET:?Falta HCOP_QR_SECRET en .env}
       HCOP_ENCRYPTION_SECRET: ${HCOP_ENCRYPTION_SECRET:?Falta HCOP_ENCRYPTION_SECRET en .env}
-      HCOP_PUBLIC_BASE_URL: ${HCOP_PUBLIC_BASE_URL:-http://localhost:5180}
+      HCOP_PUBLIC_BASE_URL: ${HCOP_PUBLIC_BASE_URL:-http://localhost:__HOST_PORT__}
       HCOP_BIND_ADDRESS: 0.0.0.0
       HCOP_PORT: 5180
     ports:
-      - "0.0.0.0:${HCOP_PORT:-5180}:5180"
+      - "0.0.0.0:${HCOP_PORT:-__HOST_PORT__}:5180"
     volumes:
       - hcop_storage:/opt/hcop/runtime/storage
     healthcheck:
@@ -162,17 +178,23 @@ services:
 
 volumes:
   hcop_postgres:
-    name: hcop_jp_postgres
+    name: __RESOURCE_PREFIX___postgres
   hcop_storage:
-    name: hcop_jp_storage
+    name: __RESOURCE_PREFIX___storage
 
 networks:
   hcop_internal:
-    name: hcop_jp_internal
+    name: __RESOURCE_PREFIX___internal
     internal: true
   hcop_egress:
-    name: hcop_jp_egress
+    name: __RESOURCE_PREFIX___egress
 '@
+  $document = $document.Replace("__PROJECT_NAME__", $script:ProjectName)
+  $document = $document.Replace("__DATABASE_NAME__", $script:DatabaseName)
+  $document = $document.Replace("__APPLICATION_IMAGE__", $script:ApplicationImage)
+  $document = $document.Replace("__HOST_PORT__", [string]$script:DefaultHostPort)
+  $document = $document.Replace("__RESOURCE_PREFIX__", $script:ResourcePrefix)
+  return $document
 }
 
 function New-RandomHex([int]$ByteCount) {
@@ -279,6 +301,35 @@ function Get-EnvironmentValues([string]$Path) {
   return $values
 }
 
+function Read-InitialHostPort {
+  if ($HostPort -gt 0) {
+    return [string]$HostPort
+  }
+
+  while ($true) {
+    $port = Read-Host "Puerto web [$($script:DefaultHostPort)]"
+    if ([string]::IsNullOrWhiteSpace($port)) { return [string]$script:DefaultHostPort }
+    $port = $port.Trim()
+    if ($port -match "^\d{1,5}$" -and [int]$port -ge 1 -and [int]$port -le 65535) {
+      return $port
+    }
+    Write-Warn "Ingrese un puerto entre 1 y 65535."
+  }
+}
+
+function Set-ApplicationUrlFromEnvironment([string]$Path) {
+  if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+    $script:ApplicationUrl = "http://localhost:$($script:DefaultHostPort)"
+    return
+  }
+  $values = Get-EnvironmentValues $Path
+  $port = [string]$values["HCOP_PORT"]
+  if ($port -notmatch "^\d{1,5}$" -or [int]$port -lt 1 -or [int]$port -gt 65535) {
+    throw "HCOP_PORT no es válido en $Path."
+  }
+  $script:ApplicationUrl = "http://localhost:$port"
+}
+
 function Set-EnvironmentValue(
   [string]$Path,
   [string]$Name,
@@ -368,20 +419,21 @@ function Ensure-Environment([string]$Path, [string]$DockerPath) {
   }
 
   $existingDatabase = Invoke-NativeCapture $DockerPath @(
-    "volume", "inspect", "hcop_jp_postgres")
+    "volume", "inspect", $script:PostgresVolume)
   if ($existingDatabase.ExitCode -eq 0) {
     throw @"
-Existe el volumen hcop_jp_postgres, pero falta el archivo local .env.
+Existe el volumen $($script:PostgresVolume), pero falta el archivo local .env.
 No se generó una contraseña nueva porque dejaría la base existente inaccesible.
-Recupere %LOCALAPPDATA%\HCOP_JP-Docker\.env desde su copia de seguridad o restaure juntos la base y su configuración.
+Recupere $($script:DefaultDataDirectory)\.env desde su copia de seguridad o restaure juntos la base y su configuración.
 "@
   }
 
   $credentials = Read-InitialCredentials
+  $selectedHostPort = Read-InitialHostPort
   try {
     $content = (@(
-      "HCOP_PORT=5180",
-      "HCOP_DB_NAME=hcop_jp",
+      "HCOP_PORT=$selectedHostPort",
+      "HCOP_DB_NAME=$($script:DatabaseName)",
       "HCOP_DB_USER=hcop",
       "HCOP_DB_PASSWORD=$(ConvertTo-EnvLiteral (New-RandomHex 32))",
       "HCOP_BOOTSTRAP_USERNAME=$(ConvertTo-EnvLiteral $credentials.Username)",
@@ -389,7 +441,7 @@ Recupere %LOCALAPPDATA%\HCOP_JP-Docker\.env desde su copia de seguridad o restau
       "HCOP_BOOTSTRAP_SECOND_USERNAME=marcolyto2",
       "HCOP_QR_SECRET=$(ConvertTo-EnvLiteral (New-RandomHex 48))",
       "HCOP_ENCRYPTION_SECRET=$(ConvertTo-EnvLiteral (New-RandomHex 48))",
-      "HCOP_PUBLIC_BASE_URL=http://localhost:5180"
+      "HCOP_PUBLIC_BASE_URL=http://localhost:$selectedHostPort"
     ) -join "`r`n") + "`r`n"
     Write-AtomicUtf8 $Path $content
     Protect-EnvironmentFile $Path
@@ -397,6 +449,7 @@ Recupere %LOCALAPPDATA%\HCOP_JP-Docker\.env desde su copia de seguridad o restau
   } finally {
     $credentials.Password = $null
     $credentials = $null
+    $selectedHostPort = $null
     $content = $null
   }
 }
@@ -709,15 +762,22 @@ function Get-HttpResponse([string]$Path, [int]$Attempts = 1) {
 
 function Test-ApplicationHealth([int]$Attempts = 12) {
   $response = Get-HttpResponse "/actuator/health" $Attempts
+  $content = if ($null -eq $response) {
+    ""
+  } elseif ($response.Content -is [byte[]]) {
+    [System.Text.Encoding]::UTF8.GetString([byte[]]$response.Content)
+  } else {
+    [string]$response.Content
+  }
   return (
     $null -ne $response -and
     $response.StatusCode -eq 200 -and
-    $response.Content -match '"status"\s*:\s*"UP"')
+    $content -match '"status"\s*:\s*"UP"')
 }
 
 function Assert-ApplicationSmoke {
-  $home = Get-HttpResponse "/"
-  if ($null -eq $home -or $home.StatusCode -ne 200 -or [string]::IsNullOrWhiteSpace($home.Content)) {
+  $homeResponse = Get-HttpResponse "/"
+  if ($null -eq $homeResponse -or $homeResponse.StatusCode -ne 200 -or [string]::IsNullOrWhiteSpace($homeResponse.Content)) {
     throw "La página principal no respondió correctamente."
   }
 
@@ -753,6 +813,7 @@ function Start-Hcop(
   [string]$EnvironmentPath,
   [switch]$ForcePull
 ) {
+  Set-ApplicationUrlFromEnvironment $EnvironmentPath
   $validation = Invoke-NativeLogged $DockerPath `
     (Get-ComposeArguments $Root $ComposePath $EnvironmentPath @("config", "--quiet")) `
     "Validando la definición Docker" -AllowFailure
@@ -818,6 +879,7 @@ function Show-HcopStatus(
     Write-Warn "Todavía no existe una instalación de HCOP JP en $Root."
     return
   }
+  Set-ApplicationUrlFromEnvironment $EnvironmentPath
   Ensure-Compose $ComposePath
   Write-Step "Estado de HCOP JP"
   $null = Invoke-NativeLogged $DockerPath `
@@ -828,7 +890,7 @@ function Show-HcopStatus(
   } else {
     Write-Warn "La aplicación no responde como saludable en $($script:ApplicationUrl)."
   }
-  Write-Info "Datos persistentes: volúmenes hcop_jp_postgres y hcop_jp_storage."
+  Write-Info "Datos persistentes: volúmenes $($script:PostgresVolume) y $($script:StorageVolume)."
 }
 
 function Invoke-ValidateOnly {
@@ -840,15 +902,20 @@ function Invoke-ValidateOnly {
     [ref]$errors) | Out-Null
   $compose = Get-ComposeDocument
   $requiredFragments = @(
-    "ghcr.io/marcolyto/hcop_jp:latest",
+    $script:ApplicationImage,
     "postgres:18.4-alpine",
-    "hcop_jp_postgres",
-    "hcop_jp_storage",
+    $script:PostgresVolume,
+    $script:StorageVolume,
     "/actuator/health")
   $missing = @($requiredFragments | Where-Object { -not $compose.Contains($_) })
   $result = [ordered]@{
     ok = ($errors.Count -eq 0 -and $missing.Count -eq 0)
     mode = "ValidateOnly"
+    channel = $Channel
+    applicationImage = $script:ApplicationImage
+    defaultPort = $script:DefaultHostPort
+    postgresVolume = $script:PostgresVolume
+    storageVolume = $script:StorageVolume
     powershell = $PSVersionTable.PSVersion.ToString()
     parserErrors = @($errors | ForEach-Object { $_.Message })
     missingComposeFragments = $missing
@@ -871,6 +938,9 @@ if ($Mode -eq "ValidateOnly") {
   }
 }
 
+if ([string]::IsNullOrWhiteSpace($DataDirectory)) {
+  $DataDirectory = $script:DefaultDataDirectory
+}
 $root = Resolve-DataDirectory $DataDirectory
 $composePath = Join-Path $root "compose.yaml"
 $environmentPath = Join-Path $root ".env"
@@ -879,8 +949,9 @@ try {
   New-Item -ItemType Directory -Path $root -Force | Out-Null
   Start-OperationLog $root
   Enter-OperationLock $root
-  Write-Step "HCOP JP desde GitHub Container Registry · $Mode"
+  Write-Step "HCOP JP desde GitHub Container Registry · $Channel · $Mode"
   Write-Info "Carpeta local: $root"
+  Write-Info "Imagen: $($script:ApplicationImage)"
 
   $docker = Assert-DockerReady
   switch ($Mode) {
@@ -893,7 +964,7 @@ try {
       Ensure-Compose $composePath
       Ensure-Environment $environmentPath $docker
       Start-Hcop $docker $root $composePath $environmentPath -ForcePull
-      Write-Ok "La imagen latest fue actualizada y aplicada."
+      Write-Ok "La imagen $($script:ApplicationImage) fue actualizada y aplicada."
     }
     "Stop" {
       Stop-Hcop $docker $root $composePath $environmentPath

@@ -1,0 +1,16 @@
+name: hcop-ajp-validation
+
+# Aísla las verificaciones de la migración respecto de la instancia de uso.
+# Los servicios continúan definidos en compose.yaml; aquí sólo se reemplazan
+# los nombres físicos de los recursos persistentes y de red.
+volumes:
+  hcop_postgres:
+    name: hcop_ajp_validation_postgres
+  hcop_storage:
+    name: hcop_ajp_validation_storage
+
+networks:
+  hcop_internal:
+    name: hcop_ajp_validation_internal
+  hcop_egress:
+    name: hcop_ajp_validation_egress

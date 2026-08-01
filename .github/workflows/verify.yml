@@ -43,6 +43,26 @@ jobs:
           cache: maven
       - run: mvn --batch-mode verify
 
+  frontend:
+    name: Frontend Angular
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Instalar dependencias reproducibles
+        working-directory: frontend
+        run: npm ci
+      - name: Compilar Angular
+        working-directory: frontend
+        run: npm run build
+      - name: Ejecutar pruebas Angular
+        working-directory: frontend
+        run: npm test -- --watch=false
+
   docker:
     name: Producto Docker integral
     runs-on: ubuntu-latest
@@ -62,6 +82,15 @@ jobs:
       - name: Verificar documentación y enlaces
         shell: pwsh
         run: ./scripts/verify-documentation.ps1
+      - name: Verificar contrato hexagonal de Configuración
+        shell: pwsh
+        run: ./scripts/configuration-contract-test.ps1
+      - name: Verificar contrato hexagonal de Protocolos
+        shell: pwsh
+        run: ./scripts/protocol-contract-test.ps1
+      - name: Verificar contrato hexagonal de Guías
+        shell: pwsh
+        run: ./scripts/guide-contract-test.ps1
       - name: Recorrer el flujo clínico integral
         shell: pwsh
         run: ./scripts/integration-test.ps1
@@ -75,9 +104,11 @@ jobs:
   publish:
     name: Publicar imagen verificada
     if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'push' &&
+        (github.ref == 'refs/heads/main' ||
+         github.ref == 'refs/heads/codex/angular-hexagonal-migration')) ||
       (github.event_name == 'workflow_dispatch' && inputs.publish_image)
-    needs: [launcher, java, docker]
+    needs: [launcher, java, frontend, docker]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -95,7 +126,8 @@ jobs:
         with:
           images: ghcr.io/marcolyto/hcop_jp
           tags: |
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=angular-hexagonal-migration,enable=${{ github.ref == 'refs/heads/codex/angular-hexagonal-migration' }}
             type=sha,prefix=sha-
       - uses: docker/build-push-action@v6
         with:

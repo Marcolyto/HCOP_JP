@@ -12,6 +12,8 @@
     "SourceStop",
     "SourceRestart")]
   [string]$Mode = "Install",
+  [ValidateRange(0, 65535)]
+  [int]$HostPort = 0,
   [switch]$NoOpenBrowser,
   [switch]$Elevated
 )
@@ -180,9 +182,7 @@ function Ensure-Environment([string]$Root) {
   $changed = -not (Test-Path -LiteralPath $environmentFile -PathType Leaf)
 
   if (-not $values.ContainsKey("HCOP_PORT")) {
-    $port = Read-Host "Puerto web [5180]"
-    if ([string]::IsNullOrWhiteSpace($port)) { $port = "5180" }
-    $values["HCOP_PORT"] = $port
+    $values["HCOP_PORT"] = Read-InstallHostPort
     $changed = $true
   }
   $portValue = [string]$values["HCOP_PORT"]
@@ -237,6 +237,31 @@ function Ensure-Environment([string]$Root) {
   return $environmentFile
 }
 
+function Read-InstallHostPort {
+  if ($HostPort -gt 0) {
+    return [string]$HostPort
+  }
+
+  while ($true) {
+    $candidate = Read-Host "Puerto web HTTP [5180]"
+    if ([string]::IsNullOrWhiteSpace($candidate)) { $candidate = "5180" }
+    $candidate = $candidate.Trim()
+    if ($candidate -notmatch "^\d{1,5}$" -or [int]$candidate -lt 1 -or [int]$candidate -gt 65535) {
+      Write-Warning "Ingrese un puerto entre 1 y 65535."
+      continue
+    }
+
+    $listeners = @(Get-PortListeners ([int]$candidate))
+    if ($listeners.Count -gt 0) {
+      $owners = @($listeners | ForEach-Object { $_.OwningProcess } | Where-Object { $_ } | Sort-Object -Unique)
+      $detail = if ($owners.Count) { " (PID: $($owners -join ', '))" } else { "" }
+      Write-Warning "El puerto $candidate ya está ocupado$detail. Elija otro."
+      continue
+    }
+    return $candidate
+  }
+}
+
 function Get-ConfiguredPort([string]$EnvironmentFile) {
   if (-not $EnvironmentFile -or -not (Test-Path -LiteralPath $EnvironmentFile)) { return 5180 }
   $values = Read-DotEnv $EnvironmentFile
@@ -272,6 +297,7 @@ function Restart-Elevated([string]$Root) {
     "-Mode", $Mode,
     "-Elevated"
   )
+  if ($HostPort -gt 0) { $arguments += @("-HostPort", [string]$HostPort) }
   if ($NoOpenBrowser) { $arguments += "-NoOpenBrowser" }
   try {
     $process = Start-Process -FilePath "powershell.exe" `

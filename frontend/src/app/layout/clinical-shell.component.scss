@@ -1,0 +1,28 @@
+.shell { min-height: 100vh; }
+
+.topbar {
+  align-items: center;
+  background: #fff;
+  border-bottom: 1px solid #dce5ed;
+  display: flex;
+  gap: 2rem;
+  min-height: 64px;
+  padding: 0 2rem;
+}
+
+.brand { align-items: center; color: #153550; display: inline-flex; gap: .65rem; text-decoration: none; }
+.brand strong, .brand small { display: block; }
+.brand small { color: #708396; font-size: .72rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+.brand-mark { align-items: center; background: #1881bb; border-radius: 50%; color: #fff; display: inline-flex; font-size: 1.35rem; font-weight: 700; height: 31px; justify-content: center; width: 31px; }
+nav { display: flex; gap: .35rem; }
+nav a { border-radius: 4px; color: #40596e; font-size: .92rem; font-weight: 650; padding: .52rem .7rem; text-decoration: none; }
+nav a:hover { background: #e8f5fb; color: #12699d; }
+.user-actions { align-items: center; display: flex; gap: .7rem; margin-left: auto; }
+.user-name, .patient-chip { color: #536b7d; font-size: .82rem; }
+.patient-chip { background: #edf7fc; border: 1px solid #cfebf6; border-radius: 999px; padding: .3rem .55rem; }
+.user-actions button { background: transparent; border: 1px solid #cad7e0; border-radius: 4px; color: #365268; font-size: .8rem; padding: .38rem .55rem; }
+
+@media (max-width: 800px) {
+  .topbar { align-items: flex-start; flex-wrap: wrap; gap: .7rem; padding: .8rem 1rem; }
+  .user-actions { margin-left: 0; width: 100%; }
+}

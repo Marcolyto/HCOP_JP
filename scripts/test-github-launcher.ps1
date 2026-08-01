@@ -18,6 +18,7 @@ foreach ($name in @(
   "Write-AtomicUtf8",
   "ConvertTo-EnvLiteral",
   "ConvertFrom-EnvLiteral",
+  "Read-InitialHostPort",
   "Get-EnvironmentValues",
   "Set-EnvironmentValue",
   "ConvertTo-ProcessArgument",
@@ -86,6 +87,13 @@ if ($decodedSecret -ne $sampleSecret) {
   throw "La codificación de secretos de .env no conserva barras y comillas."
 }
 
+$script:DefaultHostPort = 5180
+$HostPort = 5192
+if ((Read-InitialHostPort) -ne "5192") {
+  throw "El lanzador no respeta el puerto indicado sin interacción."
+}
+$HostPort = 0
+
 $environmentTestRoot = Join-Path `
   ([IO.Path]::GetTempPath()) `
   ("hcop-launcher-env-test-" + [guid]::NewGuid().ToString("N"))
@@ -123,6 +131,19 @@ $validation = & $launcherPath -Mode ValidateOnly | ConvertFrom-Json
 if ($validation.ok -ne $true) {
   throw "La validación estática del lanzador no fue satisfactoria."
 }
+$migrationValidation = & $launcherPath -Mode ValidateOnly -Channel Migration | ConvertFrom-Json
+if ($migrationValidation.ok -ne $true) {
+  throw "La validación estática del canal de migración no fue satisfactoria."
+}
+if ($migrationValidation.applicationImage -ne
+    "ghcr.io/marcolyto/hcop_jp:angular-hexagonal-migration") {
+  throw "El canal de migración no seleccionó su imagen aislada."
+}
+if ([int]$migrationValidation.defaultPort -ne 5181 -or
+    $migrationValidation.postgresVolume -ne "hcop_ajp_postgres" -or
+    $migrationValidation.storageVolume -ne "hcop_ajp_storage") {
+  throw "El canal de migración no aisló puerto y volúmenes."
+}
 
 [pscustomobject]@{
   ok = $true
@@ -131,6 +152,9 @@ if ($validation.ok -ne $true) {
   nativeErrorCaptured = $true
   successfulProgressCaptured = $true
   environmentSecretRoundTrip = $true
+  explicitHostPort = $true
   shortPasswordRepair = $true
   staticValidation = $validation.ok
+  migrationStaticValidation = $migrationValidation.ok
+  migrationIsolation = $true
 } | ConvertTo-Json -Depth 5

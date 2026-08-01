@@ -1,0 +1,69 @@
+<section class="studies-page">
+  @if (loading()) {
+    <section class="message"><strong>Preparando estudios…</strong><span>Se recupera la biblioteca del paciente.</span></section>
+  } @else {
+    <header class="page-heading">
+      <div><p>Estudios complementarios</p><h1>{{ patientName() }}</h1><span>DNI y archivos clínicos del paciente activo</span></div>
+      <button type="button" (click)="reload()" [disabled]="busy()">Actualizar</button>
+    </header>
+    @if (error(); as message) { <section class="error" role="alert">{{ message }}</section> }
+    <section class="upload-card" aria-label="Cargar estudios">
+      <div class="toolbar">
+        <label class="search-label">Buscar<input [formControl]="query" type="search" placeholder="Título, tipo o archivo"></label>
+        <input #fileInput type="file" multiple accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,video/*" (change)="onFileInput($event)" hidden>
+        <button type="button" (click)="fileInput.click()" [disabled]="busy()">Seleccionar archivos</button>
+        <button type="button" (click)="openTemplatePicker()" [disabled]="busy()">Cargar plantilla anatómica</button>
+        <button type="button" class="primary" (click)="uploadAll()" [disabled]="busy() || !queuedFiles().length">{{ busy() ? 'Procesando…' : 'Subir seleccionados' }}</button>
+      </div>
+      <div class="drop-zone" tabindex="0" (dragover)="$event.preventDefault()" (drop)="onDrop($event)">
+        <strong>Arrastre y suelte aquí</strong><span>También puede seleccionar varios archivos o pegar una imagen con Ctrl+V. Se aceptan imágenes, PDF, Word, PowerPoint y video.</span>
+      </div>
+      @if (queuedFiles().length) {
+        <ul class="queue">@for (file of queuedFiles(); track $index) { <li><span>{{ file.name }}</span><small>{{ formatSize(file.size) }}</small><button type="button" (click)="removeQueued($index)" [disabled]="busy()">Quitar</button></li>}</ul>
+      }
+      @if (uploadErrors().length) { <div class="upload-errors" role="alert">@for (message of uploadErrors(); track message) { <p>{{ message }}</p> }</div> }
+    </section>
+    @if (templatePickerOpen()) {
+      <section class="template-picker" aria-label="Biblioteca de plantillas anatómicas">
+        <header><div><p>Biblioteca anatómica</p><h2>Elegir plantilla</h2><span>Seleccione una imagen base para agregarla como estudio y luego marcarla.</span></div><button type="button" (click)="closeTemplatePicker()" [disabled]="busy()">Cerrar</button></header>
+        <label class="search-label">Buscar plantilla<input [formControl]="templateQuery" type="search" placeholder="Órgano, región o especialidad"></label>
+        @if (templateLoading()) { <p class="empty">Cargando biblioteca…</p> } @else {
+          <div class="template-grid">
+            @for (template of filteredTemplates(); track template.id) {
+              <button type="button" class="template-card" [class.active]="selectedTemplateId() === template.id" (click)="selectTemplate(template)">
+                <img [src]="templateUrl(template)" alt="">
+                <strong>{{ template.title }}</strong><small>{{ template.category }}</small>
+              </button>
+            } @empty { <p class="empty">No hay plantillas que coincidan.</p> }
+          </div>
+          @if (selectedTemplate(); as template) { <div class="template-selection"><span>Seleccionada: <strong>{{ template.title }}</strong></span><button type="button" class="primary" (click)="addSelectedTemplate()" [disabled]="busy()">{{ busy() ? 'Agregando…' : 'Agregar como estudio' }}</button></div> }
+        }
+      </section>
+    }
+    <section class="studies-layout">
+      <aside class="study-list" aria-label="Estudios del paciente">
+        <header><strong>{{ filteredStudies().length }} estudios</strong><span>Seleccione uno para ver el detalle</span></header>
+        @for (study of filteredStudies(); track study.id) {
+          <button type="button" class="study-row" [class.active]="selectedStudy()?.id === study.id" (click)="selectStudy(study)">
+            <span class="study-row-icon">{{ study.type === 'Imagen' ? '▧' : '□' }}</span><span><strong>{{ study.title || study.fileName || 'Estudio sin título' }}</strong><small>{{ study.date || 'Sin fecha' }} · {{ study.type || 'Archivo' }}</small></span>
+          </button>
+        } @empty { <p class="empty">No hay estudios que coincidan con la búsqueda.</p> }
+      </aside>
+      <section class="study-detail" aria-live="polite">
+        @if (selectedStudy(); as study) {
+          <header><div><p>{{ study.type || 'Estudio' }}</p><h2>{{ study.title || study.fileName || 'Estudio sin título' }}</h2><span>{{ study.date || 'Sin fecha' }} · {{ study.source || 'Sin procedencia' }}</span></div>@if (canDelete(study)) { <button type="button" class="danger" (click)="deleteStudy(study)" [disabled]="busy()">{{ deletingId() === study.id ? 'Eliminando…' : 'Eliminar carga' }}</button> }</header>
+          @if (study.summary) { <p class="summary">{{ study.summary }}</p> }
+          @if (attachment(study); as file) {
+            <div class="preview">
+              @if (isImage(study)) { <img [src]="file.url" [alt]="study.title || file.fileName || 'Imagen del estudio'"> }
+              @else if (isPdf(study)) { <iframe [src]="file.url" [title]="study.title || 'PDF del estudio'"></iframe> }
+              @else if (isVideo(study)) { <video [src]="file.url" controls></video> }
+              @else { <a [href]="file.url" target="_blank" rel="noopener">Abrir {{ file.fileName || 'archivo clínico' }}</a> }
+            </div>
+            <dl class="file-meta"><div><dt>Archivo</dt><dd>{{ file.fileName || study.fileName || 'Sin nombre' }}</dd></div><div><dt>Tamaño</dt><dd>{{ formatSize(file.size) || 'No informado' }}</dd></div><div><dt>Tipo</dt><dd>{{ file.contentType || 'No informado' }}</dd></div></dl>
+          } @else { <p class="empty">Este registro no tiene un archivo adjunto.</p> }
+        } @else { <section class="empty detail-empty"><strong>Seleccione un estudio</strong><span>El archivo y sus datos aparecerán aquí.</span></section> }
+      </section>
+    </section>
+  }
+</section>

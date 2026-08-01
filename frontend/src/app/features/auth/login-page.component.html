@@ -1,0 +1,16 @@
+<main class="login-page">
+  <section class="login-card" aria-labelledby="login-title">
+    <div class="logo" aria-hidden="true">+</div>
+    <p class="eyebrow">Historia clínica oncológica</p>
+    <h1 id="login-title">Ingresar a HCOP AJP</h1>
+    <p class="intro">Primer acceso Angular. La sesión, los permisos y los datos siguen siendo administrados por el servidor clínico.</p>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <label>Usuario<input type="text" autocomplete="username" formControlName="username" /></label>
+      <label>Contraseña<input type="password" autocomplete="current-password" formControlName="password" /></label>
+      @if (error(); as message) { <p class="error" role="alert">{{ message }}</p> }
+      <button type="submit" [disabled]="pending()">{{ pending() ? 'Ingresando…' : 'Ingresar' }}</button>
+    </form>
+
+  </section>
+</main>

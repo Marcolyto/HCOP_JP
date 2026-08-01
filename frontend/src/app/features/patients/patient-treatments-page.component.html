@@ -1,0 +1,114 @@
+<section class="treatments-page" aria-labelledby="treatments-title">
+  <header class="page-heading">
+    <div>
+      <p class="eyebrow">Hospital de día · Tratamiento</p>
+      <h1 id="treatments-title">Tratamientos y aplicaciones</h1>
+      <p>Consulte la historia activa conservando el árbol clínico de tratamiento, ciclo, día y aplicación.</p>
+    </div>
+    <div class="heading-actions">
+      <a class="secondary" [routerLink]="['/patients', patientId(), 'history']">Historia clínica</a>
+      <a class="primary-button" [routerLink]="['/patients', patientId(), 'treatments', 'new']" title="Crear una nueva prescripción">Nueva prescripción</a>
+    </div>
+  </header>
+
+  @if (error(); as message) { <p class="error" role="alert">{{ message }}</p> }
+
+  <section class="treatments-layout" [class.has-detail]="selected()">
+    <section class="list-card" aria-labelledby="treatment-list-title">
+      <header class="card-heading">
+        <div><h2 id="treatment-list-title">Tratamientos</h2><span>{{ filteredTreatments().length }} visibles</span></div>
+        <button type="button" class="icon-button" (click)="load()" [disabled]="loading()" title="Actualizar tratamientos" aria-label="Actualizar tratamientos">↻</button>
+      </header>
+      <label class="search-field" for="treatment-filter">Buscar tratamiento
+        <input id="treatment-filter" [formControl]="query" placeholder="Esquema, diagnóstico, estado u oncólogo" autocomplete="off" />
+      </label>
+      @if (loading()) {
+        <p class="empty-state">Cargando tratamientos…</p>
+      } @else if (filteredTreatments().length) {
+        <div class="treatment-list" role="list">
+          @for (treatment of filteredTreatments(); track treatment.id ?? $index) {
+            <button type="button" class="treatment-row" [class.active]="selected()?.id === treatment.id" (click)="openDetail(treatment)" role="listitem">
+              <span class="row-main"><strong>{{ treatment.scheme || 'Esquema sin nombre' }}</strong><small>{{ treatment.diagnosis || 'Diagnóstico sin registrar' }}</small></span>
+              <span class="row-meta"><span>{{ treatment.cycleCount ?? treatment.cycles ?? 0 }} ciclos</span><span class="status-pill" [class]="statusClass(treatment.status)">{{ statusLabel(treatment.status) }}</span></span>
+            </button>
+          }
+        </div>
+      } @else {
+        <p class="empty-state">No hay tratamientos que coincidan.</p>
+      }
+    </section>
+
+    @if (selected(); as treatment) {
+      <section class="detail-card" aria-labelledby="treatment-detail-title">
+        <header class="detail-heading">
+          <div><p class="eyebrow">Detalle del tratamiento</p><h2 id="treatment-detail-title">{{ treatment.scheme || 'Esquema sin nombre' }}</h2><p>{{ treatment.diagnosis || 'Diagnóstico sin registrar' }}</p></div>
+          <div class="detail-heading-actions">
+            <div class="document-actions" aria-label="Documentos del tratamiento">
+              @if (hasConsentDocument(treatment)) { <a class="document-link" [href]="'/api/clinical/treatments/' + treatment.id + '/consent'" target="_blank" rel="noopener">Consentimiento</a> }
+              @if (hasPrescriptionDocument(detail())) { <a class="document-link" [href]="'/api/clinical/patients/' + patientId() + '/treatments/' + treatment.id + '/documents/prescription'" target="_blank" rel="noopener">Prescripción</a> }
+            </div>
+            <button type="button" class="icon-button" (click)="closeDetail()" title="Cerrar detalle" aria-label="Cerrar detalle">×</button>
+          </div>
+        </header>
+        <dl class="treatment-facts">
+          <div><dt>Estado</dt><dd><span class="status-pill" [class]="statusClass(treatment.status)">{{ statusLabel(treatment.status) }}</span></dd></div>
+          <div><dt>Tipo</dt><dd>{{ treatment.type || 'No registrado' }}</dd></div>
+          <div><dt>Creado</dt><dd>{{ dateLabel(treatment.createdDate || treatment.date) }}</dd></div>
+          <div><dt>Duración estimada</dt><dd>{{ treatment.estimatedDurationText || (treatment.estimatedDurationMinutes ? treatment.estimatedDurationMinutes + ' min' : 'No informada') }}</dd></div>
+          <div><dt>Ciclos previstos</dt><dd>{{ treatment.cycleCount ?? treatment.cycles ?? '—' }}</dd></div>
+          <div><dt>Consentimiento</dt><dd>{{ treatment.consentStatus || 'No informado' }}</dd></div>
+        </dl>
+
+        @if (detailLoading()) { <p class="empty-state">Cargando árbol del tratamiento…</p> }
+        @else if (detail(); as data) {
+          <section class="cycle-tree" aria-label="Ciclos, días y aplicaciones">
+            @for (cycle of data.cycles ?? []; track trackCycle($index, cycle)) {
+              <article class="cycle-card" [class]="statusClass(cycle.state || cycle.status)">
+                <header class="cycle-heading"><div><strong>Ciclo {{ cycle.number }}</strong><span>{{ dateLabel(cycle.plannedDate || cycle.date) }}</span></div><div><span class="status-pill" [class]="statusClass(cycle.state || cycle.status)">{{ statusLabel(cycle.state || cycle.status) }}</span><small>{{ applicationLabel(cycle) }}</small></div></header>
+                @if (cycle.number) { <a class="sheet-link" [href]="'/api/clinical/patients/' + patientId() + '/treatments/' + treatment.id + '/documents/treatment-sheet?cycle=' + cycle.number" target="_blank" rel="noopener">Descargar hoja del ciclo {{ cycle.number }}</a> }
+                @if (cycle.drugs?.length) {
+                  <div class="drug-list"><span class="subheading">Drogas del esquema</span>@for (drug of cycle.drugs; track drug.drugId ?? $index) {<div class="drug-row"><strong>{{ drug.drugName || 'Droga sin nombre' }}</strong><span>{{ drug.calculatedDoseText || drug.prescribedDoseText || 'Dosis no informada' }} {{ drug.doseUnit || '' }}</span><small>{{ drug.route || 'Vía no informada' }}{{ drug.administrationTime ? ' · ' + drug.administrationTime : '' }}</small></div>}</div>
+                }
+                @if (cycle.days?.length) {
+                  <div class="day-list"><span class="subheading">Aplicaciones previstas y registradas</span>@for (day of cycle.days; track day.day ?? $index) {<div class="day-row" [class]="statusClass(day.status)"><span class="day-marker">Día {{ day.day }}</span><div><strong>{{ dateLabel(day.plannedDate || day.date) }}</strong><small>{{ day.applicationId ? 'Aplicación registrada' : 'Sin aplicación registrada' }}</small></div><span class="status-pill" [class]="statusClass(day.status)">{{ statusLabel(day.status) }}</span>@if (!day.applicationId) { <button type="button" class="schedule-button" (click)="openSchedule(cycle, day)">Programar turno</button> }</div>}</div>
+                } @else { <p class="empty-state">Este ciclo todavía no tiene días de aplicación definidos.</p> }
+              </article>
+            } @empty { <p class="empty-state">El detalle no contiene ciclos.</p> }
+          </section>
+        }
+      </section>
+    } @else {
+      <section class="detail-placeholder"><strong>Seleccione un tratamiento</strong><span>Se mostrará aquí el árbol ciclo → día → aplicación y las drogas recuperadas del protocolo.</span></section>
+    }
+  </section>
+
+  @if (scheduleTarget(); as target) {
+    <section class="schedule-overlay" role="dialog" aria-modal="true" aria-labelledby="schedule-title">
+      <form class="schedule-dialog" [formGroup]="scheduleForm" (ngSubmit)="saveSchedule()">
+        <header><div><p class="eyebrow">Hospital de día</p><h2 id="schedule-title">Programar aplicación</h2><p>Ciclo {{ target.cycleNumber }} · Día {{ target.applicationDay }} · {{ target.durationMinutes }} minutos</p></div><button type="button" class="icon-button" (click)="closeSchedule()" title="Cerrar" aria-label="Cerrar">×</button></header>
+        @if (scheduleError(); as message) { <p class="error" role="alert">{{ message }}</p> }
+        @if (workflowError(); as message) { <p class="error" role="alert">{{ message }}</p> }
+        <section class="workflow-gate" aria-labelledby="workflow-gate-title">
+          <div class="workflow-gate-heading"><div><span class="subheading">Circuito previo</span><strong id="workflow-gate-title">Farmacia y disponibilidad</strong></div>@if (workflowLoading()) { <span class="workflow-state">Verificando...</span> } @else if (workflow(); as current) { <span class="workflow-state" [class.ready]="isSchedulingEligible(current)">{{ isSchedulingEligible(current) ? 'Listo para turno' : workflowStatusLabel(current.currentStep) }}</span> }</div>
+          @if (workflow(); as current) {
+            <dl class="workflow-facts"><div><dt>Prescripción</dt><dd>{{ workflowStatusLabel(current.prescriptionStatus) }}</dd></div><div><dt>Farmacia</dt><dd>{{ workflowStatusLabel(current.pharmacyValidationStatus) }}</dd></div><div><dt>Medicación</dt><dd>{{ workflowStatusLabel(current.medicationSource) }}</dd></div>@if (current.medicationSource === 'center_stock') { <div><dt>Reserva</dt><dd>{{ workflowStatusLabel(current.stockReservationStatus) }}</dd></div> }</dl>
+            @if (!isSchedulingEligible(current)) {
+              <label class="medication-source-field"><span>Procedencia de la medicación</span><select formControlName="medicationSource"><option value="center_stock">Stock del centro</option><option value="patient_to_bring">La trae el paciente</option><option value="patient_has_medication">La tiene el paciente</option><option value="received_center">Recibida en el centro</option></select></label>
+              <p class="workflow-hint">{{ workflowGateMessage(current) }} La validación queda registrada en la historia clínica.</p>
+              <button type="button" class="workflow-action" (click)="validatePharmacy()" [disabled]="workflowAction() || workflowLoading()">{{ workflowAction() ? 'Registrando...' : 'Confirmar Farmacia y medicación' }}</button>
+            } @else {
+              <p class="workflow-hint ready-hint">La prescripción y la medicación ya están aseguradas. Puede asignar el sillón.</p>
+            }
+          } @else if (!workflowLoading()) { <p class="workflow-hint">No se pudo recuperar el estado de esta aplicación.</p> }
+        </section>
+        <div class="schedule-fields">
+          <label><span>Fecha y hora</span><input type="datetime-local" formControlName="scheduledAt" [step]="scheduleStep()"></label>
+          <label><span>Sillón</span><select formControlName="chair">@for (chair of chairs(); track chair) { <option [value]="chair">Sillón {{ chair }}</option> }</select></label>
+          <label><span>Duración calculada</span><input type="number" formControlName="durationMinutes" readonly></label>
+        </div>
+        <p class="schedule-hint">La agenda usa casilleros de {{ scheduleSettings().slotMinutes }} minutos y jornada {{ scheduleSettings().startTime }}–{{ scheduleSettings().endTime }}. El backend evita superposiciones.</p>
+        <footer><button type="button" class="secondary" (click)="closeSchedule()">Cancelar</button><button type="submit" class="primary-button" [disabled]="scheduling() || workflowLoading() || workflowAction() || !isSchedulingEligible(workflow())">{{ scheduling() ? 'Guardando…' : 'Guardar turno' }}</button></footer>
+      </form>
+    </section>
+  }
+</section>

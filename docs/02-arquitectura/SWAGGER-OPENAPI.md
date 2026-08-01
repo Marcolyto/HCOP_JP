@@ -80,7 +80,7 @@ Las respuestas de éxito pueden ser un objeto, una lista, un archivo o un
 documento imprimible según la operación. Las altas responden `201`; el resto de
 las operaciones exitosas usa el estado indicado en cada ruta.
 
-Todos los errores JSON referencian el componente reutilizable `ApiError`:
+Los errores JSON generales referencian el componente reutilizable `ApiError`:
 
 ```json
 {
@@ -88,6 +88,22 @@ Todos los errores JSON referencian el componente reutilizable `ApiError`:
   "error": "Mensaje seguro para el usuario",
   "code": "codigo_opcional",
   "status": 409
+}
+```
+
+Cuando una ruta protegida no recibe una sesión válida, la respuesta `401`
+referencia `AuthenticationRequired`. Conserva `authenticated` y
+`loginRequired` para la interfaz vigente y agrega `code` y `status` para el
+cliente Angular:
+
+```json
+{
+  "ok": false,
+  "authenticated": false,
+  "loginRequired": true,
+  "error": "Debe iniciar sesión.",
+  "code": "AUTHENTICATION_REQUIRED",
+  "status": 401
 }
 ```
 
@@ -133,7 +149,8 @@ Todo nuevo endpoint debe tener:
 - una única etiqueta funcional canónica;
 - `operationId` único;
 - cuerpo binario visible cuando el controlador consume un stream;
-- `ApiError` en toda respuesta `4xx` o `5xx`;
+- `ApiError` en toda respuesta `4xx` o `5xx`, salvo el `401` protegido que usa
+  `AuthenticationRequired`;
 - prueba de éxito, error y autorización;
 - modelo de datos documentado;
 - ausencia de secretos o datos clínicos reales en ejemplos;

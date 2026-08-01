@@ -1,0 +1,19 @@
+<section class="history-page">
+  @if (loading()) {
+    <section class="history-empty"><strong>Abriendo historia clínica…</strong><span>Se recupera la versión vigente desde PostgreSQL.</span></section>
+  } @else if (error(); as message) {
+    <section class="history-error" role="alert">{{ message }}</section>
+  } @else if (workspace(); as data) {
+    <header class="history-heading"><div><p>Historia clínica · lectura Angular</p><h1>{{ data.patient.fullName }}</h1><span>DNI {{ data.patient.dni || 'sin registrar' }} · HC {{ data.patient.medicalRecord || 'sin registrar' }}</span></div><div class="history-actions"><a [routerLink]="['/patients', data.patientId, 'diagnosis', 'new']">Agregar diagnóstico</a><a [routerLink]="['/patients', data.patientId, 'history', 'edit']">Editar hoja clínica</a><a [routerLink]="['/patients', data.patientId]">Volver al paciente</a></div></header>
+    <section class="history-card" aria-labelledby="oncology-title"><h2 id="oncology-title">Situación oncológica</h2>
+      @if (diagnoses(data.state).length) { <div class="diagnosis-list">@for (diagnosis of diagnoses(data.state); track diagnosis.id ?? $index) { <article><strong>{{ diagnosisLabel(diagnosis) }}</strong><span>{{ diagnosis.date || 'Fecha no registrada' }}</span>@if (diagnosisStage(diagnosis); as stage) { <b>{{ stage }}</b> }</article> }</div> } @else { <p class="muted">No hay diagnósticos cargados todavía.</p> }
+      @if (data.state.oncology?.histology || data.state.oncology?.biomarkers || data.state.oncology?.topography) { <dl class="oncology-details">@if (data.state.oncology?.topography; as topography) { <div><dt>Topografía</dt><dd>{{ topography }}</dd></div> } @if (data.state.oncology?.histology; as histology) { <div><dt>Histología</dt><dd>{{ histology }}</dd></div> } @if (data.state.oncology?.biomarkers; as biomarkers) { <div><dt>Biomarcadores</dt><dd>{{ biomarkers }}</dd></div> } @if (data.state.oncology?.performanceStatus; as performance) { <div><dt>Performance</dt><dd>{{ performance }}</dd></div> }</dl> }
+    </section>
+    <section class="history-card" aria-labelledby="narrative-title"><h2 id="narrative-title">Hoja clínica</h2>
+      @if (narrative(data.state).length) { <div class="narrative-list">@for (section of narrative(data.state); track section.label) { <article><h3>{{ section.label }}</h3><p>{{ section.text }}</p></article> }</div> } @else { <p class="muted">La hoja clínica aún no tiene texto registrado.</p> }
+    </section>
+    <section class="history-card" aria-labelledby="evolutions-title"><h2 id="evolutions-title">Evoluciones</h2>
+      @if (evolutions(data.state).length) { <ol class="evolution-list">@for (evolution of evolutions(data.state); track evolution.id ?? $index) { <li [class.highlighted]="evolution.highlighted"><header><strong>{{ evolution.reason || 'Evolución clínica' }}</strong><span>{{ evolution.date || 'Sin fecha' }} · {{ evolution.author || 'Sin autor' }}</span></header>@if (evolution.specialty) { <small>{{ evolution.specialty }}</small> }@if (evolution.text) { <p>{{ evolution.text }}</p> }</li> }</ol> } @else { <p class="muted">No hay evoluciones registradas.</p> }
+    </section>
+  }
+</section>

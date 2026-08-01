@@ -14,6 +14,22 @@ function Assert-True {
   if (-not $Condition) { throw $Message }
 }
 
+function Get-ClinicalTimeZone {
+  foreach ($timeZoneId in @("America/Argentina/Buenos_Aires", "Argentina Standard Time")) {
+    try {
+      return [TimeZoneInfo]::FindSystemTimeZoneById($timeZoneId)
+    } catch {
+      continue
+    }
+  }
+  throw "No se encontro la zona horaria clinica de Argentina."
+}
+
+function Get-ClinicalToday {
+  $clinicalTimeZone = Get-ClinicalTimeZone
+  return [TimeZoneInfo]::ConvertTime([DateTimeOffset]::UtcNow, $clinicalTimeZone).Date
+}
+
 function Get-ApplicationComponentKey {
   param([object]$Drug, [int]$Ordinal)
   $explicitKey = [string]$Drug.sourceItemRef
@@ -110,7 +126,8 @@ Assert-True (-not [string]::IsNullOrWhiteSpace($patientId)) "No se creo el pacie
 
 $history = Invoke-HcopJson -Path "/api/hc"
 $diagnosisId = "diag-e2e-$suffix"
-$today = (Get-Date).ToString("yyyy-MM-dd")
+$todayInClinicalTimeZone = Get-ClinicalToday
+$today = $todayInClinicalTimeZone.ToString("yyyy-MM-dd")
 $diagnosis = [pscustomobject]@{
   id = $diagnosisId
   date = $today
@@ -284,18 +301,7 @@ $startParts = ([string]$(if ($settings.startTime) { $settings.startTime } else {
 $endParts = ([string]$(if ($settings.endTime) { $settings.endTime } else { "16:00" })).Split(":")
 $startMinute = ([int]$startParts[0] * 60) + [int]$startParts[1]
 $endMinute = ([int]$endParts[0] * 60) + [int]$endParts[1]
-$clinicalTimeZone = $null
-foreach ($timeZoneId in @("America/Argentina/Buenos_Aires", "Argentina Standard Time")) {
-  try {
-    $clinicalTimeZone = [TimeZoneInfo]::FindSystemTimeZoneById($timeZoneId)
-    break
-  } catch {
-    $clinicalTimeZone = $null
-  }
-}
-Assert-True ($null -ne $clinicalTimeZone) "No se encontro la zona horaria clinica de Argentina."
-$nowUtc = [DateTimeOffset]::UtcNow
-$todayInClinicalTimeZone = [TimeZoneInfo]::ConvertTime($nowUtc, $clinicalTimeZone).Date
+$clinicalTimeZone = Get-ClinicalTimeZone
 $localScheduledAt = $null
 $selectedChair = ""
 

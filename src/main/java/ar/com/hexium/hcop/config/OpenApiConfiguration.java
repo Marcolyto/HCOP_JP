@@ -335,6 +335,9 @@ public class OpenApiConfiguration {
     return openApi -> {
       if (openApi.getComponents() == null) openApi.setComponents(new Components());
       openApi.getComponents().addSchemas("ApiError", apiErrorSchema());
+      openApi.getComponents().addSchemas(
+          "AuthenticationRequired",
+          authenticationRequiredSchema());
       if (openApi.getPaths() == null || openApi.getTags() == null) return;
       Set<String> usedTags = new HashSet<>();
       openApi.getPaths().values().forEach(path ->
@@ -481,7 +484,11 @@ public class OpenApiConfiguration {
     if (responses == null) return;
     describeSuccessResponse(responses, key);
     if (secured) {
-      ensureErrorResponse(responses, "401", "Sesión ausente, vencida o revocada.");
+      ensureErrorResponse(
+          responses,
+          "401",
+          "Sesión ausente, vencida o revocada.",
+          "#/components/schemas/AuthenticationRequired");
       ensureErrorResponse(responses, "403", "El usuario no posee el permiso requerido.");
     } else if ("AuthController.login".equals(key)) {
       ensureErrorResponse(responses, "401", "Usuario o contraseña incorrectos.");
@@ -541,6 +548,14 @@ public class OpenApiConfiguration {
       io.swagger.v3.oas.models.responses.ApiResponses responses,
       String status,
       String description) {
+    ensureErrorResponse(responses, status, description, "#/components/schemas/ApiError");
+  }
+
+  private static void ensureErrorResponse(
+      io.swagger.v3.oas.models.responses.ApiResponses responses,
+      String status,
+      String description,
+      String schemaReference) {
     ApiResponse response = responses.get(status);
     if (response == null) {
       response = new ApiResponse();
@@ -553,7 +568,7 @@ public class OpenApiConfiguration {
       content.addMediaType(
           "application/json",
           new io.swagger.v3.oas.models.media.MediaType()
-              .schema(new Schema<>().$ref("#/components/schemas/ApiError")));
+              .schema(new Schema<>().$ref(schemaReference)));
     }
     response.setContent(content);
   }
@@ -572,6 +587,36 @@ public class OpenApiConfiguration {
         .format("int32")
         .description("Código de estado HTTP."));
     schema.setRequired(List.of("ok", "error", "status"));
+    return schema;
+  }
+
+  private static Schema<?> authenticationRequiredSchema() {
+    ObjectSchema schema = new ObjectSchema();
+    schema.setDescription(
+        "Sesión obligatoria ausente o vencida. Conserva los indicadores utilizados por la interfaz.");
+    schema.addProperty("ok", new BooleanSchema()
+        .description("Siempre false.")
+        ._default(false));
+    schema.addProperty("authenticated", new BooleanSchema()
+        .description("Siempre false para este rechazo.")
+        ._default(false));
+    schema.addProperty("loginRequired", new BooleanSchema()
+        .description("Siempre true: la interfaz debe presentar el acceso.")
+        ._default(true));
+    schema.addProperty("error", new StringSchema()
+        .description("Mensaje seguro y apto para mostrar al usuario."));
+    schema.addProperty("code", new StringSchema()
+        .description("Código estable AUTHENTICATION_REQUIRED."));
+    schema.addProperty("status", new IntegerSchema()
+        .format("int32")
+        .description("Siempre 401."));
+    schema.setRequired(List.of(
+        "ok",
+        "authenticated",
+        "loginRequired",
+        "error",
+        "code",
+        "status"));
     return schema;
   }
 

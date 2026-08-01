@@ -1,5 +1,11 @@
 # HCOP JP
 
+> **Rama de migración:** `codex/angular-hexagonal-migration` es un canal de
+> prueba aislado. Conserva la interfaz clínica vigente mientras traslada el
+> backend por capacidades a una arquitectura hexagonal y estabiliza los
+> contratos que consumirá Angular. La versión estable continúa en `main`, con
+> la imagen `latest`, el puerto 5180 y sus volúmenes habituales.
+
 HCOP JP reúne en un único sistema la historia clínica oncológica, diagnósticos,
 prescripciones, protocolos, farmacia, Hospital de Día, turnero por sillón,
 estudios, investigación, herramientas, usuarios y auditoría.
@@ -12,6 +18,24 @@ rol trabaja en su propia cola sin poder adelantar estados.
 La interfaz conserva el producto HCOP/Lira construido hasta ahora. El servidor
 fue migrado a Java 21 con Spring MVC y la persistencia a PostgreSQL. No necesita
 Lira, Node.js ni MySQL para funcionar.
+
+## Probar esta rama migratoria desde GitHub
+
+Con Docker Desktop iniciado, copie esta línea completa en Windows PowerShell:
+
+```powershell
+$hcopScript = Join-Path $env:TEMP "EJECUTAR-DOCKER-DESDE-GITHUB.ps1"
+Invoke-WebRequest "https://raw.githubusercontent.com/Marcolyto/HCOP_JP/main/EJECUTAR-DOCKER-DESDE-GITHUB.ps1" -OutFile $hcopScript -UseBasicParsing
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $hcopScript -Channel Migration -Mode Start -HostPort 5181
+```
+
+La prueba abre <http://localhost:5181> y utiliza la imagen de migración
+`ghcr.io/marcolyto/hcop_jp:angular-hexagonal-migration`, base `hcop_ajp` y
+volúmenes `hcop_ajp_*`. Puede convivir con la versión estable: no modifica su
+imagen `latest`, su puerto 5180 ni sus datos.
+
+La guía [Probar la rama Angular/hexagonal](docs/00-inicio/PRUEBA-RAMA-ANGULAR-HEXAGONAL.md)
+incluye inicio, actualización, estado, detención y límites actuales.
 
 ## Ejecutar directamente con Docker Desktop, sin clonar
 
@@ -26,41 +50,56 @@ lo ejecuta; no canaliza código de Internet directamente al intérprete:
 $hcopScript = Join-Path $env:TEMP "EJECUTAR-DOCKER-DESDE-GITHUB.ps1"; Invoke-WebRequest "https://raw.githubusercontent.com/Marcolyto/HCOP_JP/main/EJECUTAR-DOCKER-DESDE-GITHUB.ps1" -OutFile $hcopScript; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $hcopScript
 ```
 
-En la primera ejecución solicita las credenciales iniciales sin mostrarlas,
-genera los demás secretos una sola vez y guarda todo en
-`%LOCALAPPDATA%\HCOP_JP-Docker`. Los datos clínicos quedan en volúmenes Docker
-persistentes. Si el repositorio todavía es privado, descargue el script desde
-GitHub después de iniciar sesión; el propio ejecutor resuelve por separado el
-acceso a la imagen privada.
+Si ese comando devuelve 404, copie y pegue este bloque alternativo:
+
+```powershell
+$hcopScript = Join-Path $env:TEMP "EJECUTAR-DOCKER-DESDE-GITHUB.ps1"
+Invoke-WebRequest "https://raw.githubusercontent.com/Marcolyto/HCOP_JP/main/EJECUTAR-DOCKER-DESDE-GITHUB.ps1" -OutFile $hcopScript -UseBasicParsing
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $hcopScript -Channel Migration -Mode Start -HostPort 5181
+```
+
+En la primera ejecución solicita las credenciales iniciales y el puerto web
+(puede presionar Enter para aceptar 5181), genera los demás secretos una sola vez y guarda todo en
+`%LOCALAPPDATA%\HCOP_JP`. Los datos clínicos quedan en volúmenes Docker
+persistentes. El repositorio y la imagen Docker publicados son públicos, por lo
+que esta modalidad no requiere autenticación en GitHub.
 
 Modos disponibles:
 
 ```powershell
 # Usa las imágenes locales y sólo descarga si todavía faltan
-powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Mode Start
+powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Channel Migration -Mode Start -HostPort 5181
 
-# Busca y aplica explícitamente la versión latest
-powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Mode Update
-powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Mode Status
-powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Mode Stop
+powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Channel Migration -Mode Update -HostPort 5181
+powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Channel Migration -Mode Stop -HostPort 5181
 ```
 
-## Instalación más simple desde GitHub
+## Instalación administrada desde GitHub
 
 Requisitos: Windows 10/11 de 64 bits, conexión a Internet y permisos para
 instalar Docker Desktop.
 
-1. Inicie sesión en GitHub con una cuenta autorizada y descargue
-   [`INSTALAR-DESDE-GITHUB.bat`](INSTALAR-DESDE-GITHUB.bat).
+1. Descargue [`INSTALAR-DESDE-GITHUB.bat`](INSTALAR-DESDE-GITHUB.bat).
 2. Haga doble clic.
 3. Acepte la instalación de Docker Desktop si Windows la solicita.
 4. Elija usuario, contraseña y puerto o presione Enter para usar los valores
    sugeridos.
-5. El instalador abre `http://localhost:5180`.
+5. El instalador abre la dirección del puerto elegido (por defecto,
+   `http://localhost:5180`).
 
-Como el repositorio y la imagen son privados, el asistente puede instalar
-GitHub CLI y abrir una autorización por navegador en el primer equipo. No pide
-que copie ni pegue tokens.
+Durante la instalación se muestra **Puerto web HTTP [5180]**. El valor se
+valida y se rechaza si otro programa ya lo está usando. Para una instalación
+automatizada, el puerto puede pasarse como primer argumento:
+
+```powershell
+.\INSTALAR-DESDE-GITHUB.bat 5190
+```
+
+La elección se conserva en `%LOCALAPPDATA%\HCOP_JP\.env` y no se modifica al
+actualizar o reparar.
+
+El repositorio y la imagen Docker publicados son públicos. La instalación no
+requiere iniciar sesión en GitHub, GitHub CLI ni tokens personales.
 
 El acceso directo **HCOP JP** del Escritorio sirve como lanzador diario:
 comprueba Docker, descarga la versión más reciente publicada en GitHub, mantiene
@@ -83,17 +122,26 @@ Luego abra:
 - Salud: <http://localhost:5180/actuator/health>
 
 El usuario sugerido es `marcolyto`; la contraseña inicial siempre debe ser
-elegida durante la instalación.
+elegida durante la instalación y debe tener al menos 10 caracteres.
 
 ## Arquitectura
 
-HCOP JP es un monolito modular con separación MVC:
+HCOP JP evoluciona como monolito modular hexagonal, con migración incremental:
 
-- `controller`: contrato HTTP y autorización;
-- `service`: reglas clínicas, validaciones y transacciones;
-- `repository`: consultas parametrizadas a PostgreSQL;
-- `static`: interfaz web existente;
-- `db/migration`: creación y evolución reproducible de la base.
+- cada capacidad migrada separa `domain`, `application` e `infrastructure`;
+- los puertos de entrada expresan casos de uso y los de salida aíslan
+  persistencia, archivos y catálogos;
+- los módulos todavía no migrados conservan su estructura MVC mientras se
+  verifica la paridad;
+- `static` mantiene temporalmente la interfaz vigente en `/`;
+- Angular ya entrega login y paciente activo en `/app/` y se ampliará por
+  recorridos completos, sin una reescritura masiva;
+- `db/migration` conserva la evolución reproducible de PostgreSQL mediante
+  Flyway.
+
+ArchUnit impide que dominio y aplicación dependan de Spring, JDBC, JSON o los
+adaptadores. La migración de Configuración, Protocolos y Guías ya usa estos
+límites; las demás capacidades siguen en convivencia controlada.
 
 Cada cambio de estructura usa Flyway. Las reglas de concurrencia críticas,
 incluida la superposición de turnos, también están protegidas por PostgreSQL.
@@ -103,6 +151,7 @@ incluida la superposición de turnos, también están protegidas por PostgreSQL.
 Empiece por el [índice de documentación](docs/README.md).
 
 - [Instalar desde GitHub](docs/00-inicio/INSTALACION-DESDE-GITHUB.md)
+- [Probar la rama Angular/hexagonal](docs/00-inicio/PRUEBA-RAMA-ANGULAR-HEXAGONAL.md)
 - [Manual de uso](docs/01-uso/MANUAL-DE-USO.md)
 - [Flujo clínico](docs/01-uso/FLUJO-TRATAMIENTO.md)
 - [Circuito de Hospital de día en 7 pasos](docs/01-uso/CIRCUITO-HOSPITAL-DE-DIA-7-PASOS.md)
@@ -118,11 +167,13 @@ Empiece por el [índice de documentación](docs/README.md).
 - [Mapa pantalla → API → base](docs/07-referencia/MAPA-FUNCIONAL.md)
 - [Variables de entorno](docs/05-operacion/VARIABLES-DE-ENTORNO.md)
 - [Crear el proyecto desde cero](docs/04-desarrollo/CREAR-DESDE-CERO.md)
+- [Dónde está cada archivo del frontend, backend y documentación](docs/04-desarrollo/ESTRUCTURA-DEL-REPOSITORIO.md)
 - [Recrear todo con buenas prácticas](docs/08-recrear-desde-cero/README.md)
 - [Checklist de producto final](docs/08-recrear-desde-cero/10-CHECKLIST-PRODUCTO-FINAL.md)
 - [Docker](docs/05-operacion/DOCKER.md)
 - [Copias de seguridad](docs/05-operacion/BACKUP-Y-RESTAURACION.md)
 - [Seguridad](docs/05-operacion/SEGURIDAD.md)
+- [Programa de migración Angular y hexagonal](docs/09-migracion-angular-hexagonal/README.md)
 
 ## Verificación
 
@@ -139,6 +190,17 @@ reanudación, administración, hoja de tratamiento y evoluciones. Además existe
 una [matriz reproducible de Hospital de día](docs/08-auditoria/HOSPITAL-DIA-100-CASOS.md);
 su última ejecución obtuvo
 [100 PASS de 100](docs/08-auditoria/resultados/hospital-dia-100-casos-20260730-100711.md).
-La verificación final incluyó además **101 pruebas Java aprobadas** y el E2E
-multidroga con cuatro componentes: Carboplatino se interrumpió al 50 %, se
-reanudó y la aplicación terminó completada sin perder la reacción.
+La verificación de publicación ejecuta la suite Java, reglas ArchUnit,
+contratos reales de Configuración, Protocolos y Guías, OpenAPI, enlaces de
+documentación y el E2E clínico multidroga. Carboplatino se interrumpe al 50 %,
+se reanuda y la aplicación termina completada sin perder la reacción.
+
+En este corte, `mvn verify` aprobó **142 pruebas** sin fallas ni omisiones. La
+prueba Docker confirmó además los 111 endpoints documentados y el circuito
+clínico completo con cuatro drogas.
+
+
+
+
+
+

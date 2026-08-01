@@ -1,0 +1,67 @@
+<section class="treatment-create-page" aria-labelledby="treatment-create-title">
+  @if (loading()) {
+    <section class="message"><strong>Cargando opciones de prescripción…</strong><span>Se recuperan diagnósticos, protocolos y requisitos desde el backend Java.</span></section>
+  } @else {
+    <header class="page-heading">
+      <div>
+        <p class="eyebrow">Hospital de día · Nueva prescripción</p>
+        <h1 id="treatment-create-title">Crear tratamiento</h1>
+        <p>Paciente: <strong>{{ patientName() || patientId() }}</strong>. El alta genera la evolución clínica y la primera aplicación planificada.</p>
+      </div>
+      @if (patientId(); as id) {
+        <a class="secondary" [routerLink]="['/patients', id, 'treatments']">Volver a tratamientos</a>
+      }
+    </header>
+
+    @if (error(); as message) { <section class="error" role="alert"><strong>No se pudo guardar la prescripción.</strong><span>{{ message }}</span></section> }
+    @if (success(); as message) { <section class="success" role="status">{{ message }}</section> }
+
+    <form [formGroup]="form" (ngSubmit)="save()" novalidate>
+      <section class="card">
+        <header class="card-heading"><span class="step">1</span><div><h2>Diagnóstico y protocolo</h2><p>El diagnóstico se toma de la historia clínica; el protocolo define drogas, días y duración.</p></div></header>
+        <div class="two-columns">
+          <label><span>Diagnóstico guardado <em>obligatorio</em></span><select formControlName="diagnostico"><option value="">Seleccione un diagnóstico…</option>@for (item of diagnoses(); track item.id) { <option [value]="item.id">{{ item.nombre }}{{ item.protocolGroupLabel ? ' · ' + item.protocolGroupLabel : '' }}</option> }</select></label>
+          <label><span>Esquema / protocolo <em>obligatorio</em></span><select formControlName="esquema" (change)="schemeChanged()"><option value="">Seleccione un protocolo…</option>@for (item of schemes(); track item.id) { <option [value]="item.id">{{ schemeName(item) }}</option> }</select></label>
+        </div>
+        @if (selectedScheme(); as scheme) { <p class="scheme-hint"><strong>{{ schemeName(scheme) }}</strong><span>{{ durationLabel(scheme) }}{{ scheme.cycleDays ? ' · cada ' + scheme.cycleDays + ' días' : '' }}</span></p> }
+        @if (protocolMismatch()) {
+          <section class="warning" role="alert"><strong>Revisar compatibilidad diagnóstico–protocolo</strong><span>{{ protocolMismatchLabel() }} Si es clínicamente correcto, documente la excepción para continuar.</span><label class="check"><input type="checkbox" formControlName="protocolMismatchConfirmed"><span>Confirmo la excepción clínica</span></label><label><span>Motivo de la excepción <em>mínimo 10 caracteres</em></span><textarea rows="2" formControlName="protocolMismatchReason" placeholder="Explique por qué este esquema corresponde al paciente"></textarea></label></section>
+        }
+      </section>
+
+      <section class="card">
+        <header class="card-heading"><span class="step">2</span><div><h2>Plan del tratamiento</h2><p>Estos datos se usan para ordenar ciclos, turnos y aplicaciones en Hospital de día.</p></div></header>
+        <div class="four-columns">
+          <label><span>Cantidad de ciclos <em>obligatorio</em></span><input type="number" min="1" max="500" formControlName="cantidadCiclos"></label>
+          <label><span>Ciclo inicial</span><input type="number" min="1" max="500" formControlName="cicloInicial"></label>
+          <label><span>Intervalo entre ciclos (días)</span><input type="number" min="0" max="3650" formControlName="duracionCiclo"><small>Se completa desde el protocolo y puede ajustarse.</small></label>
+          <label><span>Primer ciclo</span><input type="date" formControlName="fechaPrimerCiclo"></label>
+        </div>
+        <div class="three-columns">
+          <label><span>Tipo de tratamiento <em>obligatorio</em></span><select formControlName="tipoOncologico"><option value="">Seleccione…</option>@for (item of treatmentTypes(); track item.id) { <option [value]="item.id">{{ item.nombre }}</option> }</select></label>
+          <label><span>Intención / carácter <em>obligatorio</em></span><select formControlName="caracter"><option value="">Seleccione…</option>@for (item of characters(); track item.id) { <option [value]="item.id">{{ item.nombre }}</option> }</select></label>
+          <label><span>Consentimiento</span><select formControlName="estadoConsentimiento">@for (item of consentStates(); track item.id) { <option [value]="item.id">{{ item.nombre }}</option> }</select></label>
+        </div>
+        <label class="date-field"><span>Fecha de creación</span><input type="date" formControlName="fechaCreacion"></label>
+      </section>
+
+      <section class="card requirements-card">
+        <header class="card-heading"><span class="step">3</span><div><h2>Requisitos y cálculo de dosis</h2><p>Se muestran solo los datos que el protocolo seleccionado necesita. La talla se expresa siempre en centímetros.</p></div></header>
+        @if (loadingRequirements()) { <p class="message inline">Cargando requisitos del protocolo…</p> }
+        @else if (!selectedScheme()) { <p class="hint">Seleccione un protocolo para ver sus requisitos.</p> }
+        @else if (requirements(); as req) {
+          <div class="requirement-grid">
+            @if (req.hayPeso) { <label><span>Peso (kg) <em>obligatorio</em></span><input type="number" min="0.1" step="0.1" formControlName="peso" placeholder="Ej. 75"></label> }
+            @if (req.hayTalla) { <label><span>Talla (cm) <em>obligatorio</em></span><input type="number" min="20" max="260" step="0.1" formControlName="talla" placeholder="Ej. 175"></label> }
+            @if (req.hayCalvert) { <label><span>Creatinina <em>obligatorio</em></span><input type="number" min="0.01" step="0.01" formControlName="creatinina"></label><label><span>TFG <em>obligatorio</em></span><input type="number" min="0.1" step="0.1" formControlName="tfg"></label><label><span>Target AUC <em>obligatorio</em></span><input type="number" min="1" max="12" step="0.1" formControlName="targetAUC"></label> }
+            @if (req.hayCalcioAlbumina) { <label><span>Calcio <em>obligatorio</em></span><input type="number" min="0.1" step="0.1" formControlName="calcio"></label><label><span>Albúmina <em>obligatorio</em></span><input type="number" min="0.1" step="0.1" formControlName="albumina"></label> }
+          </div>
+          @if (!req.hayPeso && !req.hayTalla && !req.hayCalvert && !req.hayCalcioAlbumina) { <p class="hint">Este protocolo no requiere variables clínicas adicionales para calcular dosis.</p> }
+          <label class="check confirm"><input type="checkbox" formControlName="requirementsConfirmed"><span>Confirmo que verifiqué los requisitos y los datos de cálculo antes de prescribir.</span></label>
+        }
+      </section>
+
+      <footer class="form-actions"><a class="secondary" [routerLink]="patientId() ? ['/patients', patientId(), 'treatments'] : ['/patients']">Cancelar</a><button class="primary" type="submit" [disabled]="saving() || !canSave()">{{ saving() ? 'Guardando…' : 'Guardar tratamiento' }}</button></footer>
+    </form>
+  }
+</section>

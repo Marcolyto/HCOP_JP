@@ -3,10 +3,14 @@ package ar.com.hexium.hcop.patient;
 import ar.com.hexium.hcop.auth.AuthService;
 import ar.com.hexium.hcop.auth.SessionPrincipal;
 import ar.com.hexium.hcop.common.ApiException;
+import ar.com.hexium.hcop.patient.application.port.in.PatientCreationUseCase;
+import ar.com.hexium.hcop.patient.application.port.in.PatientCreationUseCase.NewPatientData;
+import ar.com.hexium.hcop.patient.application.port.in.PatientCreationUseCase.PatientProfile;
+import ar.com.hexium.hcop.patient.application.service.PatientCreationApplicationService.PatientCreationFailure;
+import ar.com.hexium.hcop.patient.application.service.PatientCreationApplicationService.Reason;
 import ar.com.hexium.hcop.patient.PatientDocumentRepository.StoredDocument;
 import ar.com.hexium.hcop.patient.PatientRepository.NewPatient;
 import ar.com.hexium.hcop.patient.PatientRepository.Patient;
-import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,11 +24,17 @@ public class PatientService {
   private final PatientRepository patients;
   private final PatientDocumentService documents;
   private final AuthService auth;
+  private final PatientCreationUseCase patientCreation;
 
-  public PatientService(PatientRepository patients, PatientDocumentService documents, AuthService auth) {
+  public PatientService(
+      PatientRepository patients,
+      PatientDocumentService documents,
+      AuthService auth,
+      PatientCreationUseCase patientCreation) {
     this.patients = patients;
     this.documents = documents;
     this.auth = auth;
+    this.patientCreation = patientCreation;
   }
 
   public List<Map<String, Object>> search(String query) {
@@ -40,11 +50,19 @@ public class PatientService {
 
   @Transactional
   public Creation create(NewPatient input, SessionPrincipal actor, String token) {
-    validate(input);
-    patients.findDuplicate(input.dni(), input.medicalRecord()).ifPresent(existing -> {
-      throw new DuplicatePatientException(existing);
-    });
-    Patient patient = patients.insert(input);
+    Patient patient;
+    try {
+      PatientProfile created = patientCreation.create(new NewPatientData(
+          input.firstName(), input.lastName(), input.dni(), input.medicalRecord(), input.birthDate(),
+          input.sex(), input.insurance(), input.affiliateNumber(), input.phone(), input.email(), input.address()))
+          .patient();
+      patient = legacyPatient(created);
+    } catch (PatientCreationFailure failure) {
+      if (failure.reason() == Reason.DUPLICATE_PATIENT) {
+        throw new DuplicatePatientException(legacyPatient(failure.duplicate()));
+      }
+      throw new ApiException(HttpStatus.BAD_REQUEST, failure.getMessage());
+    }
     StoredDocument document = documents.createBlank(patient, actor.userId());
     auth.setActivePatient(token, patient.id());
     return new Creation(patient, document);
@@ -125,20 +143,11 @@ public class PatientService {
     return value.isArray() ? value.size() : 0;
   }
 
-  private void validate(NewPatient input) {
-    if (input.firstName() == null || input.firstName().isBlank()) {
-      throw new ApiException(HttpStatus.BAD_REQUEST, "El nombre es obligatorio.");
-    }
-    if (input.lastName() == null || input.lastName().isBlank()) {
-      throw new ApiException(HttpStatus.BAD_REQUEST, "El apellido es obligatorio.");
-    }
-    if ((input.dni() == null || input.dni().isBlank())
-        && (input.medicalRecord() == null || input.medicalRecord().isBlank())) {
-      throw new ApiException(HttpStatus.BAD_REQUEST, "Informe el DNI o la historia clínica.");
-    }
-    if (input.birthDate() != null && input.birthDate().isAfter(LocalDate.now())) {
-      throw new ApiException(HttpStatus.BAD_REQUEST, "La fecha de nacimiento no puede ser futura.");
-    }
+  private Patient legacyPatient(PatientProfile patient) {
+    return new Patient(
+        patient.id(), patient.dni(), patient.medicalRecord(), patient.firstName(), patient.lastName(),
+        patient.birthDate(), patient.sex(), patient.insurance(), patient.affiliateNumber(), patient.phone(),
+        patient.email(), patient.address(), patient.localOnly(), patient.createdAt(), patient.updatedAt());
   }
 
   public record Creation(Patient patient, StoredDocument document) {

@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import ar.com.hexium.hcop.auth.AuthService;
 import ar.com.hexium.hcop.patient.PatientRepository.Patient;
+import ar.com.hexium.hcop.patient.application.port.in.PatientCreationUseCase;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -17,7 +18,8 @@ class PatientServiceSearchTest {
   private final PatientRepository repository = mock(PatientRepository.class);
   private final PatientDocumentService documents = mock(PatientDocumentService.class);
   private final AuthService auth = mock(AuthService.class);
-  private final PatientService service = new PatientService(repository, documents, auth);
+  private final PatientCreationUseCase creation = mock(PatientCreationUseCase.class);
+  private final PatientService service = new PatientService(repository, documents, auth, creation);
 
   @Test
   void returnsRecentPatientsWhenTheSearchIsBlank() {

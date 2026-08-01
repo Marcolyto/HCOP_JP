@@ -93,7 +93,7 @@ public class AdminRepository {
     Integer count = jdbc.queryForObject("""
         SELECT count(*) FROM local_users
          WHERE (lower(username) = lower(?) OR lower(email) = lower(?))
-           AND (? IS NULL OR id <> ?)
+           AND (CAST(? AS bigint) IS NULL OR id <> CAST(? AS bigint))
         """, Integer.class, username, email, excludedId, excludedId);
     return count != null && count > 0;
   }

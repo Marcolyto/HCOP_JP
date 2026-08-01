@@ -1,0 +1,31 @@
+<div class="shell">
+  <header class="topbar">
+    <a class="brand" routerLink="/patients" aria-label="HCOP AJP, inicio">
+      <span class="brand-mark">+</span>
+      <span><strong>HCOP AJP</strong><small>historia clínica y hospital de día</small></span>
+    </a>
+
+    <nav aria-label="Navegación principal">
+      <a routerLink="/patients">Pacientes</a>
+      <a routerLink="/patients/new">Nuevo paciente</a>
+      <a routerLink="/hospital-day/pharmacy">Farmacia</a>
+      <a routerLink="/hospital-day/triage">Triaje</a>
+      <a routerLink="/hospital-day/preparation">Preparacion</a>
+      <a routerLink="/hospital-day/administration">Sala</a>
+      <a routerLink="/hospital-day/schedule">Turnos</a>
+      <a routerLink="/protocols">Protocolos</a>
+      <a routerLink="/configuration">Configuracion</a>
+      @if (auth.session()?.activePatientId; as patientId) { <a [routerLink]="['/patients', patientId, 'history']">Historia</a><a [routerLink]="['/patients', patientId, 'treatments']">Tratamientos</a><a [routerLink]="['/patients', patientId, 'studies']">Estudios</a> }
+    </nav>
+
+    <div class="user-actions">
+      @if (auth.session()?.activePatientId; as patientId) {
+        <span class="patient-chip">Paciente activo · {{ patientId }}</span>
+      }
+      <span class="user-name">{{ auth.session()?.user?.displayName || auth.session()?.user?.username }}</span>
+      <button type="button" (click)="logout()">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main><router-outlet /></main>
+</div>

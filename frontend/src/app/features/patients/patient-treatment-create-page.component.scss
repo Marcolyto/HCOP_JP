@@ -1,0 +1,48 @@
+:host { display: block; }
+
+.treatment-create-page { max-width: 1180px; margin: 0 auto; padding: 28px 32px 64px; color: #1f2937; }
+.page-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 22px; }
+.eyebrow { margin: 0 0 6px; color: #147ea6; font-size: .78rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+h1, h2, p { margin-top: 0; }
+h1 { margin-bottom: 8px; color: #123247; font-size: clamp(1.6rem, 2vw, 2.15rem); }
+h2 { margin-bottom: 5px; color: #173d53; font-size: 1.08rem; }
+.page-heading p:last-child, .card-heading p { margin-bottom: 0; color: #5e7280; line-height: 1.5; }
+.secondary, .primary, button { border: 0; border-radius: 6px; cursor: pointer; font: inherit; }
+.secondary { display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 0 14px; color: #176b8d; background: #eef7fa; text-decoration: none; font-weight: 700; white-space: nowrap; }
+.primary { min-height: 42px; padding: 0 20px; color: white; background: #087fa7; font-weight: 800; }
+.primary:disabled { cursor: not-allowed; opacity: .45; }
+.card { margin: 16px 0; padding: 22px; border: 1px solid #d9e5ea; border-radius: 8px; background: #fff; box-shadow: 0 5px 18px rgba(22, 65, 84, .06); }
+.card-heading { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 20px; }
+.step { display: inline-grid; flex: 0 0 28px; place-items: center; width: 28px; height: 28px; color: #fff; border-radius: 50%; background: #1689ae; font-weight: 800; }
+.two-columns, .three-columns, .four-columns, .requirement-grid { display: grid; gap: 16px; }
+.two-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.three-columns { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 16px; }
+.four-columns { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.requirement-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+label { display: flex; flex-direction: column; gap: 7px; color: #335463; font-size: .88rem; font-weight: 700; }
+label span em { color: #b04b45; font-size: .72rem; font-style: normal; font-weight: 700; }
+input, select, textarea { width: 100%; box-sizing: border-box; border: 1px solid #c6d7df; border-radius: 5px; color: #203944; background: #fff; font: inherit; }
+input, select { min-height: 40px; padding: 8px 10px; }
+textarea { padding: 9px 10px; resize: vertical; }
+input:focus, select:focus, textarea:focus { outline: 2px solid rgba(12, 143, 183, .24); border-color: #178cb3; }
+small, .hint, .scheme-hint { color: #667d88; font-weight: 500; line-height: 1.4; }
+.scheme-hint { display: flex; gap: 10px; align-items: center; margin: 14px 0 0; padding: 10px 12px; border-left: 3px solid #1d9abe; background: #f1fafc; }
+.scheme-hint span { color: #496d7b; }
+.warning { display: grid; gap: 10px; margin-top: 16px; padding: 14px; border: 1px solid #e4c77a; border-radius: 6px; color: #634e18; background: #fffaf0; }
+.warning strong { color: #8a6413; }
+.warning > span { line-height: 1.45; }
+.check { flex-direction: row; align-items: center; gap: 9px; }
+.check input { flex: 0 0 auto; width: 17px; height: 17px; min-height: 0; accent-color: #1384a8; }
+.confirm { margin-top: 18px; padding-top: 15px; border-top: 1px solid #e4edf0; }
+.message, .error, .success { padding: 16px 18px; border-radius: 7px; }
+.message { color: #496673; background: #f2f8fa; }
+.message span, .message strong { display: block; }
+.message span { margin-top: 4px; }
+.message.inline { margin: 0; }
+.error { margin-bottom: 16px; color: #8c2d32; background: #fff1f1; border: 1px solid #efc4c5; }
+.error strong, .error span { display: block; }
+.error span { margin-top: 5px; line-height: 1.45; }
+.success { margin-bottom: 16px; color: #166149; background: #edf9f3; border: 1px solid #b9e4ce; }
+.form-actions { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 20px; }
+@media (max-width: 900px) { .four-columns, .requirement-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 680px) { .treatment-create-page { padding: 20px 16px 48px; } .page-heading { flex-direction: column; } .two-columns, .three-columns, .four-columns, .requirement-grid { grid-template-columns: 1fr; } .form-actions { justify-content: stretch; } .form-actions > * { flex: 1; } }

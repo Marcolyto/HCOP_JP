@@ -3,9 +3,9 @@
     <div>
       <p class="eyebrow">Primer recorrido Angular</p>
       <h1>Pacientes e historia activa</h1>
-      <p>Busque y abra un paciente. El contexto se guarda en la sesión del servidor y también es reconocido por la interfaz vigente.</p>
+      <p>Busque y abra un paciente. El contexto se conserva en la sesión clínica actual.</p>
     </div>
-    <a class="legacy-button" href="/">Nueva historia y funciones completas</a>
+    <a class="legacy-button" routerLink="/patients/new">Nuevo paciente</a>
   </header>
 
   <section class="search-card" aria-label="Buscar pacientes">
@@ -43,6 +43,7 @@
         </div>
         <div class="patient-actions">
           <a class="secondary" [routerLink]="['/patients', data.patientId, 'history']">Ver historia clínica</a>
+          <a class="secondary" [routerLink]="['/patients', data.patientId, 'treatments']">Tratamientos</a>
           <a class="secondary" [routerLink]="['/patients', data.patientId, 'studies']">Estudios</a>
           <button type="button" class="secondary" (click)="closePatient()">Cerrar paciente</button>
         </div>
@@ -72,7 +73,7 @@
             }
           </ul>
         } @else {
-          <p>No hay tratamientos registrados. Use la interfaz actual mientras se migra el formulario de prescripción.</p>
+          <p>No hay tratamientos registrados. Puede crear uno desde la pestaña Tratamientos.</p>
         }
       </section>
     </section>

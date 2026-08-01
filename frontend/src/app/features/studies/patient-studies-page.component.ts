@@ -1,4 +1,4 @@
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, HostListener, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -19,6 +19,24 @@ interface UploadedStudy {
   studyId: string;
   response: StudyUploadResponse;
 }
+
+interface StudyTemplate {
+  id: string;
+  title: string;
+  category: string;
+  description?: string;
+  file?: string;
+  thumbnail?: string;
+  origin?: string;
+  sourceUrl?: string;
+  license?: string;
+  licenseUrl?: string;
+  author?: string;
+  sha256?: string;
+  tags?: string[];
+}
+
+interface StudyTemplateResponse { templates: StudyTemplate[]; }
 
 @Component({
   selector: 'app-patient-studies-page',
@@ -41,8 +59,14 @@ export class PatientStudiesPageComponent {
   readonly uploadErrors = signal<string[]>([]);
   readonly queuedFiles = signal<File[]>([]);
   readonly selectedStudyId = signal<string | null>(null);
+  readonly templates = signal<StudyTemplate[]>([]);
+  readonly templateQuery = new FormControl('', { nonNullable: true });
+  readonly templatePickerOpen = signal(false);
+  readonly templateLoading = signal(false);
+  readonly selectedTemplateId = signal<string | null>(null);
   readonly query = new FormControl('', { nonNullable: true });
   private readonly queryValue = toSignal(this.query.valueChanges, { initialValue: '' });
+  private readonly templateQueryValue = toSignal(this.templateQuery.valueChanges, { initialValue: '' });
   private readonly sessionDeletes = new Map<string, { storedName: string; deleteToken: string }>();
 
   readonly studies = computed(() => this.document()?.studies ?? []);
@@ -55,6 +79,12 @@ export class PatientStudiesPageComponent {
   });
   readonly selectedStudy = computed(() => this.filteredStudies().find((study) => study.id === this.selectedStudyId())
     ?? this.filteredStudies()[0] ?? null);
+  readonly filteredTemplates = computed(() => {
+    const term = this.templateQueryValue().trim().toLocaleLowerCase();
+    return this.templates().filter((template) => !term || [template.title, template.category, template.description, ...(template.tags ?? [])]
+      .filter(Boolean).join(' ').toLocaleLowerCase().includes(term));
+  });
+  readonly selectedTemplate = computed(() => this.templates().find((template) => template.id === this.selectedTemplateId()) ?? null);
 
   constructor() {
     this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
@@ -66,6 +96,87 @@ export class PatientStudiesPageComponent {
   reload(): void {
     const id = this.patientId();
     if (id) this.load(id);
+  }
+
+  @HostListener('document:paste', ['$event'])
+  onPaste(event: ClipboardEvent): void {
+    const image = Array.from(event.clipboardData?.items ?? []).find((item) => item.type.startsWith('image/'))?.getAsFile();
+    if (!image || this.busy()) return;
+    event.preventDefault();
+    const name = `portapapeles-${new Date().toISOString().replace(/[:.]/g, '-')}.${image.type.split('/')[1] || 'png'}`;
+    this.addFiles([new File([image], name, { type: image.type, lastModified: Date.now() })]);
+  }
+
+  openTemplatePicker(): void {
+    this.templatePickerOpen.set(true);
+    this.selectedTemplateId.set(null);
+    if (this.templates().length || this.templateLoading()) return;
+    this.templateLoading.set(true);
+    this.api.get<StudyTemplateResponse>('/api/study-templates', { scope: 'all', includeInactive: 0 }).pipe(
+      finalize(() => this.templateLoading.set(false))
+    ).subscribe({
+      next: (response) => this.templates.set(response.templates ?? []),
+      error: (error: unknown) => this.error.set(ApiError.from(error).message)
+    });
+  }
+
+  closeTemplatePicker(): void {
+    if (!this.busy()) this.templatePickerOpen.set(false);
+  }
+
+  selectTemplate(template: StudyTemplate): void {
+    this.selectedTemplateId.set(template.id);
+  }
+
+  templateUrl(template: StudyTemplate): string {
+    const value = template.thumbnail || template.file || '';
+    if (!value) return '';
+    return value.startsWith('/') ? value : `/${value}`;
+  }
+
+  addSelectedTemplate(): void {
+    const patientId = this.patientId();
+    const document = this.document();
+    const template = this.selectedTemplate();
+    if (!patientId || !document || !template || this.busy()) return;
+    const source = this.templateUrl(template);
+    if (!source) {
+      this.error.set('La plantilla seleccionada no tiene un archivo disponible.');
+      return;
+    }
+    this.busy.set(true);
+    this.error.set(null);
+    const studyId = `study-template-${crypto.randomUUID()}`;
+    this.api.getBlob(source).pipe(
+      concatMap((blob) => {
+        const extension = this.templateExtension(source, blob.type);
+        const file = new File([blob], `plantilla-${template.id}.${extension}`, { type: blob.type || 'image/png' });
+        const query = new URLSearchParams({ patientId, studyId, name: file.name });
+        return this.api.upload<StudyUploadResponse>(`/api/media/studies?${query.toString()}`, file).pipe(
+          map((response) => ({ file, studyId, response } as UploadedStudy))
+        );
+      }),
+      concatMap((uploaded) => {
+        if (uploaded.response.storedName && uploaded.response.deleteToken) {
+          this.sessionDeletes.set(uploaded.studyId, { storedName: uploaded.response.storedName, deleteToken: uploaded.response.deleteToken });
+        }
+        const record = this.studyRecord(uploaded);
+        record.title = template.title;
+        record.type = 'Plantilla anatómica';
+        record.source = 'Biblioteca anatómica';
+        record.summary = template.description || `Plantilla anatómica para marcación clínica: ${template.title}.`;
+        record['templateSource'] = {
+          id: template.id, category: template.category, origin: template.origin,
+          sourceUrl: template.sourceUrl, license: template.license, licenseUrl: template.licenseUrl,
+          author: template.author, sha256: template.sha256
+        };
+        return this.persist(this.withStudies(document, [record]));
+      }),
+      finalize(() => this.busy.set(false))
+    ).subscribe({
+      next: () => { this.templatePickerOpen.set(false); this.selectedTemplateId.set(null); },
+      error: (error: unknown) => this.error.set(ApiError.from(error).message)
+    });
   }
 
   selectStudy(study: ClinicalStudy): void {
@@ -267,6 +378,12 @@ export class PatientStudiesPageComponent {
     if (['ppt', 'pptx'].includes(extension)) return 'presentation';
     if (['mp4', 'webm', 'mov', 'avi', 'mkv'].includes(extension)) return 'video';
     return 'file';
+  }
+
+  private templateExtension(source: string, contentType: string): string {
+    const extension = source.split(/[?#]/, 1)[0].split('.').pop()?.toLowerCase() ?? '';
+    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'tif', 'tiff'].includes(extension)) return extension;
+    return ({ 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'image/bmp': 'bmp', 'image/tiff': 'tiff' } as Record<string, string>)[contentType.toLowerCase()] ?? 'png';
   }
 
   private typeLabel(category: string): string {

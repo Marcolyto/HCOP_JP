@@ -27,8 +27,16 @@ El primer recorrido Angular tiene cuatro piezas:
 8. `#/patients/{id}/studies`: lista y filtra estudios del documento activo,
    permite seleccionar varios archivos o arrastrarlos, los carga mediante
    `/api/media/studies`, vincula sus metadatos en `PUT /api/hc` y muestra
-   imágenes, PDF, video o el enlace al archivo. Una carga realizada en la
-   sesión conserva su token de eliminación temporal.
+   imágenes, PDF, video o el enlace al archivo. Acepta pegar una imagen desde
+   el portapapeles con `Ctrl+V`, buscar en el catálogo de plantillas
+   anatómicas, previsualizar sus miniaturas e incorporarlas como estudios
+   locales. Una carga realizada en la sesión conserva su token de eliminación
+   temporal.
+9. `#/patients/{id}/treatments`: consulta el listado de tratamientos y abre el
+   detalle servido por Java, mostrando estado, duración, consentimiento, drogas
+   y el árbol ciclo → día → aplicación. La nueva prescripción y las acciones
+   mutantes permanecen enlazadas a la interfaz vigente hasta cerrar sus
+   contratos de permisos y auditoría.
 
 Cerrar un paciente utiliza `PUT /api/auth/active-patient` con `null`. Por lo
 tanto, el contexto pertenece al servidor y la interfaz anterior lo reconoce
@@ -84,15 +92,44 @@ significa que el recorrido base funciona con la autoridad actual del servidor,
 pero todavía falta demostrar la paridad completa de permisos, recuperación,
 errores y apariencia en todas las resoluciones.
 
-No se migraron todavía las anotaciones de imágenes, plantillas anatómicas,
-pegado desde portapapeles, prescripción,
+No se migraron todavía las anotaciones de imágenes, prescripción,
 tratamientos, Farmacia, sillones, triaje, preparación ni administración. Esas
 capacidades continúan en la interfaz vigente y se abrirán desde el enlace
 explícito **Interfaz actual**.
 
 ## Próximo corte
 
-El siguiente recorrido debe completar **Estudios y prescripción**. La hoja y el
-diagnóstico Angular necesitan aún comparación visual, pruebas E2E repetibles,
+El siguiente recorrido debe completar **anotaciones de Estudios, prescripción
+y acciones de Tratamiento**. La hoja, el diagnóstico, la biblioteca y el árbol
+de tratamiento Angular necesitan aún comparación visual, pruebas E2E repetibles,
 permisos por rol y todos los formularios especializados antes de retirar sus
 entradas de la pantalla anterior.
+
+## Corte adicional: nueva prescripción
+
+La pantalla `#/patients/{id}/treatments/new` ya está integrada en Angular. Lee
+los diagnósticos del paciente y el catálogo de protocolos desde Java, completa
+el intervalo y la duración estimada, consulta los requisitos de dosis del
+esquema y muestra únicamente los campos clínicos necesarios (peso, talla,
+Calvert o calcio/albúmina). El guardado exige confirmar esos requisitos y,
+cuando las familias no coinciden, registrar una excepción clínica con motivo.
+
+El `POST /api/clinical/patients/{id}/treatments` sigue siendo la autoridad de
+persistencia: crea la prescripción, la evolución clínica y la primera
+aplicación planificada. Al finalizar, Angular vuelve a la lista y muestra el
+árbol ciclo → día → aplicación con las drogas calculadas. La validación se
+realizó en Docker con PostgreSQL 18 y el recorrido de integración existente.
+
+## Corte adicional: gate de Farmacia y programaciÃ³n de turno
+
+Al abrir **Programar turno**, Angular consulta el workflow real de cada dÃ­a.
+El guardado queda bloqueado hasta que exista prescripciÃ³n confirmada, validaciÃ³n
+farmacÃ©utica y disponibilidad de medicaciÃ³n. Con `center_stock`, la pantalla
+registra la validaciÃ³n y reserva los componentes cuantificados; tambiÃ©n permite
+registrar `patient_to_bring`, `patient_has_medication` o `received_center`.
+
+La duraciÃ³n que se muestra es la del dÃ­a de aplicaciÃ³n recuperada desde Java,
+no sÃ³lo la estimaciÃ³n general del tratamiento. El backend conserva la Ãºltima
+barrera: rechaza duraciones discordantes, estados incompletos, turnos fuera de
+jornada y superposiciones. La validaciÃ³n Docker comprobÃ³ Farmacia, reserva,
+duraciÃ³n real y guardado del turno en el sillÃ³n seleccionado.

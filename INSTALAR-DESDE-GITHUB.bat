@@ -14,7 +14,9 @@ if errorlevel 1 (
     exit /b 1
   )
 )
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%HCOP_INSTALLER%" -Mode Install
+set "HCOP_INSTALL_ARGUMENTS=-Mode Install"
+if not "%~1"=="" set "HCOP_INSTALL_ARGUMENTS=%HCOP_INSTALL_ARGUMENTS% -HostPort %~1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%HCOP_INSTALLER%" %HCOP_INSTALL_ARGUMENTS%
 set "HCOP_RESULT=%ERRORLEVEL%"
 del "%HCOP_INSTALLER%" >nul 2>nul
 if "%HCOP_RESULT%"=="3010" (

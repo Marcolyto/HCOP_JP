@@ -50,4 +50,25 @@ class LocalGuideFileStoreTest {
           .isEmpty();
     }
   }
+
+  @Test
+  void exposesBundledCatalogGuidesWhenPersistentStorageIsEmpty() throws Exception {
+    Path catalogRoot = temporary.resolve("catalogs");
+    Path storageRoot = temporary.resolve("storage");
+    Path catalogGuide = catalogRoot.resolve("guides/mama.pdf");
+    Files.createDirectories(catalogGuide.getParent());
+    byte[] pdf = "%PDF-1.4\n% bundled guide\n".getBytes(StandardCharsets.US_ASCII);
+    Files.write(catalogGuide, pdf);
+    var properties = new HcopProperties(
+        temporary, catalogRoot, storageRoot, "http://127.0.0.1:5180", "HCOP_SESSION", 60,
+        1024, 1024, "test-qr-secret", "test-encryption-secret");
+    var store = new LocalGuideFileStore(properties);
+    GuideFileName name = GuideFileName.fromRaw("mama.pdf");
+
+    assertThat(store.list()).extracting(item -> item.name().value()).containsExactly("mama.pdf");
+    try (var content = store.open(name).orElseThrow().content()) {
+      assertThat(content.readAllBytes()).isEqualTo(pdf);
+    }
+    assertThat(storageRoot.resolve("guides/mama.pdf")).doesNotExist();
+  }
 }

@@ -140,8 +140,94 @@ export interface TreatmentSummary {
   diagnosis?: string;
   scheme?: string;
   status?: string;
+  type?: string;
+  oncologist?: string;
   cycles?: number;
+  cycleCount?: number;
+  createdDate?: string;
+  date?: string;
+  estimatedDurationText?: string;
+  estimatedDurationMinutes?: number;
+  consentStatus?: string;
   [key: string]: unknown;
+}
+
+export interface TreatmentListResponse {
+  ok: boolean;
+  patientId: string;
+  oncology?: TreatmentSummary[];
+  treatments?: TreatmentSummary[];
+  total?: number;
+}
+
+export interface TreatmentDrug {
+  drugId?: string;
+  drugName?: string;
+  prescribedDoseText?: string;
+  calculatedDoseText?: string;
+  doseUnit?: string;
+  applicationDays?: string;
+  route?: string;
+  administrationTime?: string;
+  careSetting?: string;
+  [key: string]: unknown;
+}
+
+export interface TreatmentMedication extends TreatmentDrug {
+  actualDoseText?: string;
+  status?: string;
+}
+
+export interface TreatmentApplication {
+  applicationId?: string;
+  applicationDay?: number;
+  state?: string;
+  status?: string;
+  clinicalStatus?: string;
+  administrationStatus?: string;
+  scheduledAt?: string;
+  date?: string;
+  medications?: TreatmentMedication[];
+  [key: string]: unknown;
+}
+
+export interface TreatmentDay {
+  day?: number;
+  status?: string;
+  plannedDate?: string;
+  date?: string;
+  applicationId?: string;
+  medications?: TreatmentMedication[];
+  [key: string]: unknown;
+}
+
+export interface TreatmentCycle {
+  number?: number;
+  state?: string;
+  status?: string;
+  plannedDate?: string;
+  date?: string;
+  drugs?: TreatmentDrug[];
+  days?: TreatmentDay[];
+  applications?: TreatmentApplication[];
+  [key: string]: unknown;
+}
+
+export interface TreatmentDetail {
+  treatmentId?: string;
+  patientId?: string;
+  activeCycle?: number;
+  cycles?: TreatmentCycle[];
+  actions?: Record<string, unknown>;
+  documentAvailability?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface TreatmentDetailResponse {
+  ok: boolean;
+  patientId: string;
+  treatmentId: string;
+  detail: TreatmentDetail;
 }
 
 export interface InfusionSummary {

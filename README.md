@@ -24,13 +24,15 @@ Lira, Node.js ni MySQL para funcionar.
 Con Docker Desktop iniciado, copie esta línea completa en Windows PowerShell:
 
 ```powershell
-$hcopScript = Join-Path $env:TEMP "EJECUTAR-DOCKER-DESDE-GITHUB.ps1"; Invoke-WebRequest "https://raw.githubusercontent.com/Marcolyto/HCOP_JP/codex/angular-hexagonal-migration/EJECUTAR-DOCKER-DESDE-GITHUB.ps1" -OutFile $hcopScript; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $hcopScript -Channel Migration
+$hcopScript = Join-Path $env:TEMP "EJECUTAR-DOCKER-DESDE-GITHUB.ps1"
+Invoke-WebRequest "https://raw.githubusercontent.com/Marcolyto/HCOP_JP/main/EJECUTAR-DOCKER-DESDE-GITHUB.ps1" -OutFile $hcopScript -UseBasicParsing
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $hcopScript -Channel Migration -Mode Start -HostPort 5181
 ```
 
-La prueba abre <http://localhost:5181> y utiliza la imagen
-`ghcr.io/marcolyto/hcop_jp:angular-hexagonal-migration`, una base
-`hcop_ajp` y volúmenes `hcop_ajp_*`. Puede convivir con la versión estable:
-no modifica su imagen `latest`, su puerto 5180 ni sus datos.
+La prueba abre <http://localhost:5181> y utiliza la imagen de migración
+`ghcr.io/marcolyto/hcop_jp:angular-hexagonal-migration`, base `hcop_ajp` y
+volúmenes `hcop_ajp_*`. Puede convivir con la versión estable: no modifica su
+imagen `latest`, su puerto 5180 ni sus datos.
 
 La guía [Probar la rama Angular/hexagonal](docs/00-inicio/PRUEBA-RAMA-ANGULAR-HEXAGONAL.md)
 incluye inicio, actualización, estado, detención y límites actuales.
@@ -48,9 +50,17 @@ lo ejecuta; no canaliza código de Internet directamente al intérprete:
 $hcopScript = Join-Path $env:TEMP "EJECUTAR-DOCKER-DESDE-GITHUB.ps1"; Invoke-WebRequest "https://raw.githubusercontent.com/Marcolyto/HCOP_JP/main/EJECUTAR-DOCKER-DESDE-GITHUB.ps1" -OutFile $hcopScript; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $hcopScript
 ```
 
+Si ese comando devuelve 404, copie y pegue este bloque alternativo:
+
+```powershell
+$hcopScript = Join-Path $env:TEMP "EJECUTAR-DOCKER-DESDE-GITHUB.ps1"
+Invoke-WebRequest "https://raw.githubusercontent.com/Marcolyto/HCOP_JP/main/EJECUTAR-DOCKER-DESDE-GITHUB.ps1" -OutFile $hcopScript -UseBasicParsing
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $hcopScript -Channel Migration -Mode Start -HostPort 5181
+```
+
 En la primera ejecución solicita las credenciales iniciales y el puerto web
-(puede presionar Enter para aceptar 5180), genera los demás secretos una sola vez y guarda todo en
-`%LOCALAPPDATA%\HCOP_JP-Docker`. Los datos clínicos quedan en volúmenes Docker
+(puede presionar Enter para aceptar 5181), genera los demás secretos una sola vez y guarda todo en
+`%LOCALAPPDATA%\HCOP_JP`. Los datos clínicos quedan en volúmenes Docker
 persistentes. El repositorio y la imagen Docker publicados son públicos, por lo
 que esta modalidad no requiere autenticación en GitHub.
 
@@ -58,12 +68,10 @@ Modos disponibles:
 
 ```powershell
 # Usa las imágenes locales y sólo descarga si todavía faltan
-powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Mode Start
+powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Channel Migration -Mode Start -HostPort 5181
 
-# Busca y aplica explícitamente la versión latest
-powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Mode Update
-powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Mode Status
-powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Mode Stop
+powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Channel Migration -Mode Update -HostPort 5181
+powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Channel Migration -Mode Stop -HostPort 5181
 ```
 
 ## Instalación administrada desde GitHub
@@ -78,6 +86,17 @@ instalar Docker Desktop.
    sugeridos.
 5. El instalador abre la dirección del puerto elegido (por defecto,
    `http://localhost:5180`).
+
+Durante la instalación se muestra **Puerto web HTTP [5180]**. El valor se
+valida y se rechaza si otro programa ya lo está usando. Para una instalación
+automatizada, el puerto puede pasarse como primer argumento:
+
+```powershell
+.\INSTALAR-DESDE-GITHUB.bat 5190
+```
+
+La elección se conserva en `%LOCALAPPDATA%\HCOP_JP\.env` y no se modifica al
+actualizar o reparar.
 
 El repositorio y la imagen Docker publicados son públicos. La instalación no
 requiere iniciar sesión en GitHub, GitHub CLI ni tokens personales.
@@ -179,3 +198,9 @@ se reanuda y la aplicación termina completada sin perder la reacción.
 En este corte, `mvn verify` aprobó **142 pruebas** sin fallas ni omisiones. La
 prueba Docker confirmó además los 111 endpoints documentados y el circuito
 clínico completo con cuatro drogas.
+
+
+
+
+
+

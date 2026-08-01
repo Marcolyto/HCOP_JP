@@ -12,36 +12,35 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 @Component
 public class LocalGuideFileStore implements GuideFileStore {
   private final Path root;
+  private final Path catalogRoot;
 
   public LocalGuideFileStore(HcopProperties properties) {
     this.root = properties.storageRoot().resolve("guides").toAbsolutePath().normalize();
+    this.catalogRoot = properties.catalogRoot().resolve("guides").toAbsolutePath().normalize();
   }
 
   @Override
   public List<StoredGuide> list() {
-    if (!Files.isDirectory(root)) return List.of();
-    try (var files = Files.list(root)) {
-      return files
-          .filter(Files::isRegularFile)
-          .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".pdf"))
-          .map(this::stored)
-          .toList();
-    } catch (IOException failure) {
-      throw new GuideStorageException("No se pudo leer la biblioteca de guías.", failure);
-    }
+    Map<String, Path> files = new LinkedHashMap<>();
+    collectPdf(catalogRoot, files);
+    collectPdf(root, files);
+    return files.values().stream().map(this::stored).toList();
   }
 
   @Override
   public Optional<GuideContent> open(GuideFileName name) {
     Path file = resolve(name);
+    if (!Files.isRegularFile(file)) file = resolveCatalog(name);
     if (!Files.isRegularFile(file)) return Optional.empty();
     try {
       return Optional.of(new GuideContent(
@@ -98,6 +97,26 @@ public class LocalGuideFileStore implements GuideFileStore {
           0,
           Instant.EPOCH);
     }
+  }
+
+  private void collectPdf(Path directory, Map<String, Path> files) {
+    if (!Files.isDirectory(directory)) return;
+    try (var stream = Files.list(directory)) {
+      stream
+          .filter(Files::isRegularFile)
+          .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".pdf"))
+          .forEach(path -> files.put(path.getFileName().toString(), path));
+    } catch (IOException failure) {
+      throw new GuideStorageException("No se pudo leer la biblioteca de guías.", failure);
+    }
+  }
+
+  private Path resolveCatalog(GuideFileName name) {
+    Path file = catalogRoot.resolve(name.value()).normalize();
+    if (!file.startsWith(catalogRoot)) {
+      throw new GuideStorageException("Nombre de guía fuera del catálogo.", null);
+    }
+    return file;
   }
 
   private Path resolve(GuideFileName name) {

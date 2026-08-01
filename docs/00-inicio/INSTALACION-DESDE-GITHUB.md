@@ -16,6 +16,14 @@ directamente al intérprete.
 $hcopScript = Join-Path $env:TEMP "EJECUTAR-DOCKER-DESDE-GITHUB.ps1"; Invoke-WebRequest "https://raw.githubusercontent.com/Marcolyto/HCOP_JP/main/EJECUTAR-DOCKER-DESDE-GITHUB.ps1" -OutFile $hcopScript; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $hcopScript
 ```
 
+Si ese comando devuelve 404, copie y pegue estas tres lineas (misma direccion directa):
+
+```powershell
+$hcopScript = Join-Path $env:TEMP "EJECUTAR-DOCKER-DESDE-GITHUB.ps1"
+Invoke-WebRequest "https://raw.githubusercontent.com/Marcolyto/HCOP_JP/main/EJECUTAR-DOCKER-DESDE-GITHUB.ps1" -OutFile $hcopScript -UseBasicParsing
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $hcopScript -Channel Migration -Mode Start -HostPort 5181
+```
+
 El repositorio y la imagen `ghcr.io/marcolyto/hcop_jp:latest` son públicos. La
 descarga no requiere iniciar sesión en GitHub ni proporcionar tokens.
 
@@ -55,9 +63,6 @@ powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Mode Start
 # Descargar latest e incorporarla conservando los datos
 powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Mode Update
 
-# Consultar contenedores y salud
-powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Mode Status
-
 # Detener sin eliminar base ni archivos
 powershell.exe -File .\EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Mode Stop
 ```
@@ -89,6 +94,18 @@ descarga junto al `.ps1`; sin argumentos inicia HCOP JP y también acepta
    valores sugeridos.
 7. Espere la validación de salud, interfaz y estado funcional. El navegador se
    abre solamente después de que las tres comprobaciones terminan bien.
+
+La pregunta **Puerto web HTTP [5180]** aparece durante la instalación inicial.
+El instalador valida que el valor esté entre 1 y 65535 y que no esté ocupado;
+si elige un puerto en uso, vuelve a solicitarlo. También puede indicarlo sin
+interacción al ejecutar el `.bat` desde una consola:
+
+```powershell
+.\INSTALAR-DESDE-GITHUB.bat 5190
+```
+
+El valor queda guardado como `HCOP_PORT` en `%LOCALAPPDATA%\HCOP_JP\.env` y se
+mantiene durante las actualizaciones, reparaciones y reinicios.
 
 El programa se instala por defecto en:
 
@@ -210,7 +227,9 @@ La rama migratoria tiene un canal Docker propio para poder evaluarla sin
 actualizar la instalación estable:
 
 ```powershell
-$hcopScript = Join-Path $env:TEMP "EJECUTAR-DOCKER-DESDE-GITHUB.ps1"; Invoke-WebRequest "https://raw.githubusercontent.com/Marcolyto/HCOP_JP/codex/angular-hexagonal-migration/EJECUTAR-DOCKER-DESDE-GITHUB.ps1" -OutFile $hcopScript; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $hcopScript -Channel Migration
+$hcopScript = Join-Path $env:TEMP "EJECUTAR-DOCKER-DESDE-GITHUB.ps1"
+Invoke-WebRequest "https://raw.githubusercontent.com/Marcolyto/HCOP_JP/main/EJECUTAR-DOCKER-DESDE-GITHUB.ps1" -OutFile $hcopScript -UseBasicParsing
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $hcopScript -Channel Migration -Mode Start -HostPort 5181
 ```
 
 Se abre en <http://localhost:5181> y usa base, archivos e imagen independientes.

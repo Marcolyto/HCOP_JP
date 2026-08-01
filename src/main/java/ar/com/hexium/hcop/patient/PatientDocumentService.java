@@ -1,11 +1,18 @@
 package ar.com.hexium.hcop.patient;
 
+import ar.com.hexium.hcop.clinicalhistory.application.port.in.ClinicalEvolutionUseCase;
+import ar.com.hexium.hcop.clinicalhistory.application.port.in.ClinicalHistoryTemplateUseCase;
+import ar.com.hexium.hcop.clinicalhistory.application.port.in.ClinicalHistoryReadUseCase;
+import ar.com.hexium.hcop.clinicalhistory.application.port.in.ClinicalHistoryReadUseCase.HistorySnapshot;
+import ar.com.hexium.hcop.clinicalhistory.application.service.ClinicalHistoryReadApplicationService.ClinicalHistoryReadFailure;
+import ar.com.hexium.hcop.clinicalhistory.application.port.in.ClinicalEvolutionUseCase.AppendCommand;
+import ar.com.hexium.hcop.clinicalhistory.application.service.ClinicalEvolutionApplicationService.ClinicalEvolutionFailure;
+import ar.com.hexium.hcop.clinicalhistory.application.port.in.ClinicalHistorySaveUseCase;
+import ar.com.hexium.hcop.clinicalhistory.application.port.in.ClinicalHistorySaveUseCase.SaveCommand;
+import ar.com.hexium.hcop.clinicalhistory.application.service.ClinicalHistorySaveApplicationService.ClinicalHistorySaveFailure;
 import ar.com.hexium.hcop.common.ApiException;
-import ar.com.hexium.hcop.config.HcopProperties;
 import ar.com.hexium.hcop.patient.PatientDocumentRepository.StoredDocument;
 import ar.com.hexium.hcop.patient.PatientRepository.Patient;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
@@ -22,58 +29,61 @@ public class PatientDocumentService {
   private final PatientRepository patients;
   private final PatientDocumentRepository documents;
   private final ObjectMapper mapper;
-  private final HcopProperties properties;
   private final Clock clock;
+  private final ClinicalHistorySaveUseCase historySave;
+  private final ClinicalEvolutionUseCase clinicalEvolution;
+  private final ClinicalHistoryTemplateUseCase clinicalHistoryTemplate;
 
+  private final ClinicalHistoryReadUseCase historyRead;
   public PatientDocumentService(
       PatientRepository patients,
       PatientDocumentRepository documents,
       ObjectMapper mapper,
-      HcopProperties properties,
-      Clock clock) {
+      Clock clock,
+      ClinicalHistorySaveUseCase historySave,
+      ClinicalEvolutionUseCase clinicalEvolution,
+      ClinicalHistoryReadUseCase historyRead,
+      ClinicalHistoryTemplateUseCase clinicalHistoryTemplate) {
     this.patients = patients;
     this.documents = documents;
     this.mapper = mapper;
-    this.properties = properties;
     this.clock = clock;
+    this.historySave = historySave;
+    this.clinicalEvolution = clinicalEvolution;
+    this.historyRead = historyRead;
+    this.clinicalHistoryTemplate = clinicalHistoryTemplate;
   }
 
   @Transactional
   public StoredDocument createBlank(Patient patient, long actorId) {
-    JsonNode document = blankTemplate();
+    JsonNode document = clinicalHistoryTemplate.blankTemplate().deepCopy();
     applyPatient(document, patient, 1);
     return documents.insert(patient.id(), document, actorId, false);
   }
 
   public JsonNode blankTemplate() {
-    try {
-      var file = properties.catalogRoot().resolve("hc-oncologica-vacia.json").normalize();
-      if (Files.isRegularFile(file)) return mapper.readTree(Files.readString(file));
-    } catch (IOException ignored) {
-      // The deterministic in-code template below keeps startup safe if the optional file is absent.
-    }
-    ObjectNode document = mapper.createObjectNode();
-    document.set("meta", mapper.createObjectNode());
-    document.set("patient", mapper.createObjectNode());
-    document.set("oncology", mapper.createObjectNode());
-    document.set("exam", mapper.createObjectNode());
-    document.set("evolutions", mapper.createArrayNode());
-    document.set("studies", mapper.createArrayNode());
-    document.set("prescriptions", mapper.createArrayNode());
-    document.set("researchRecords", mapper.createArrayNode());
-    return document;
+    return clinicalHistoryTemplate.blankTemplate().deepCopy();
   }
 
   public StoredDocument require(long patientId) {
-    return documents.find(patientId)
-        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "La historia clínica no está disponible."));
+    try {
+      return stored(historyRead.require(patientId));
+    } catch (ClinicalHistoryReadFailure failure) {
+      throw new ApiException(HttpStatus.NOT_FOUND, failure.getMessage());
+    }
   }
 
   @Transactional
   public StoredDocument save(long patientId, JsonNode document, long expectedRevision, long actorId) {
-    validatePatient(document, patientId);
-    StoredDocument saved = documents.update(patientId, document, expectedRevision, actorId)
-        .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "La historia fue modificada en otra ventana."));
+    try {
+      historySave.save(new SaveCommand(patientId, document.toString(),
+          document.path("meta").path("liraImport").path("patientId").asText(""),
+          document.path("patient").path("liraId").asText(""),
+          expectedRevision, actorId));
+    } catch (ClinicalHistorySaveFailure failure) {
+      throw new ApiException(HttpStatus.CONFLICT, failure.getMessage());
+    }
+    StoredDocument saved = require(patientId);
     applyRevision(saved.document(), saved.revision());
     return saved;
   }
@@ -86,22 +96,17 @@ public class PatientDocumentService {
 
   @Transactional
   public EvolutionAppend appendImmutableEvolution(long patientId, ObjectNode evolution, long actorId) {
-    StoredDocument stored = documents.lock(patientId)
-        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "La historia clínica no está disponible."));
-    ObjectNode document = (ObjectNode) stored.document().deepCopy();
-    ArrayNode evolutions = document.withArray("evolutions");
-    String evolutionId = evolution.path("id").asText("");
-    for (int index = evolutions.size() - 1; index >= 0; index--) {
-      if (!evolutionId.isBlank() && evolutionId.equals(evolutions.get(index).path("id").asText(""))) {
-        evolutions.remove(index);
-      }
+    ObjectNode immutable = evolution.deepCopy();
+    immutable.put("immutable", true);
+    try {
+      var appended = clinicalEvolution.append(new AppendCommand(
+          patientId, immutable.path("id").asText(""), immutable.toString(), actorId));
+      return new EvolutionAppend(immutable, appended.revision());
+    } catch (ClinicalEvolutionFailure failure) {
+      HttpStatus status = failure.getMessage().contains("no está disponible")
+          ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
+      throw new ApiException(status, failure.getMessage());
     }
-    evolution.put("immutable", true);
-    evolutions.insert(0, evolution);
-    document.withObject("/meta").put("updatedAt", clock.instant().toString());
-    StoredDocument saved = documents.update(patientId, document, stored.revision(), actorId)
-        .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "La historia fue modificada en otra ventana."));
-    return new EvolutionAppend(evolution.deepCopy(), saved.revision());
   }
 
   public void applyPatient(JsonNode value, Patient patient, long revision) {
@@ -140,13 +145,14 @@ public class PatientDocumentService {
     meta.put("persistenceRevision", revision);
   }
 
-  private void validatePatient(JsonNode document, long patientId) {
-    String documentPatient = document.path("meta").path("liraImport").path("patientId").asText("");
-    String identityPatient = document.path("patient").path("liraId").asText("");
-    if ((!documentPatient.isBlank() && !documentPatient.equals(Long.toString(patientId)))
-        || (!identityPatient.isBlank() && !identityPatient.equals(Long.toString(patientId)))) {
-      throw new ApiException(HttpStatus.CONFLICT, "La historia pertenece a otro paciente.");
-    }
+  private StoredDocument stored(HistorySnapshot snapshot) {
+    return new StoredDocument(
+        snapshot.patientId(),
+        mapper.readTree(snapshot.documentJson()),
+        snapshot.revision(),
+        snapshot.importedAt(),
+        snapshot.createdAt(),
+        snapshot.updatedAt());
   }
 
   private void applyRevision(JsonNode value, long revision) {

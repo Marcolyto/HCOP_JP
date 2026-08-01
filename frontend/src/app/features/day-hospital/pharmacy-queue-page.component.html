@@ -1,0 +1,53 @@
+<section class="pharmacy-page">
+  <header class="page-heading">
+    <div>
+      <p>Hospital de dia</p>
+      <h1>Farmacia</h1>
+      <span>Valide la orden y asegure cada aplicacion antes de habilitar su turno.</span>
+    </div>
+    <button type="button" (click)="load()" [disabled]="loading()">Actualizar</button>
+  </header>
+
+  <section class="toolbar" aria-label="Filtros de Farmacia">
+    <label class="search-label"><span class="visually-hidden">Buscar</span><input [formControl]="search" type="search" placeholder="Paciente, DNI, HC, ciclo, dia, droga o fecha"></label>
+    <label>Periodo<select [formControl]="dateScope"><option value="next-7">Vencidas + 7 dias</option><option value="today">Solo hoy</option><option value="next-30">Vencidas + 30 dias</option><option value="all">Todas las fechas</option></select></label>
+    <label>Estado<select [formControl]="filter"><option value="all">Todos los estados</option><option value="pending-validation">Pendientes de validar</option><option value="rejected">Ordenes rechazadas</option><option value="patient">Debe traerla</option><option value="patient-has">La tiene el paciente</option><option value="received-center">Recibida en el centro</option><option value="pending-stock">Pendiente de stock</option><option value="reserved">Stock reservado</option></select></label>
+    <strong>{{ visibleItems().length }} aplicaciones</strong>
+  </section>
+
+  @if (lastQueryWasGlobal()) { <p class="scope-note">La busqueda recorre todas las fechas para no ocultar una aplicacion por su prioridad temporal.</p> }
+  @if (error(); as message) { <div class="error"><strong>No se pudo abrir Farmacia.</strong><span>{{ message }}</span></div> }
+
+  <section class="queue-card">
+    @if (loading()) { <p class="empty">Cargando aplicaciones...</p> }
+    @else if (!visibleItems().length) { <p class="empty">No hay aplicaciones que coincidan con este filtro.</p> }
+    @else { <div class="table-scroll"><table><thead><tr><th>Paciente</th><th>Aplicacion</th><th>Fecha</th><th>Medicacion</th><th>Disponibilidad</th><th></th></tr></thead><tbody>
+      @for (item of visibleItems(); track trackItem($index, item)) {
+        <tr [class.selected]="selected() && trackItem(0, selected()!) === trackItem(0, item)">
+          <td><strong>{{ item.patientName || 'Paciente sin nombre' }}</strong><small>DNI {{ item.patientDni || 'no informado' }} · HC {{ item.medicalRecord || 'sin HC' }}</small></td>
+          <td><strong>Ciclo {{ item.cycleNumber }} · Dia {{ item.applicationDay }}</strong><small>{{ item.scheme || 'Esquema no informado' }} · {{ item.durationMinutes || 0 }} min</small></td>
+          <td><strong>{{ dateLabel(item.plannedDate || item.appointment?.scheduledAt) }}</strong><small>{{ timeLabel(item.appointment?.scheduledAt) }}@if (item.appointment?.chair) { · Sillon {{ item.appointment?.chair }} }</small></td>
+          <td><strong>{{ drugLabel(item) }}</strong><small [class.warning]="item.pharmacyValidationStatus !== 'approved'">{{ validationLabel(item.pharmacyValidationStatus) }}</small></td>
+          <td><span class="badge" [class.ready]="reservationReady(item) || item.medicationReady" [class.pending]="!reservationReady(item) && !item.medicationReady">{{ sourceLabel(item.medicationSource) }}@if (reservationReady(item)) { · Reservado }</span></td>
+          <td><button type="button" class="primary" (click)="open(item)">{{ nextAction(item) }}</button></td>
+        </tr>
+      }
+    </tbody></table></div> }
+  </section>
+</section>
+
+@if (selected(); as item) {
+  <div class="modal-backdrop" role="presentation">
+    <section class="detail-modal" role="dialog" aria-modal="true" aria-labelledby="pharmacyDetailTitle">
+      <header><div><p>Farmacia · aplicacion</p><h2 id="pharmacyDetailTitle">{{ item.patientName }}</h2><span>DNI {{ item.patientDni || 'no informado' }} · HC {{ item.medicalRecord || 'sin HC' }} · Ciclo {{ item.cycleNumber }} / Dia {{ item.applicationDay }}</span></div><button type="button" class="close" (click)="close()" aria-label="Cerrar">×</button></header>
+      @if (detailLoading()) { <p class="empty">Abriendo circuito...</p> }
+      @else {
+        <div class="detail-grid"><section><h3>Orden medica</h3><dl><div><dt>Diagnostico</dt><dd>{{ item.diagnosis || 'No informado' }}</dd></div><div><dt>Esquema</dt><dd>{{ item.scheme || 'No informado' }}</dd></div><div><dt>Fecha prevista</dt><dd>{{ dateLabel(item.plannedDate) }}</dd></div><div><dt>Turno</dt><dd>{{ timeLabel(item.appointment?.scheduledAt) }}@if (item.appointment?.chair) { · Sillon {{ item.appointment?.chair }} }</dd></div></dl><ul class="drug-list">@for (drug of item.applicationDrugs || []; track $index) { <li><strong>{{ drug.drugName || 'Droga sin nombre' }}</strong><span>{{ drug.calculatedDoseText || drug.prescribedDoseText || 'Dosis no informada' }}{{ drug.route ? ' · ' + drug.route : '' }}</span></li> }</ul></section>
+          <section class="workflow"><h3>Control de Farmacia</h3><p class="gate" [class.ok]="item.pharmacyValidationStatus === 'approved'">Orden {{ validationLabel(item.pharmacyValidationStatus).toLowerCase() }}</p><label>Procedencia<select [formControl]="validationForm.controls.medicationSource"><option value="center_stock">Stock del centro</option><option value="patient_to_bring">Debe traerla el paciente</option><option value="patient_has_medication">La tiene el paciente</option><option value="received_center">Recibida en el centro</option><option value="pending_supplier">Pendiente de proveedor</option></select></label><label>Nota de control<textarea [formControl]="validationForm.controls.notes" rows="4" placeholder="Deje una observacion o el motivo de rechazo"></textarea></label>
+          <div class="actions"><button type="button" class="primary" (click)="validate(true)" [disabled]="actionLoading()">Validar orden</button><button type="button" class="danger" (click)="validate(false)" [disabled]="actionLoading()">Rechazar</button>@if (validationForm.controls.medicationSource.value === 'center_stock' && item.pharmacyValidationStatus === 'approved' && !reservationReady(item)) { <button type="button" (click)="reserve()" [disabled]="actionLoading()">Reservar stock</button> }</div>
+          @if (reservationReady(item)) { <p class="gate ok">Stock reservado. La aplicacion puede avanzar al turno y luego a triaje.</p> }
+          @if (actionError(); as message) { <p class="action-error">{{ message }}</p> }</section></div>
+      }
+    </section>
+  </div>
+}

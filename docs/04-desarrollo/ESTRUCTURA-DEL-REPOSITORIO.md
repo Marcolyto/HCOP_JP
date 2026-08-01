@@ -184,11 +184,11 @@ entrega bajo `/app/`.
 | `frontend/src/app/core/patients/` | Tipos de datos que consume el espacio de paciente |
 | `frontend/src/app/layout/` | Cabecera y marco clínico reutilizable |
 | `frontend/src/app/features/auth/` | Pantalla de acceso |
-| `frontend/src/app/features/patients/` | Buscador, apertura y cierre de paciente activo |
+| `frontend/src/app/features/patients/` | Buscador, apertura/cierre de paciente activo y lectura Angular de tratamientos |
 | `frontend/src/app/features/clinical-history/` | Lectura Angular de situación oncológica, hoja y evoluciones |
 | `frontend/src/app/features/clinical-history-editor/` | Formulario versionado de hoja clínica con control de conflicto |
 | `frontend/src/app/features/diagnosis/` | Alta de diagnóstico AJCC 8, TNM, SNOMED CT y CIE-10 |
-| `frontend/src/app/features/studies/` | Biblioteca de estudios, filtro, carga múltiple y visor básico |
+| `frontend/src/app/features/studies/` | Biblioteca de estudios, filtros, carga múltiple, pegado desde portapapeles, selector de plantillas anatómicas y visor básico |
 
 Durante la convivencia, la interfaz anterior se conservará como `/legacy` antes
 de que Angular pase definitivamente a `/`. El estado, autenticación, permisos y
@@ -211,8 +211,10 @@ El paquete raíz es `src/main/java/ar/com/hexium/hcop/`.
 | `sharedkernel/domain/` | Identificadores compartidos mínimos |
 | Paquetes anteriores sin estas capas | MVC heredado todavía en convivencia |
 
-Configuración, Protocolos y Guías ya usan la estructura hexagonal. ArchUnit
-comprueba la dirección de sus dependencias en cada `mvn verify`.
+Configuración, Protocolos, Guías, `auth` y `patientcontext` ya usan la estructura
+hexagonal. `patientcontext` gestiona exclusivamente el paciente abierto en una
+sesión y separa sus puertos de consulta de paciente y persistencia de sesión.
+ArchUnit comprueba la dirección de sus dependencias en cada `mvn verify`.
 
 ## Base, catálogos y archivos clínicos
 
@@ -371,6 +373,21 @@ documentación y pruebas. No se versionan:
 - pacientes o tratamientos reales;
 - estudios, guías y documentos subidos durante el uso;
 - registros locales del lanzador.
+
+### Archivos Angular del tratamiento
+
+| Ruta | Contenido |
+|---|---|
+| `frontend/src/app/features/patients/patient-treatments-page.component.ts` | Consulta, filtros y detalle ciclo → día → aplicación |
+| `frontend/src/app/features/patients/patient-treatments-page.component.html` | Lista, acciones de navegación y árbol clínico |
+| `frontend/src/app/features/patients/patient-treatments-page.component.scss` | Tarjetas, estados y composición visual del tratamiento |
+| `frontend/src/app/features/patients/patient-treatment-create-page.component.ts` | Opciones, requisitos dinámicos y alta de prescripción |
+| `frontend/src/app/features/patients/patient-treatment-create-page.component.html` | Formulario clínico de diagnóstico, protocolo, dosis y consentimiento |
+| `frontend/src/app/features/patients/patient-treatment-create-page.component.scss` | Estilos del alta y estados de validación |
+
+La pantalla de alta usa los endpoints Java de opciones, requisitos y creación;
+no escribe directamente en PostgreSQL. El backend crea la evolución y la
+primera aplicación planificada como una única operación clínica.
 
 `scripts/verify-documentation.ps1` recorre todos los Markdown y falla si un
 enlace local no existe. Este archivo debe actualizarse cuando se crea, mueve o

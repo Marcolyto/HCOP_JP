@@ -1,0 +1,14 @@
+<section class="llm-settings">
+  <header><div><p>Configuracion · integraciones</p><h1>Inteligencia artificial</h1><span>La API key nunca se vuelve a mostrar. Puede usar un servicio local o una integracion remota.</span></div><a routerLink="/configuration">Volver</a></header>
+  @if(error();as item){<p class="notice error">{{item}}</p>}@if(message();as item){<p class="notice success">{{item}}</p>}
+  @if(loading()){<p>Cargando configuracion...</p>}@else{
+    <form [formGroup]="form" (submit)="$event.preventDefault();save()">
+      <section class="settings-card"><label class="switch"><input type="checkbox" formControlName="enabled"><span><strong>Servicio activo</strong><small>Habilita las funciones asistidas por IA.</small></span></label>
+        <div class="presets"><span>Configuracion rapida</span><button type="button" (click)="preset('ollama')">Ollama local</button><button type="button" (click)="preset('lm-studio')">LM Studio</button><button type="button" (click)="preset('gemini')">Gemini</button></div>
+        <div class="grid"><label>Proveedor<select formControlName="provider" [disabled]="isLocked('baseUrl') || isLocked('model')"><option value="openai-compatible">Compatible con OpenAI</option><option value="ollama">Ollama local</option><option value="lm-studio">LM Studio local</option><option value="gemini">Gemini</option></select></label><label>Modelo<input formControlName="model" [readonly]="isLocked('model')"></label><label class="wide">Endpoint<input formControlName="baseUrl" type="url" [readonly]="isLocked('baseUrl')" placeholder="http://127.0.0.1:1234/v1"></label><label>Temperatura<input formControlName="temperature" type="number" min="0" max="2" step="0.1"></label><label>Maximo de tokens<input formControlName="maxTokens" type="number" min="128" max="16000"></label><label>Tiempo de espera (ms)<input formControlName="timeoutMs" type="number" min="5000" max="180000"></label></div>
+      </section>
+      <section class="settings-card"><h2>Clave privada</h2><p>{{keyConfigured()?'Hay una clave configurada. Su valor no se muestra.':'No hay una clave configurada.'}}</p><div class="key-actions"><label><input type="radio" formControlName="apiKeyAction" value="keep"> Conservar</label><label><input type="radio" formControlName="apiKeyAction" value="replace"> Reemplazar</label><label><input type="radio" formControlName="apiKeyAction" value="remove"> Quitar</label></div>@if(showingApiKey){<label>Nueva API key<input formControlName="apiKey" type="password" autocomplete="new-password"></label>}</section>
+      <footer><button type="button" (click)="test()" [disabled]="testing() || saving()">{{testing()?'Probando...':'Probar conexion'}}</button><button class="primary" type="submit" [disabled]="testing() || saving()">{{saving()?'Guardando...':'Guardar configuracion'}}</button></footer>
+    </form>
+  }
+</section>

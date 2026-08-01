@@ -15,6 +15,10 @@ export class ApiClientService {
     return this.http.get<T>(path, { params, withCredentials: true }).pipe(this.asApiError());
   }
 
+  getBlob(path: string): Observable<Blob> {
+    return this.http.get(path, { responseType: 'blob', withCredentials: true }).pipe(this.asApiError());
+  }
+
   post<T>(path: string, body: unknown = {}): Observable<T> {
     return this.http.post<T>(path, body, { withCredentials: true }).pipe(this.asApiError());
   }
@@ -24,12 +28,21 @@ export class ApiClientService {
     return this.http.post<T>(path, file, { headers, withCredentials: true }).pipe(this.asApiError());
   }
 
+  putFile<T>(path: string, file: File): Observable<T> {
+    const headers = new HttpHeaders({ 'Content-Type': file.type || 'application/octet-stream' });
+    return this.http.put<T>(path, file, { headers, withCredentials: true }).pipe(this.asApiError());
+  }
+
   delete<T>(path: string, headers: Record<string, string> = {}): Observable<T> {
     return this.http.delete<T>(path, { headers: new HttpHeaders(headers), withCredentials: true }).pipe(this.asApiError());
   }
 
   put<T>(path: string, body: unknown = {}): Observable<T> {
     return this.http.put<T>(path, body, { withCredentials: true }).pipe(this.asApiError());
+  }
+
+  patch<T>(path: string, body: unknown = {}): Observable<T> {
+    return this.http.patch<T>(path, body, { withCredentials: true }).pipe(this.asApiError());
   }
 
   private asApiError<T>() {

@@ -1,0 +1,10 @@
+<section class="patient-create-page">
+  <header class="page-heading"><div><p class="eyebrow">Nueva historia clínica</p><h1>Nuevo paciente</h1><p>Complete los datos básicos. Luego podrá cargar diagnóstico, evoluciones, estudios y tratamientos.</p></div><a routerLink="/patients" class="secondary">Cancelar</a></header>
+  <form [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <fieldset><legend>Identificación</legend><label>Apellido<input formControlName="lastName" autocomplete="family-name" /></label><label>Nombre<input formControlName="firstName" autocomplete="given-name" /></label><label>DNI<input formControlName="dni" inputmode="numeric" /></label><label>Historia clínica<input formControlName="medicalRecord" /></label><label>Fecha de nacimiento<input type="date" formControlName="birthDate" /></label><label>Sexo<select formControlName="sex"><option value="">Sin especificar</option><option>Femenino</option><option>Masculino</option><option>Otro</option></select></label></fieldset>
+    <fieldset><legend>Cobertura y contacto</legend><label>Obra social<input formControlName="insurance" /></label><label>Número de afiliado<input formControlName="affiliateNumber" /></label><label>Teléfono<input formControlName="phone" autocomplete="tel" /></label><label>Correo electrónico<input formControlName="email" autocomplete="email" /></label><label class="wide">Dirección<input formControlName="address" autocomplete="street-address" /></label></fieldset>
+    @if (invalid('lastName') || invalid('firstName') || invalid('dni')) { <p class="error" role="alert">Apellido, nombre y DNI son obligatorios.</p> }
+    @if (error(); as message) { <p class="error" role="alert">{{ message }}</p> }
+    <footer><a routerLink="/patients" class="secondary">Cancelar</a><button type="submit" [disabled]="saving()">{{ saving() ? 'Guardando…' : 'Crear paciente' }}</button></footer>
+  </form>
+</section>

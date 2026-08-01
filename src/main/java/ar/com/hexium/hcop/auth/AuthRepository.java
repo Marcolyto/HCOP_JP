@@ -11,9 +11,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Repository;
 
-@Repository
+/**
+ * Referencia heredada conservada temporalmente para una retirada trazable.
+ * La aplicación usa {@code JdbcAuthenticationStoreAdapter}; esta clase no es un bean.
+ */
+@Deprecated(forRemoval = true)
 public class AuthRepository {
   private final JdbcTemplate jdbc;
 
@@ -93,22 +96,6 @@ public class AuthRepository {
 
   void changePassword(long userId, String encoded, Instant now) {
     jdbc.update("UPDATE local_users SET password_hash = ?, updated_at = ? WHERE id = ?", encoded, Timestamp.from(now), userId);
-  }
-
-  void setActivePatient(String tokenHash, Long patientId, Instant now) {
-    jdbc.update("""
-        UPDATE local_sessions
-           SET active_patient_id = ?, last_seen_at = ?
-         WHERE token_hash = ?
-        """, patientId, Timestamp.from(now), tokenHash);
-  }
-
-  boolean patientExists(long patientId) {
-    Integer count = jdbc.queryForObject(
-        "SELECT count(*) FROM patients WHERE source_id = ?",
-        Integer.class,
-        patientId);
-    return count != null && count > 0;
   }
 
   long userCount() {

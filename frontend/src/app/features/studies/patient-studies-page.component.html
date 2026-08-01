@@ -12,16 +12,34 @@
         <label class="search-label">Buscar<input [formControl]="query" type="search" placeholder="Título, tipo o archivo"></label>
         <input #fileInput type="file" multiple accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,video/*" (change)="onFileInput($event)" hidden>
         <button type="button" (click)="fileInput.click()" [disabled]="busy()">Seleccionar archivos</button>
+        <button type="button" (click)="openTemplatePicker()" [disabled]="busy()">Cargar plantilla anatómica</button>
         <button type="button" class="primary" (click)="uploadAll()" [disabled]="busy() || !queuedFiles().length">{{ busy() ? 'Procesando…' : 'Subir seleccionados' }}</button>
       </div>
       <div class="drop-zone" tabindex="0" (dragover)="$event.preventDefault()" (drop)="onDrop($event)">
-        <strong>Arrastre y suelte aquí</strong><span>También puede seleccionar varios archivos. Se aceptan imágenes, PDF, Word, PowerPoint y video.</span>
+        <strong>Arrastre y suelte aquí</strong><span>También puede seleccionar varios archivos o pegar una imagen con Ctrl+V. Se aceptan imágenes, PDF, Word, PowerPoint y video.</span>
       </div>
       @if (queuedFiles().length) {
         <ul class="queue">@for (file of queuedFiles(); track $index) { <li><span>{{ file.name }}</span><small>{{ formatSize(file.size) }}</small><button type="button" (click)="removeQueued($index)" [disabled]="busy()">Quitar</button></li>}</ul>
       }
       @if (uploadErrors().length) { <div class="upload-errors" role="alert">@for (message of uploadErrors(); track message) { <p>{{ message }}</p> }</div> }
     </section>
+    @if (templatePickerOpen()) {
+      <section class="template-picker" aria-label="Biblioteca de plantillas anatómicas">
+        <header><div><p>Biblioteca anatómica</p><h2>Elegir plantilla</h2><span>Seleccione una imagen base para agregarla como estudio y luego marcarla.</span></div><button type="button" (click)="closeTemplatePicker()" [disabled]="busy()">Cerrar</button></header>
+        <label class="search-label">Buscar plantilla<input [formControl]="templateQuery" type="search" placeholder="Órgano, región o especialidad"></label>
+        @if (templateLoading()) { <p class="empty">Cargando biblioteca…</p> } @else {
+          <div class="template-grid">
+            @for (template of filteredTemplates(); track template.id) {
+              <button type="button" class="template-card" [class.active]="selectedTemplateId() === template.id" (click)="selectTemplate(template)">
+                <img [src]="templateUrl(template)" alt="">
+                <strong>{{ template.title }}</strong><small>{{ template.category }}</small>
+              </button>
+            } @empty { <p class="empty">No hay plantillas que coincidan.</p> }
+          </div>
+          @if (selectedTemplate(); as template) { <div class="template-selection"><span>Seleccionada: <strong>{{ template.title }}</strong></span><button type="button" class="primary" (click)="addSelectedTemplate()" [disabled]="busy()">{{ busy() ? 'Agregando…' : 'Agregar como estudio' }}</button></div> }
+        }
+      </section>
+    }
     <section class="studies-layout">
       <aside class="study-list" aria-label="Estudios del paciente">
         <header><strong>{{ filteredStudies().length }} estudios</strong><span>Seleccione uno para ver el detalle</span></header>

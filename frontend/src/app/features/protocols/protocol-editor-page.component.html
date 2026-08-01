@@ -1,0 +1,48 @@
+<section class="editor">
+  <header>
+    <div>
+      <p>Configuracion · protocolos</p>
+      <h1>{{id() ? 'Editar protocolo local' : 'Nuevo protocolo local'}}</h1>
+      <span>La revision protege cambios simultaneos. Los datos de cada droga alimentan prescripcion y Hospital de dia.</span>
+    </div>
+    <a routerLink="/protocols">Volver</a>
+  </header>
+
+  @if(error();as e){<p class="error">{{e}}</p>}
+  @if(loading()){<p>Cargando...</p>}@else{
+    <form [formGroup]="form" (submit)="$event.preventDefault();save()">
+      <section class="main">
+        <label>Nombre<input formControlName="name"></label>
+        <label>Categoria<input formControlName="category" placeholder="Ej. Mama"></label>
+        <label>Ciclo (dias)<input formControlName="cycleDays" type="number" min="1"></label>
+        <label>Duracion operativa (min)<input formControlName="durationMinutes" type="number" min="1"></label>
+        <label>Esquema COIR vinculado (opcional)<input formControlName="coirSchemeId"></label>
+        <label class="wide">Descripcion<textarea formControlName="description" rows="3"></textarea></label>
+      </section>
+
+      <h2>Drogas y administracion</h2>
+      <p class="helper">Escriba al menos dos letras para elegir una droga del catalogo; tambien se puede registrar una droga local.</p>
+      <datalist id="protocol-drug-catalog">
+        @for(drug of drugOptions();track drug.id || drug.name){<option [value]="drug.name || drug.nombre || ''" [label]="drug.presentation || drug.brand || ''"></option>}
+      </datalist>
+      <div formArrayName="components">
+        @for(component of components.controls;track $index){
+          <fieldset [formGroupName]="$index">
+            <legend>Componente {{ $index+1 }} <button type="button" (click)="remove($index)" [disabled]="components.length===1">Quitar</button></legend>
+            <label>ID de droga<input formControlName="drugId" readonly></label>
+            <label>Droga<input formControlName="drugName" list="protocol-drug-catalog" (input)="findDrugs($any($event.target).value)" (change)="selectDrug($index, $any($event.target).value)" placeholder="Buscar en catalogo o escribir nueva"></label>
+            <label>Dia(s)<input formControlName="day" placeholder="1, 8, 15"></label>
+            <label>Dosis<input formControlName="prescribedDoseText"></label>
+            <label>Unidad<input formControlName="doseUnit" placeholder="mg/m2"></label>
+            <label>Calculo<select formControlName="doseCalculationMethod"><option value="">No especificado</option><option>Superficie corporal</option><option>Peso</option><option>Dosis fija</option><option>AUC</option></select></label>
+            <label>Via<input formControlName="route" placeholder="Endovenosa"></label>
+            <label>Tiempo de administracion<input formControlName="administrationTime" placeholder="90 min"></label>
+            <label>Ambito<select formControlName="dayHospital"><option value="true">Hospital de dia</option><option value="false">Domiciliaria</option></select></label>
+          </fieldset>
+        }
+      </div>
+      <button type="button" (click)="add()">Agregar droga</button>
+      <footer><button class="primary" type="submit" [disabled]="saving()">{{saving() ? 'Guardando...' : 'Guardar protocolo'}}</button></footer>
+    </form>
+  }
+</section>

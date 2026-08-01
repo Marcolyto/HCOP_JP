@@ -1,0 +1,65 @@
+<section class="protocols-page">
+  <header>
+    <div>
+      <p>Catalogo clinico</p>
+      <h1>Protocolos</h1>
+      <span>Esquemas COIR y protocolos locales disponibles para prescripcion.</span>
+    </div>
+    <div class="header-actions">
+      <a routerLink="/protocols/new">Nuevo protocolo</a>
+      <button type="button" (click)="load()">Actualizar</button>
+    </div>
+  </header>
+
+  <section class="toolbar">
+    <input [formControl]="search" type="search" placeholder="Buscar esquema, categoria o descripcion">
+    <strong>{{items().length}} protocolos</strong>
+  </section>
+
+  @if(error();as e){<p class="error">{{e}}</p>}
+
+  <section class="list">
+    @if(loading()){<p>Cargando protocolos...</p>}@else{
+      @for(item of items();track track($index,item)){
+        <button type="button" (click)="open(item)">
+          <strong>{{item.name}}</strong>
+          <span>{{item.category||'Sin categoria'}} · {{item.cycleDays||'—'}} dias por ciclo · {{item.durationText||item.durationMinutes+' min'}}</span>
+          <small>{{item.catalogOnly?'Catalogo COIR':'Protocolo local'}} · {{item.componentCount||0}} componentes</small>
+        </button>
+      }@empty{<p>No hay protocolos que coincidan.</p>}
+    }
+  </section>
+
+  @if(selected();as item){
+    <div class="backdrop">
+      <section class="modal">
+        <header>
+          <div>
+            <p>{{item.catalogOnly?'Catalogo COIR':'Protocolo local'}}</p>
+            <h2>{{item.name}}</h2>
+            <span>{{item.description||'Sin descripcion'}}</span>
+          </div>
+          <button type="button" (click)="close()" aria-label="Cerrar">×</button>
+        </header>
+        @if(detailLoading()){<p>Cargando detalle...</p>}@else{
+          <dl>
+            <div><dt>Categoria</dt><dd>{{item.category||'No informada'}}</dd></div>
+            <div><dt>Ciclo</dt><dd>{{item.cycleDays||'No informado'}} dias</dd></div>
+            <div><dt>Duracion</dt><dd>{{item.durationText||item.durationMinutes+' min'}}</dd></div>
+            <div><dt>Estado</dt><dd>{{item.active===false?'Archivado':'Activo'}}</dd></div>
+          </dl>
+          <h3>Componentes y drogas</h3>
+          <table>
+            <thead><tr><th>Droga</th><th>Dosis</th><th>Via</th><th>Dia</th><th>Administracion</th></tr></thead>
+            <tbody>
+              @for(component of item.components||[];track $index){
+                <tr><td>{{component['drugName']||component['name']||component['droga']||'No informada'}}</td><td>{{component['calculatedDoseText']||component['dose']||component['dosis']||'—'}}</td><td>{{component['route']||component['via']||'—'}}</td><td>{{component['applicationDays']||component['day']||component['dia']||'—'}}</td><td>{{component['administrationTime']||component['administrationMinutes']||'—'}}</td></tr>
+              }@empty{<tr><td colspan="5">Sin componentes estructurados.</td></tr>}
+            </tbody>
+          </table>
+          @if(!item.catalogOnly){<footer class="detail-actions"><a routerLink="/protocols/{{item.id}}/edit" (click)="close()">Editar protocolo local</a></footer>}
+        }
+      </section>
+    </div>
+  }
+</section>

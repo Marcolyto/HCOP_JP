@@ -7,23 +7,140 @@
 .angular-hospital-room { display: block; flex: 1 1 auto; min-height: 0; height: 100%; overflow: hidden; background: #fff; }
 .angular-hospital-room app-day-hospital { display: block; height: 100%; min-height: 0; }
 .care-schedule-mode-tabs button svg, .care-chair-mode-switch button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.angular-schedule-grid { --visible-chairs: 6; --schedule-rows: 48; display: grid; grid-template-columns: minmax(64px, .6fr) repeat(var(--visible-chairs), minmax(122px, 1fr)); grid-template-rows: 42px repeat(var(--schedule-rows), minmax(34px, 1fr)); gap: 3px; position: relative; min-width: 780px; padding: 3px; background: #fff; }
-.angular-grid-corner, .angular-chair-header { position: sticky; top: 0; z-index: 6; display: grid; place-items: center; min-width: 0; background: #f4f7f9; color: #60717e; font-size: 13px; font-weight: 750; }
+.angular-schedule-grid {
+  --chair-columns: var(--visible-chairs, 6);
+  --visual-rows: var(--schedule-rows, 48);
+  --schedule-header-height: 28px;
+  --schedule-row-min-height: 18px;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  grid-template-columns: repeat(var(--chair-columns), minmax(0, 1fr));
+  grid-template-rows: var(--schedule-header-height) repeat(var(--visual-rows), minmax(var(--schedule-row-min-height), 1fr));
+  align-content: stretch;
+  gap: 0;
+  padding: 0;
+  background: #fff;
+}
+.angular-grid-corner, .angular-chair-header { position: sticky; top: 0; z-index: 10; display: grid; place-items: center; min-width: 0; border-right: 1px solid #c6d1d8; border-bottom: 1px solid #b8c7d0; background: #edf3f6; color: #405568; font-size: 9px; font-weight: 800; }
 .angular-grid-corner { grid-column: 1; grid-row: 1; }
 .angular-chair-header { grid-row: 1; }
-.angular-time-label { grid-column: 1; z-index: 2; display: grid; place-items: center; color: #b2bac1; background: #fafbfc; border-radius: 5px; font-size: 14px; font-weight: 750; }
-.angular-empty-slot { background: #f3f5f6; border: 0; border-radius: 5px; min-height: 30px; }
-.angular-empty-slot.is-candidate-fit { background: #dceffb; box-shadow: inset 0 0 0 1px #9dcced; }
-.angular-empty-slot.is-drag-target { background: #9dddba; box-shadow: inset 0 0 0 2px #42a571; }
-.angular-empty-slot.is-drag-invalid { background: #f3c7cc; box-shadow: inset 0 0 0 2px #c84b59; }
-.angular-scheduled-appointment { z-index: 4; display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow: hidden; padding: 7px 9px; border: 0; border-radius: 8px; color: white; box-shadow: 0 2px 7px rgb(26 60 78 / 16%); }
-.angular-scheduled-appointment.is-pending { background: #277cc3; }
-.angular-scheduled-appointment.is-confirmed { background: #c93f4f; }
-.angular-scheduled-appointment strong, .angular-scheduled-appointment span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
-.angular-scheduled-appointment small { font-size: 11px; opacity: .88; }
-.angular-scheduled-appointment b { margin-top: auto; font-size: 12px; }
-.angular-scheduled-appointment.is-saving { opacity: .68; pointer-events: none; }
-.angular-scheduled-appointment.is-search-match { box-shadow: 0 0 0 3px #38bdf8, 0 8px 18px rgba(2, 132, 199, .24); z-index: 5; }
+.angular-chair-header.has-chair-gap { border-left: 6px solid #fff; }
+.angular-time-label { grid-column: 1; z-index: 2; display: grid; place-items: center; min-width: 0; overflow: hidden; color: #a3adb3; background: #f8fafb; font-size: 10.5px; font-weight: 600; }
+.angular-empty-slot {
+  position: relative;
+  display: flex;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin: 1px;
+  border: 0;
+  border-radius: 3px;
+  background: #f2f4f5;
+  transition: background .08s, box-shadow .08s;
+}
+.angular-empty-slot:nth-child(even) { background: #eef1f3; }
+.angular-empty-slot.is-chair-start:not(.is-viewport-start) { margin-left: 6px; }
+.angular-empty-slot-time, .angular-slot-time, .angular-empty-slot .care-schedule-slot-time { position: relative; z-index: 1; overflow: hidden; color: #a3adb3; font-size: 10.5px; font-weight: 600; line-height: 1; letter-spacing: -.1px; text-align: center; white-space: nowrap; pointer-events: none; }
+.angular-empty-slot.is-candidate-fit:not(.is-drag-target):not(.is-drag-invalid) { background: #bfe8fb; box-shadow: inset 0 0 0 1px #8bd0ef; }
+.angular-empty-slot.is-drag-target { z-index: 7; background: #56b881; box-shadow: inset 0 0 0 1px #208650; }
+.angular-empty-slot.is-drag-invalid { z-index: 7; background: repeating-linear-gradient(135deg, #cf4f5b, #cf4f5b 5px, #b9414d 5px, #b9414d 10px); box-shadow: inset 0 0 0 1px #a93440; }
+
+.angular-appointment-fragment, .angular-appointment-bridge, .angular-concave-corner, .angular-scheduled-appointment {
+  --appointment-fill: #cf4f5b;
+  --appointment-edge: #ae3543;
+}
+.angular-appointment-fragment, .angular-scheduled-appointment {
+  z-index: 4;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--appointment-edge);
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  border-radius: 0;
+  background: var(--appointment-fill);
+  background-clip: border-box;
+  color: #fff;
+  box-shadow: none;
+}
+.angular-appointment-fragment { cursor: pointer; }
+.angular-appointment-fragment.is-pending, .angular-appointment-fragment.is-appointment-pending,
+.angular-appointment-bridge.is-pending, .angular-appointment-bridge.is-appointment-pending,
+.angular-concave-corner.is-pending, .angular-concave-corner.is-appointment-pending,
+.angular-scheduled-appointment.is-pending, .angular-scheduled-appointment.is-appointment-pending { --appointment-fill: #258cc5; --appointment-edge: #176f9f; }
+.angular-appointment-fragment.is-confirmed, .angular-appointment-fragment.is-appointment-confirmed,
+.angular-appointment-bridge.is-confirmed, .angular-appointment-bridge.is-appointment-confirmed,
+.angular-concave-corner.is-confirmed, .angular-concave-corner.is-appointment-confirmed,
+.angular-scheduled-appointment.is-confirmed, .angular-scheduled-appointment.is-appointment-confirmed { --appointment-fill: #cf4f5b; --appointment-edge: #ae3543; }
+.angular-appointment-fragment.is-saving, .angular-appointment-bridge.is-saving,
+.angular-concave-corner.is-saving, .angular-scheduled-appointment.is-saving { --appointment-fill: #bd5c67; --appointment-edge: #7f2c36; cursor: wait; }
+.angular-appointment-fragment.is-appointment-start, .angular-scheduled-appointment.is-appointment-start { border-top-color: var(--appointment-edge); }
+.angular-appointment-fragment.is-appointment-end, .angular-scheduled-appointment.is-appointment-end { border-bottom-color: var(--appointment-edge); }
+.angular-appointment-fragment.has-convex-top-left, .angular-scheduled-appointment.has-convex-top-left { border-top-left-radius: 6px; }
+.angular-appointment-fragment.has-convex-top-right, .angular-scheduled-appointment.has-convex-top-right { border-top-right-radius: 6px; }
+.angular-appointment-fragment.has-convex-bottom-left, .angular-scheduled-appointment.has-convex-bottom-left { border-bottom-left-radius: 6px; }
+.angular-appointment-fragment.has-convex-bottom-right, .angular-scheduled-appointment.has-convex-bottom-right { border-bottom-right-radius: 6px; }
+.angular-appointment-fragment.has-chair-gap, .angular-scheduled-appointment.has-chair-gap { margin-left: 6px; }
+.angular-appointment-fragment.is-dragging, .angular-scheduled-appointment.is-dragging, .angular-scheduled-appointment.is-drag-source { opacity: .12; pointer-events: none; }
+.angular-appointment-fragment.is-search-muted, .angular-scheduled-appointment.is-search-muted { opacity: .24; filter: saturate(.55); }
+.angular-appointment-fragment.is-search-match { z-index: 8; filter: brightness(1.12) saturate(1.08); }
+.angular-scheduled-appointment.is-search-match { z-index: 9; outline: 2px solid #ffd24a; outline-offset: 1px; filter: brightness(1.12) saturate(1.08); }
+
+.angular-appointment-bridge {
+  z-index: 3;
+  height: 8px;
+  min-height: 8px;
+  align-self: start;
+  margin: 0 4px;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 4px;
+  background: var(--appointment-fill);
+  box-shadow: none;
+  pointer-events: none;
+}
+.angular-appointment-bridge.has-chair-gap { margin-left: 10px; }
+.angular-appointment-bridge.is-search-match { z-index: 3; filter: brightness(1.12) saturate(1.08); }
+
+.angular-concave-corner { z-index: 7; width: 6px; height: 6px; align-self: start; justify-self: start; pointer-events: none; }
+.angular-concave-corner.has-concave-top-left { align-self: start; justify-self: start; transform: translateX(-100%); background: radial-gradient(circle at left bottom, transparent 0 5.5px, var(--appointment-fill) 6px); }
+.angular-concave-corner.has-concave-top-right { align-self: start; justify-self: end; transform: translateX(100%); background: radial-gradient(circle at right bottom, transparent 0 5.5px, var(--appointment-fill) 6px); }
+.angular-concave-corner.has-concave-bottom-left { align-self: end; justify-self: start; transform: translateX(-100%); background: radial-gradient(circle at left top, transparent 0 5.5px, var(--appointment-fill) 6px); }
+.angular-concave-corner.has-concave-bottom-right { align-self: end; justify-self: end; transform: translateX(100%); background: radial-gradient(circle at right top, transparent 0 5.5px, var(--appointment-fill) 6px); }
+.angular-concave-corner.has-chair-gap:is(.has-concave-top-left, .has-concave-bottom-left) { transform: translateX(calc(-100% + 6px)); }
+
+.angular-scheduled-appointment { z-index: 5; display: flex; height: 100%; flex-direction: column; align-content: start; gap: 2px; padding: 3px 5px; cursor: pointer; }
+.angular-scheduled-appointment strong, .angular-scheduled-appointment span { overflow: hidden; font-size: 10.5px; line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
+.angular-scheduled-appointment small { font-size: 8.5px; opacity: .9; }
+.angular-scheduled-appointment b { margin-top: auto; font-size: 9.5px; }
+.angular-scheduled-appointment.angular-appointment-content {
+  z-index: 9;
+  box-sizing: border-box;
+  width: auto;
+  min-height: 0;
+  align-self: stretch;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+  text-shadow: 0 1px 1px #17334666;
+}
+.angular-scheduled-appointment.angular-appointment-content .angular-appointment-heading { display: grid; position: static; grid-template-columns: minmax(0, 1fr) auto; align-items: start; overflow: visible; }
+.angular-scheduled-appointment.angular-appointment-content strong,
+.angular-scheduled-appointment.angular-appointment-content small,
+.angular-scheduled-appointment.angular-appointment-content span,
+.angular-scheduled-appointment.angular-appointment-content b { display: block; overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; }
+.angular-scheduled-appointment.angular-appointment-content .angular-appointment-actions,
+.angular-scheduled-appointment.angular-appointment-content .angular-appointment-actions button { overflow: visible; pointer-events: auto; }
+.angular-scheduled-appointment.angular-appointment-content.is-search-match { outline: 0; filter: none; }
 .angular-appointment-heading { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-width: 0; }
 .angular-appointment-heading strong { min-width: 0; }
 .angular-appointment-actions { display: inline-flex; align-items: center; gap: 3px; }
@@ -62,5 +179,5 @@
 .angular-schedule-remove-confirm textarea { width: 100%; resize: vertical; }
 .angular-schedule-remove-confirm > div { display: flex; justify-content: flex-end; gap: 7px; }
 .angular-schedule-detail-actions { justify-content: flex-end; }
-@media (max-width: 1000px) { .angular-care-scheduler { width: 99vw; height: 99vh; }.angular-schedule-grid { grid-template-columns: minmax(60px, .5fr) repeat(var(--visible-chairs), minmax(104px, 1fr)); }.angular-care-scheduler .care-schedule-layout { grid-template-columns: minmax(230px, 30%) 1fr; } }
+@media (max-width: 1000px) { .angular-care-scheduler { width: 99vw; height: 99vh; }.angular-schedule-grid { --schedule-row-min-height: 16px; grid-template-columns: repeat(var(--chair-columns), minmax(0, 1fr)); }.angular-care-scheduler .care-schedule-layout { grid-template-columns: minmax(230px, 30%) 1fr; } }
 @media (max-width: 760px) { .angular-schedule-detail-grid { grid-template-columns: 1fr; } }

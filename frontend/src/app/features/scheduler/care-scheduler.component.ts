@@ -11,14 +11,34 @@ import {
   schedulerMedicationAvailable,
   schedulerMedicationLabel
 } from './care-scheduler.models';
+import {
+  SchedulerAppointmentSegment,
+  schedulerAppointmentBridge,
+  schedulerAppointmentCornerClasses,
+  schedulerAppointmentSegments,
+  schedulerGridInclusiveRange,
+  schedulerGridLayout,
+  schedulerGridPosition
+} from './care-scheduler-grid.models';
 import { PatientWorkspaceService } from '../../core/patients/patient-workspace.service';
 import { AuthService } from '../../core/auth/auth.service';
 
 type JsonObject = Record<string, unknown>;
 interface ScheduleSettings { chairCount: number; slotMinutes: number; startTime: string; endTime: string; }
-interface ScheduleSlot { row: number; minutes: number; label: string; }
+interface ScheduleSlot { index: number; minutes: number; label: string; }
 interface ScheduleDrag { type: 'candidate' | 'infusion'; item: JsonObject; }
 interface SchedulePlacement { chair: number; slotIndex: number; span: number; valid: boolean; time: string; }
+interface SchedulePieceView { className: string; style: Record<string, string>; }
+interface ScheduleFragmentView extends SchedulePieceView { corners: readonly SchedulePieceView[]; }
+interface ScheduleAppointmentView {
+  item: JsonObject;
+  range: string;
+  tooltip: string;
+  fragments: readonly ScheduleFragmentView[];
+  bridges: readonly SchedulePieceView[];
+  contentClassName: string;
+  contentStyle: Record<string, string>;
+}
 type HospitalMode = 'new-treatment' | 'pharmacy' | 'chairs' | 'triage' | 'preparation' | 'treatments';
 type EmbeddedCareView = 'treatments' | 'pharmacy' | 'triage' | 'preparation' | 'administration';
 
@@ -68,11 +88,15 @@ export class CareSchedulerComponent implements OnChanges {
     const start = Math.min(this.chairOffset(), Math.max(0, total - count));
     return Array.from({ length: count }, (_, index) => start + index + 1);
   });
+  readonly gridLayout = computed(() => schedulerGridLayout(this.settings()));
+  readonly chairColumnCount = computed(() => this.visibleChairs().length * this.gridLayout().columnsPerChair);
   readonly slots = computed<ScheduleSlot[]>(() => {
-    const settings = this.settings();
-    const start = this.clockMinutes(settings.startTime);
-    const count = Math.max(0, Math.ceil((this.clockMinutes(settings.endTime) - start) / settings.slotMinutes));
-    return Array.from({ length: count }, (_, index) => ({ row: index + 2, minutes: start + index * settings.slotMinutes, label: this.clockLabel(start + index * settings.slotMinutes) }));
+    const layout = this.gridLayout();
+    return Array.from({ length: layout.totalSlots }, (_, index) => ({
+      index,
+      minutes: layout.start + index * layout.slotMinutes,
+      label: this.clockLabel(layout.start + index * layout.slotMinutes)
+    }));
   });
   readonly filteredCandidates = computed(() => {
     const query = this.normalize(this.search());
@@ -90,6 +114,11 @@ export class CareSchedulerComponent implements OnChanges {
     const chairs = new Set(this.visibleChairs().map(String));
     return this.infusions().filter(item => chairs.has(String(item['chair'] || '').replace(/\D/g, '')));
   });
+  readonly appointmentViews = computed<readonly ScheduleAppointmentView[]>(() =>
+    this.visibleInfusions()
+      .map(item => this.appointmentView(item))
+      .filter((view): view is ScheduleAppointmentView => Boolean(view))
+  );
   readonly weekday = computed(() => new Intl.DateTimeFormat('es-AR', { weekday: 'long', timeZone: 'UTC' }).format(new Date(`${this.date()}T12:00:00Z`)).replace(/^./, value => value.toUpperCase()));
   readonly chairRange = computed(() => { const chairs = this.visibleChairs(); return chairs.length ? `Sillones ${chairs[0]}–${chairs[chairs.length - 1]}` : 'Sin sillones configurados'; });
   readonly selectedCandidate = computed(() => this.candidates().find(item => this.itemId(item) === this.selectedCandidateId()) || null);
@@ -160,7 +189,7 @@ export class CareSchedulerComponent implements OnChanges {
     if (!this.canManageSchedule()) return;
     const drag = this.drag(); if (!drag) return;
     event.preventDefault();
-    const target = this.placement(drag.item, drag.type, chair, slot.row - 2);
+    const target = this.placement(drag.item, drag.type, chair, slot.index);
     this.dropTarget.set(target);
     if (event.dataTransfer) event.dataTransfer.dropEffect = target.valid ? 'move' : 'none';
   }
@@ -199,10 +228,30 @@ export class CareSchedulerComponent implements OnChanges {
     }
   }
   slotClass(slot: ScheduleSlot, chair: number): string {
-    const index = slot.row - 2; const target = this.dropTarget();
+    const index = slot.index; const target = this.dropTarget();
     if (target && target.chair === chair && index >= target.slotIndex && index < target.slotIndex + target.span) return target.valid ? 'is-drag-target' : 'is-drag-invalid';
     const candidate = this.selectedCandidate();
     return candidate && this.placement(candidate, 'candidate', chair, index).valid ? 'is-candidate-fit' : '';
+  }
+  chairHeaderStyle(chair: number): Record<string, string> {
+    const firstChair = this.visibleChairs()[0] || 1;
+    const columnStart = 1 + (chair - firstChair) * this.gridLayout().columnsPerChair;
+    return { 'grid-column': `${columnStart} / span ${this.gridLayout().columnsPerChair}`, 'grid-row': '1' };
+  }
+  slotStyle(slot: ScheduleSlot, chair: number): Record<string, string> {
+    const position = schedulerGridPosition(slot.index, chair, this.gridLayout(), this.visibleChairs()[0] || 1);
+    return { 'grid-column': String(position.column), 'grid-row': String(position.row) };
+  }
+  slotStructuralClass(slot: ScheduleSlot, chair: number): string {
+    const layout = this.gridLayout();
+    const position = schedulerGridPosition(slot.index, chair, layout, this.visibleChairs()[0] || 1);
+    return [
+      slot.index % layout.slotsPerHour < layout.columnsPerChair ? 'is-hour-start' : '',
+      position.subColumn === 0 ? 'is-chair-start' : '',
+      position.subColumn === layout.columnsPerChair - 1 ? 'is-chair-end' : '',
+      chair === this.visibleChairs()[0] ? 'is-viewport-start' : '',
+      this.slotClass(slot, chair)
+    ].filter(Boolean).join(' ');
   }
   candidateSelected(item: JsonObject): boolean { return this.itemId(item) === this.selectedCandidateId(); }
   candidateDisabled(item: JsonObject): boolean { return Boolean(this.blockedReason(item)); }
@@ -255,16 +304,9 @@ export class CareSchedulerComponent implements OnChanges {
     return Boolean(query) && this.searchText(item).includes(query);
   }
   prescriptionLabel(item: JsonObject): string { return this.flag(item, 'prescriptionConfirmed') ? 'Prescripción confirmada' : 'Falta prescripción'; }
-  infusionStyle(item: JsonObject): Record<string, string> {
-    const scheduled = new Date(String(item['scheduledAt'] || '')); const settings = this.settings(); const start = this.clockMinutes(settings.startTime);
-    const minutes = scheduled.getHours() * 60 + scheduled.getMinutes(); const row = Math.max(2, Math.floor((minutes - start) / settings.slotMinutes) + 2);
-    const rows = Math.max(1, Math.ceil(Number(item['durationMinutes'] || settings.slotMinutes) / settings.slotMinutes));
-    const column = this.visibleChairs().indexOf(Number(String(item['chair'] || '').replace(/\D/g, ''))) + 2;
-    return { 'grid-row': `${row} / span ${rows}`, 'grid-column': String(column) };
-  }
   infusionRange(item: JsonObject): string { return schedulerInclusiveInfusionRange(item['scheduledAt'], item['durationMinutes']); }
   infusionClass(item: JsonObject): string { return this.flag(item, 'appointmentConfirmed') ? 'is-confirmed' : 'is-pending'; }
-  trackSlot(_: number, slot: ScheduleSlot): number { return slot.minutes; }
+  trackSlot(_: number, slot: ScheduleSlot): number { return slot.index; }
   trackItem(_: number, item: JsonObject): string { return String(item['id'] || `${item['patientId']}:${item['treatmentId']}:${item['cycleNumber']}:${item['applicationDay']}`); }
 
   private applySettings(item?: JsonObject): void {
@@ -274,6 +316,91 @@ export class CareSchedulerComponent implements OnChanges {
     this.settings.set(settings); this.visibleChairCount.set(Math.min(6, settings.chairCount)); this.chairOffset.set(0);
   }
   private searchText(item: JsonObject): string { return this.normalize([item['patientName'], item['patientDni'], item['dni'], item['scheme'], item['drugScheme'], item['diagnosis'], item['chair']].join(' ')); }
+  private appointmentView(item: JsonObject): ScheduleAppointmentView | null {
+    if (String(item['clinicalStatus'] || '') === 'cancelled' || !item['scheduledAt']) return null;
+    const chair = Number(String(item['chair'] || '').replace(/\D/g, ''));
+    const firstChair = this.visibleChairs()[0] || 1;
+    if (!Number.isInteger(chair) || chair < firstChair || chair > (this.visibleChairs().at(-1) || firstChair)) return null;
+    const layout = this.gridLayout();
+    const minutes = this.wallClockMinutes(item['scheduledAt']);
+    const slotOffset = (minutes - layout.start) / layout.slotMinutes;
+    if (!Number.isInteger(slotOffset)) return null;
+    const span = Math.max(1, Math.ceil(this.duration(item) / layout.slotMinutes));
+    if (slotOffset < 0 || slotOffset + span > layout.totalSlots) return null;
+    const segments = schedulerAppointmentSegments(slotOffset, span, chair, layout, firstChair);
+    if (!segments.length) return null;
+    const range = schedulerGridInclusiveRange(slotOffset, span, layout)?.label || this.infusionRange(item);
+    const chairColumnStart = 1 + (chair - firstChair) * layout.columnsPerChair;
+    const statusClass = this.flag(item, 'appointmentConfirmed') ? 'is-confirmed is-appointment-confirmed' : 'is-pending is-appointment-pending';
+    const transientClasses = [
+      item['optimistic'] ? 'is-saving' : '',
+      this.drag()?.type === 'infusion' && this.itemId(this.drag()!.item) === this.itemId(item) ? 'is-drag-source' : '',
+      this.search() ? (this.infusionMatchesSearch(item) ? 'is-search-match' : 'is-search-muted') : ''
+    ].filter(Boolean).join(' ');
+    const fragments: ScheduleFragmentView[] = [];
+    const bridges: SchedulePieceView[] = [];
+    segments.forEach((segment, index) => {
+      const style = this.segmentStyle(segment);
+      const cornerClasses = schedulerAppointmentCornerClasses(segments, index);
+      const hasChairGap = chair > firstChair && segment.columnStart === chairColumnStart;
+      const commonClasses = `${statusClass} ${transientClasses}${hasChairGap ? ' has-chair-gap' : ''}`.trim();
+      const bridge = schedulerAppointmentBridge(segments[index - 1], segment);
+      if (bridge) {
+        const bridgeHasChairGap = chair > firstChair && bridge.columnStart === chairColumnStart;
+        bridges.push({
+          className: `angular-appointment-bridge ${statusClass} ${transientClasses}${bridgeHasChairGap ? ' has-chair-gap' : ''}`.trim(),
+          style: this.segmentStyle(bridge)
+        });
+      }
+      fragments.push({
+        className: [
+          'angular-appointment-fragment',
+          index === 0 ? 'is-appointment-start' : '',
+          index === segments.length - 1 ? 'is-appointment-end' : '',
+          ...cornerClasses,
+          commonClasses
+        ].filter(Boolean).join(' '),
+        style,
+        corners: cornerClasses
+          .filter(name => name.startsWith('has-concave-'))
+          .map(name => ({ className: `angular-concave-corner ${name} ${commonClasses}`, style }))
+      });
+    });
+    const primaryIndex = segments.reduce((winner, segment, index) => segment.slotCount > segments[winner].slotCount ? index : winner, 0);
+    const primary = segments[primaryIndex];
+    const contentHasChairGap = chair > firstChair && primary.columnStart === chairColumnStart;
+    return {
+      item,
+      range,
+      tooltip: this.appointmentTooltip(item, range),
+      fragments,
+      bridges,
+      contentClassName: `angular-scheduled-appointment angular-appointment-content${segments.length > 1 ? ' is-fragmented' : ''} ${statusClass} ${transientClasses}${contentHasChairGap ? ' has-chair-gap' : ''}`.trim(),
+      contentStyle: this.segmentStyle(primary)
+    };
+  }
+  private segmentStyle(segment: Pick<SchedulerAppointmentSegment, 'columnStart' | 'columnEnd' | 'row' | 'rowEnd'>): Record<string, string> {
+    return { 'grid-column': `${segment.columnStart} / ${segment.columnEnd}`, 'grid-row': `${segment.row} / ${segment.rowEnd}` };
+  }
+  private appointmentTooltip(item: JsonObject, range: string): string {
+    return [
+      item['patientName'] || 'Paciente',
+      item['patientDni'] || item['dni'] ? `DNI ${item['patientDni'] || item['dni']}` : '',
+      item['scheme'] || item['drugScheme'],
+      item['diagnosis'],
+      range,
+      this.durationLabel(item),
+      this.prescriptionLabel(item),
+      this.medicationLabel(item),
+      this.flag(item, 'appointmentConfirmed') ? 'Turno confirmado' : 'Turno sin confirmar'
+    ].filter(Boolean).join(' · ');
+  }
+  private wallClockMinutes(value: unknown): number {
+    const match = /T(\d{2}):(\d{2})/.exec(String(value || ''));
+    if (match) return Number(match[1]) * 60 + Number(match[2]);
+    const date = new Date(String(value || ''));
+    return Number.isNaN(date.getTime()) ? Number.NaN : date.getHours() * 60 + date.getMinutes();
+  }
   private placement(item: JsonObject, type: 'candidate' | 'infusion', chair: number, slotIndex: number): SchedulePlacement {
     const span = Math.max(1, Math.ceil(this.duration(item) / this.settings().slotMinutes));
     const start = this.slots()[slotIndex]?.minutes ?? this.clockMinutes(this.settings().startTime);
@@ -292,7 +419,7 @@ export class CareSchedulerComponent implements OnChanges {
   private rollbackPlacement(infusions: JsonObject[], candidates: JsonObject[], response: { error?: { error?: string; code?: string } }): void { this.infusions.set(infusions); this.candidates.set(candidates); this.busy.set(false); this.actionMessage.set(response?.error?.code === 'CHAIR_SCHEDULE_CONFLICT' ? 'Ese lugar acaba de ser ocupado. La agenda se actualizó.' : response?.error?.error || 'No se pudo guardar el turno.'); this.refresh(); }
   private itemId(item: JsonObject): string { return String(item['id'] || `${item['patientId']}:${item['treatmentId']}:${item['cycleNumber']}:${item['applicationDay']}`); }
   private duration(item: JsonObject): number { return Math.max(this.settings().slotMinutes, Number(item['durationMinutes'] || this.settings().slotMinutes)); }
-  private durationLabel(item: JsonObject): string { const minutes = this.duration(item); return minutes >= 60 && minutes % 60 === 0 ? `${minutes / 60} h` : `${minutes} min`; }
+  durationLabel(item: JsonObject): string { const minutes = this.duration(item); return minutes >= 60 && minutes % 60 === 0 ? `${minutes / 60} h` : `${minutes} min`; }
   private blockedReason(item: JsonObject): string {
     return schedulerBlockedReason(item);
   }

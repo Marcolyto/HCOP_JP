@@ -283,10 +283,35 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
 
 ## F3 — Backend hexagonal (~14 módulos)
 
-- [ ] F3.0.1 — ArchUnit: 10 reglas nuevas en modo permisivo (allow-list = tracker)
-- [ ] F3.0.2 — Cerrar deuda configuration/ConfigurationService.java
-- [ ] F3.0.3 — Test guardián OpenAPI (claves Controller.metodo resuelven)
-- [ ] F3.0.4 — Snapshot openapi-snapshot.json versionado + CI diff
+- [x] F3.0.2 — Cerrar deuda `configuration/ConfigurationService.java` (el "puente temporal").
+  Único consumidor (`media/StudyTemplateController`) migrado a hablar directo con
+  `ConfigurationManagementUseCase` + `ConfigurationJsonMapper` — no es hexagonal todavía (eso
+  llega con `media` en F3.2), así que la traducción `ConfigurationFailure`→`ApiException` quedó
+  inline en el controller (el advice de `configuration` solo aplica a `ConfigurationController`).
+  Verificado en Docker real: `GET`/`POST /api/study-templates` con un PNG real de punta a punta.
+  330 tests verdes.
+- [x] F3.0.3 — `OpenApiDocumentationKeysTest` (hallazgo 1, la regla de mayor retorno): escanea el
+  classpath con ArchUnit (`ClassFileImporter`) para indexar los 30 `@RestController` por
+  `getSimpleName()`, lee `OpenApiConfiguration.DOCUMENTATION`/`PERMISSIONS` por reflexión y
+  verifica que cada clave `Controller.metodo` resuelve a un controller y un método reales. 332
+  tests verdes.
+- [x] F3.0.4 — `docs/02-arquitectura/openapi-snapshot.json` (dump completo y normalizado —claves
+  ordenadas recursivamente, sin depender de `jq`— del spec real) + `scripts/generate-openapi-snapshot.ps1`
+  (mismo patrón que `generate-api-docs.ps1`, con `-Check`) + paso nuevo en el job `docker` de CI.
+  `generate-api-docs.ps1 -Check` no alcanzaba: `ENDPOINTS.md` es una proyección *lossy* del spec
+  (sin schemas de request/response) — un cambio en un `ObjectSchema` pasaría ese check y rompería
+  el frontend en silencio. **Criterio de aceptación de cada commit de F3: diff del snapshot vacío.**
+- [x] F3.0.1 — ArchUnit: 10 reglas nuevas (R1-R9 + R10=F3.0.3) en modo permisivo, allow-list única
+  compartida (`TRACKED_LEGACY_MODULES`, el tracker ejecutable — se achica en F3.1/F3.2/F3.3;
+  `PERMANENTLY_EXEMPT_MODULES` = `auth`/`common`/`config`, nunca se achica). R4 (slices libres de
+  ciclos, hallazgo 7) queda `@ArchIgnore` a propósito — meta visible de F3.3.0. Ajustes reales
+  sobre el diseño literal del plan, encontrados corriendo la suite contra el código real: R6
+  necesitaba exceptuar también la clase sintética `*Advice$1` que genera el compilador para el
+  switch exhaustivo sobre `Type` (su "simple name" no termina en `Advice`, su nombre completo sí
+  lo contiene); R9 (naming de puertos) aplicaba por error a los records anidados de cada
+  interfaz (`CreateCommand`, `ConfigurationView`, etc. — el propio patrón #1 del plan, "DTO
+  anidados como records") — se restringió a clases de primer nivel. 343 tests verdes (1 skip:
+  R4), `mvn verify` completo verde.
 - [ ] F3.1 — tools, system, admin (calibrar patrón; escribir tests que faltan)
 - [ ] F3.2 — catalog, integration, media
 - [ ] F3.3.0 — Puertos cruzados (patient/treatment/infusion) — commit propio

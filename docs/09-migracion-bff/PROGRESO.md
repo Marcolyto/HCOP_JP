@@ -54,7 +54,23 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
   contrato exacto de hoy. `smoke-test.ps1` sigue verde con el `AuthInterceptor` tocado (cookie
   directa intacta). 21 tests nuevos en `bff/` (SetCookieParser, BffSessionService,
   BffAuthController), todos verdes.
-- [ ] F1.3 — ApiProxyController streaming + DocsProxyController
+- [x] F1.3 — ApiProxyController streaming + DocsProxyController + BackendApiClient +
+  ProxyException/ProxyExceptionHandler. `backendStreamClient` con `JdkClientHttpRequestFactory`
+  (streaming real de request y response, sin `byte[]`, redirects `NEVER`). URI armada a mano con
+  `UriComponentsBuilder.build(true)` (hallazgo 3, verificado con test contra servidor HTTP real
+  con `tx%2017%2F165` byte a byte). Lista negra de headers de entrada/salida (`Cookie`,
+  `Authorization` entrante y `Set-Cookie` del backend nunca cruzan). Pass-through literal de
+  status+body en cualquier respuesta del backend; `ProxyException`→502/504 solo si el backend ni
+  siquiera respondió. `DocsProxyController` cubre los mismos paths que nginx proxeaba directo en
+  F0 (`/v3/api-docs`, `/swagger-ui.html`, `/swagger-ui/**`, `/webjars/**`), sin sesión. Se agregó
+  `auth/BffSessionResolver` compartido (refactor sin cambio de contrato de `BffAuthController`) —
+  interino: resuelve contra Redis en cada request, F1.4 lo va a reemplazar por un atributo que
+  puebla `BffSessionFilter` una sola vez. 30 tests verdes en `bff/` (6 nuevos de
+  `BackendApiClient` contra un `com.sun.net.httpserver.HttpServer` real). Verificado además
+  end-to-end real: jar standalone + Redis efímero + backend F0 real — login, proxy genérico
+  público y autenticado (Bearer reenviado), 401 pass-through sin sesión, docs proxy
+  (`/v3/api-docs` 200, `/swagger-ui.html` 302→`/swagger-ui/index.html`), `Set-Cookie` del backend
+  confirmado sin fuga al navegador.
 - [ ] F1.4 — Security/logging/cache filters + BackendHealthIndicator
 - [ ] F1.5 — Compose con redis+bff, verificación F1
 

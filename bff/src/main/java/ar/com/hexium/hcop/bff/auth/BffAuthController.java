@@ -1,7 +1,6 @@
 package ar.com.hexium.hcop.bff.auth;
 
 import ar.com.hexium.hcop.bff.config.BffProperties;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
 import java.time.Instant;
@@ -23,7 +22,7 @@ import tools.jackson.databind.ObjectMapper;
  * {@code /api/auth/**} idéntico al de hoy — ver {@code base/03-bff.md} y el tracker F1.
  *
  * <p>{@code PUT /api/auth/password} y {@code PUT /api/auth/active-patient} NO viven acá:
- * son pass-through simple y los cubre el proxy genérico en F1.3.
+ * son pass-through simple y los cubre el proxy genérico ({@code ApiProxyController}).
  */
 @RestController
 @RequestMapping("/api/auth")
@@ -33,6 +32,7 @@ public class BffAuthController {
 
     private final BackendAuthClient backend;
     private final BffSessionService sessions;
+    private final BffSessionResolver sessionResolver;
     private final SessionCookieFactory cookies;
     private final BffProperties properties;
     private final ObjectMapper mapper;
@@ -40,11 +40,13 @@ public class BffAuthController {
     public BffAuthController(
             BackendAuthClient backend,
             BffSessionService sessions,
+            BffSessionResolver sessionResolver,
             SessionCookieFactory cookies,
             BffProperties properties,
             ObjectMapper mapper) {
         this.backend = backend;
         this.sessions = sessions;
+        this.sessionResolver = sessionResolver;
         this.cookies = cookies;
         this.properties = properties;
         this.mapper = mapper;
@@ -70,9 +72,8 @@ public class BffAuthController {
 
     @PostMapping("/logout")
     public ResponseEntity<JsonNode> logout(HttpServletRequest servletRequest) {
-        String sessionId = readCookie(servletRequest, properties.sessionCookieName());
-        sessions.find(sessionId).ifPresent(session -> backend.logout(session.backendToken()));
-        sessions.delete(sessionId);
+        sessionResolver.resolve(servletRequest).ifPresent(session -> backend.logout(session.backendToken()));
+        sessions.delete(sessionResolver.sessionId(servletRequest));
 
         ResponseCookie expired = cookies.expire(servletRequest);
         JsonNode body = mapper.createObjectNode().put("ok", true).put("authenticated", false);
@@ -81,8 +82,7 @@ public class BffAuthController {
 
     @GetMapping("/me")
     public ResponseEntity<JsonNode> me(HttpServletRequest servletRequest) {
-        String sessionId = readCookie(servletRequest, properties.sessionCookieName());
-        String backendToken = sessions.find(sessionId).map(BffSession::backendToken).orElse(null);
+        String backendToken = sessionResolver.resolve(servletRequest).map(BffSession::backendToken).orElse(null);
         // Sin sesión (o vencida en Redis), el propio backend ya devuelve 200
         // {ok:true,authenticated:false,...} — no hace falta replicar ese shape acá.
         BackendAuthResponse result = backend.me(backendToken);
@@ -93,13 +93,5 @@ public class BffAuthController {
         String forwarded = request.getHeader("X-Forwarded-For");
         if (forwarded != null && !forwarded.isBlank()) return forwarded.split(",")[0].trim();
         return request.getRemoteAddr();
-    }
-
-    private String readCookie(HttpServletRequest request, String name) {
-        if (request.getCookies() == null) return null;
-        for (Cookie cookie : request.getCookies()) {
-            if (name.equals(cookie.getName())) return cookie.getValue();
-        }
-        return null;
     }
 }

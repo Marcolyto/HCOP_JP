@@ -29,8 +29,10 @@ class BffAuthControllerTest {
     private final BffSessionService sessions = mock(BffSessionService.class);
     private final SessionCookieFactory cookies = mock(SessionCookieFactory.class);
     private final BffProperties properties = new BffProperties("http://backend:5180", "BFF_SESSION", "HCOP_SESSION");
+    private final BffSessionResolver sessionResolver = new BffSessionResolver(sessions, properties);
     private final ObjectMapper mapper = new ObjectMapper();
-    private final BffAuthController controller = new BffAuthController(backend, sessions, cookies, properties, mapper);
+    private final BffAuthController controller =
+            new BffAuthController(backend, sessions, sessionResolver, cookies, properties, mapper);
 
     @Test
     void loginExitosoCreaSesionEnRedisYSeteaLaCookieBff() {

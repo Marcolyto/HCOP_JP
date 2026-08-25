@@ -2,6 +2,7 @@ package ar.com.hexium.hcop.bff.auth;
 
 import java.io.IOException;
 import java.io.InputStream;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -10,7 +11,8 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Único punto que le habla a {@code /api/auth/**} del backend. Nunca lanza por status ≠ 2xx —
- * pass-through literal de status + body, igual que hará {@code ApiProxyController} en F1.3.
+ * pass-through literal de status + body, igual que hace {@code BackendApiClient} para el resto
+ * de {@code /api/**}.
  */
 @Component
 public class BackendAuthClient {
@@ -18,7 +20,7 @@ public class BackendAuthClient {
     private final RestClient backend;
     private final ObjectMapper mapper;
 
-    public BackendAuthClient(RestClient backendJsonClient, ObjectMapper mapper) {
+    public BackendAuthClient(@Qualifier("backendJsonClient") RestClient backendJsonClient, ObjectMapper mapper) {
         this.backend = backendJsonClient;
         this.mapper = mapper;
     }

@@ -18,7 +18,7 @@
   </header>
   <main class="doc-main" style="max-width:1500px;margin:0 auto;min-height:calc(100vh - 64px)">
     <section class="doc-hero">
-      <span class="doc-kicker">OpenAPI 1.0.0 · 115 operaciones</span>
+      <span class="doc-kicker">OpenAPI 1.0.0 · 113 operaciones</span>
       <h1>Todos los endpoints, permisos y controladores</h1>
       <p>Referencia generada desde el servidor Java. Swagger permite ejecutar las rutas con la misma cookie de sesión del sistema; nunca evita permisos ni validaciones clínicas.</p>
       <div class="doc-meta"><span class="doc-tag">Spring MVC</span><span class="doc-tag">Cookie HttpOnly</span><span class="doc-tag">RBAC</span><span class="doc-tag">OpenAPI 3</span></div>
@@ -31,29 +31,6 @@
           <thead><tr><th>Método</th><th>Ruta</th><th>Finalidad</th><th>Módulo</th><th>Permiso</th><th>Controller</th></tr></thead>
           <tbody id="endpointRows">
               <tr data-filter-item>
-                <td><code>GET</code></td>
-                <td class="path"><code>/api/clinical/research/forms</code></td>
-                <td><strong>Listar formularios activos de investigaci&#243;n</strong><small>Devuelve exclusivamente formularios activos para la secci&#243;n Investigaci&#243;n. No expone
-versiones inactivas ni habilita operaciones administrativas de Configuraci&#243;n.
-</small></td>
-                <td>Investigaci&#243;n</td>
-                <td><code>section.research.view</code></td>
-                <td><code>ResearchFormCatalogController</code></td>
-              </tr>              <tr data-filter-item>
-                <td><code>GET</code></td>
-                <td class="path"><code>/api/clinical/trial-screening/me</code></td>
-                <td><strong>Consultar preferencia personal de investigaci&#243;n</strong><small>Devuelve &#250;nicamente la preferencia del usuario autenticado y la combina con la pol&#237;tica institucional vigente. proactiveActive indica que ambas preferencias permiten un modo programado o en tiempo real; effective exige adem&#225;s que el motor est&#233; disponible. En este corte engineReady y effective son false porque el matching todav&#237;a no est&#225; implementado.</small></td>
-                <td>Investigaci&#243;n</td>
-                <td><code>section.research.view</code></td>
-                <td><code>TrialScreeningPreferenceController</code></td>
-              </tr>              <tr data-filter-item>
-                <td><code>PUT</code></td>
-                <td class="path"><code>/api/clinical/trial-screening/me</code></td>
-                <td><strong>Guardar preferencia personal de investigaci&#243;n</strong><small>Acepta exclusivamente researchActive y expectedRevision, aplica control optimista y nunca admite un userId enviado por el cliente. Desactivar esta preferencia s&#243;lo limita la evaluaci&#243;n proactiva futura; la consulta manual futura seguir&#225; disponible.</small></td>
-                <td>Investigaci&#243;n</td>
-                <td><code>section.research.view</code></td>
-                <td><code>TrialScreeningPreferenceController</code></td>
-              </tr>              <tr data-filter-item>
                 <td><code>PUT</code></td>
                 <td class="path"><code>/api/auth/active-patient</code></td>
                 <td><strong>Cambiar paciente activo</strong><small>Asocia o limpia el paciente activo &#250;nicamente para la sesi&#243;n actual.</small></td>
@@ -483,21 +460,21 @@ expl&#237;cita y documentada cuando a&#250;n no existe inventario electr&#243;ni
               </tr>              <tr data-filter-item>
                 <td><code>GET</code></td>
                 <td class="path"><code>/api/clinical/configuration/{kind}</code></td>
-                <td><strong>Listar configuraci&#243;n</strong><small>Lista elementos activos o hist&#243;ricos de un tipo permitido. trial-source describe fuentes oficiales de ensayos y trial-screening-settings conserva la pol&#237;tica de ejecuci&#243;n local.</small></td>
+                <td><strong>Listar configuraci&#243;n</strong><small>Lista elementos activos o hist&#243;ricos de un tipo permitido.</small></td>
                 <td>Configuraci&#243;n</td>
                 <td><code>section.configuration.view</code></td>
                 <td><code>ConfigurationController</code></td>
               </tr>              <tr data-filter-item>
                 <td><code>POST</code></td>
                 <td class="path"><code>/api/clinical/configuration/{kind}</code></td>
-                <td><strong>Crear configuraci&#243;n</strong><small>Crea una definici&#243;n versionada de gu&#237;a, c&#225;lculo, formulario o par&#225;metro. Para repositorios de ensayos rechaza secretos, endpoints arbitrarios y cualquier configuraci&#243;n que permita enviar PHI.</small></td>
+                <td><strong>Crear configuraci&#243;n</strong><small>Crea una definici&#243;n versionada de gu&#237;a, c&#225;lculo, formulario o par&#225;metro.</small></td>
                 <td>Configuraci&#243;n</td>
                 <td><code>section.configuration.manage</code></td>
                 <td><code>ConfigurationController</code></td>
               </tr>              <tr data-filter-item>
                 <td><code>PUT</code></td>
                 <td class="path"><code>/api/clinical/configuration/{kind}/{id}</code></td>
-                <td><strong>Modificar configuraci&#243;n</strong><small>Actualiza con revisi&#243;n optimista y conserva la versi&#243;n anterior. La pol&#237;tica de evaluaci&#243;n admite ejecuci&#243;n manual, programada cada 24 horas o en tiempo real, con un m&#225;ximo de un modal y de una a tres preguntas por aviso.</small></td>
+                <td><strong>Modificar configuraci&#243;n</strong><small>Actualiza con revisi&#243;n optimista y conserva la versi&#243;n anterior.</small></td>
                 <td>Configuraci&#243;n</td>
                 <td><code>section.configuration.manage</code></td>
                 <td><code>ConfigurationController</code></td>
@@ -599,6 +576,15 @@ expl&#237;cita y documentada cuando a&#250;n no existe inventario electr&#243;ni
                 <td>Cat&#225;logos</td>
                 <td><code>authenticated</code></td>
                 <td><code>LegacyCatalogController</code></td>
+              </tr>              <tr data-filter-item>
+                <td><code>GET</code></td>
+                <td class="path"><code>/api/clinical/research/forms</code></td>
+                <td><strong>Listar formularios activos de investigaci&#243;n</strong><small>Devuelve exclusivamente formularios activos para la secci&#243;n Investigaci&#243;n. No expone
+versiones inactivas ni habilita operaciones administrativas de Configuraci&#243;n.
+</small></td>
+                <td>Cat&#225;logos</td>
+                <td><code>section.research.view</code></td>
+                <td><code>ResearchFormCatalogController</code></td>
               </tr>              <tr data-filter-item>
                 <td><code>GET</code></td>
                 <td class="path"><code>/api/clinical/tools/calculators</code></td>

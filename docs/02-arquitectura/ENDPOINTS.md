@@ -5,7 +5,7 @@
 - Especificación: `GET /v3/api-docs/hcop-jp-completa`
 - Swagger UI: `GET /swagger-ui.html`
 - Versión declarada: `1.0.0`
-- Operaciones documentadas: **115**
+- Operaciones documentadas: **113**
 - Autenticación: cookie HttpOnly `HCOP_SESSION`; las operaciones públicas se identifican expresamente.
 
 Los permisos se validan en el servidor. `authenticated` significa que la ruta exige una sesión activa pero no aplica un permiso granular adicional en el controlador.
@@ -50,7 +50,7 @@ Revoca la sesión actual y elimina su cookie.
 Devuelve el usuario, roles, permisos y paciente activo; no expone el token.
 
 - **Controlador MVC:** `AuthController`
-- **Operación Java/OpenAPI:** `me_1`
+- **Operación Java/OpenAPI:** `me`
 - **Acceso requerido:** `public`
 - **Parámetros:** Ninguno.
 - **Cuerpo:** Sin cuerpo.
@@ -546,7 +546,7 @@ Reserva el bloque de un ciclo y día de aplicación concretos; PostgreSQL rechaz
 Mueve, cancela o avanza un turno usando control de versión.
 
 - **Controlador MVC:** `InfusionController`
-- **Operación Java/OpenAPI:** `update_4`
+- **Operación Java/OpenAPI:** `update_3`
 - **Acceso requerido:** `application.schedule.manage`
 - **Parámetros:** `id` (path, obligatorio): Identificador del recurso solicitado.
 - **Cuerpo:** `application/json`
@@ -668,34 +668,34 @@ Expone esquemas COIR, duración y periodicidad para vinculación.
 
 ### `GET /api/clinical/configuration/{kind}` - Listar configuración
 
-Lista elementos activos o históricos de un tipo permitido. trial-source describe fuentes oficiales de ensayos y trial-screening-settings conserva la política de ejecución local.
+Lista elementos activos o históricos de un tipo permitido.
 
 - **Controlador MVC:** `ConfigurationController`
 - **Operación Java/OpenAPI:** `list_5`
 - **Acceso requerido:** `section.configuration.view`
-- **Parámetros:** `kind` (path, obligatorio): Tipo permitido: guide, study-template, diagnosis-setting, diagnosis-equivalence, calculator, tool-settings, day-hospital-settings, research-form, protocol, trial-source o trial-screening-settings.; `includeInactive` (query, opcional): Use 1 para incluir elementos archivados; 0 devuelve sólo activos.
+- **Parámetros:** `kind` (path, obligatorio): Tipo de configuración permitido por el servicio.; `includeInactive` (query, opcional): Use 1 para incluir elementos archivados; 0 devuelve sólo activos.
 - **Cuerpo:** Sin cuerpo.
 - **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `500` Error interno sin exposición de detalles sensibles.
 
 ### `POST /api/clinical/configuration/{kind}` - Crear configuración
 
-Crea una definición versionada de guía, cálculo, formulario o parámetro. Para repositorios de ensayos rechaza secretos, endpoints arbitrarios y cualquier configuración que permita enviar PHI.
+Crea una definición versionada de guía, cálculo, formulario o parámetro.
 
 - **Controlador MVC:** `ConfigurationController`
 - **Operación Java/OpenAPI:** `create_6`
 - **Acceso requerido:** `section.configuration.manage`
-- **Parámetros:** `kind` (path, obligatorio): Tipo permitido: guide, study-template, diagnosis-setting, diagnosis-equivalence, calculator, tool-settings, day-hospital-settings, research-form, protocol, trial-source o trial-screening-settings.
+- **Parámetros:** `kind` (path, obligatorio): Tipo de configuración permitido por el servicio.
 - **Cuerpo:** `application/json`
 - **Respuestas:** `201` Recurso creado correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `409` Conflicto de revisión, estado, superposición o integridad.; `500` Error interno sin exposición de detalles sensibles.
 
 ### `PUT /api/clinical/configuration/{kind}/{id}` - Modificar configuración
 
-Actualiza con revisión optimista y conserva la versión anterior. La política de evaluación admite ejecución manual, programada cada 24 horas o en tiempo real, con un máximo de un modal y de una a tres preguntas por aviso.
+Actualiza con revisión optimista y conserva la versión anterior.
 
 - **Controlador MVC:** `ConfigurationController`
-- **Operación Java/OpenAPI:** `update_2`
+- **Operación Java/OpenAPI:** `update_1`
 - **Acceso requerido:** `section.configuration.manage`
-- **Parámetros:** `kind` (path, obligatorio): Tipo permitido: guide, study-template, diagnosis-setting, diagnosis-equivalence, calculator, tool-settings, day-hospital-settings, research-form, protocol, trial-source o trial-screening-settings.; `id` (path, obligatorio): Identificador del recurso solicitado.
+- **Parámetros:** `kind` (path, obligatorio): Tipo de configuración permitido por el servicio.; `id` (path, obligatorio): Identificador del recurso solicitado.
 - **Cuerpo:** `application/json`
 - **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `409` Conflicto de revisión, estado, superposición o integridad.; `500` Error interno sin exposición de detalles sensibles.
 
@@ -706,7 +706,7 @@ Desactiva el elemento sin borrar su historial.
 - **Controlador MVC:** `ConfigurationController`
 - **Operación Java/OpenAPI:** `archive_1`
 - **Acceso requerido:** `section.configuration.manage`
-- **Parámetros:** `kind` (path, obligatorio): Tipo permitido: guide, study-template, diagnosis-setting, diagnosis-equivalence, calculator, tool-settings, day-hospital-settings, research-form, protocol, trial-source o trial-screening-settings.; `id` (path, obligatorio): Identificador del recurso solicitado.
+- **Parámetros:** `kind` (path, obligatorio): Tipo de configuración permitido por el servicio.; `id` (path, obligatorio): Identificador del recurso solicitado.
 - **Cuerpo:** Sin cuerpo.
 - **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `409` Conflicto de revisión, estado, superposición o integridad.; `500` Error interno sin exposición de detalles sensibles.
 
@@ -717,7 +717,7 @@ Devuelve el historial auditable del elemento.
 - **Controlador MVC:** `ConfigurationController`
 - **Operación Java/OpenAPI:** `versions`
 - **Acceso requerido:** `section.configuration.view`
-- **Parámetros:** `kind` (path, obligatorio): Tipo permitido: guide, study-template, diagnosis-setting, diagnosis-equivalence, calculator, tool-settings, day-hospital-settings, research-form, protocol, trial-source o trial-screening-settings.; `id` (path, obligatorio): Identificador del recurso solicitado.
+- **Parámetros:** `kind` (path, obligatorio): Tipo de configuración permitido por el servicio.; `id` (path, obligatorio): Identificador del recurso solicitado.
 - **Cuerpo:** Sin cuerpo.
 - **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `500` Error interno sin exposición de detalles sensibles.
 
@@ -728,7 +728,7 @@ Recupera una revisión histórica exacta.
 - **Controlador MVC:** `ConfigurationController`
 - **Operación Java/OpenAPI:** `version`
 - **Acceso requerido:** `section.configuration.view`
-- **Parámetros:** `kind` (path, obligatorio): Tipo permitido: guide, study-template, diagnosis-setting, diagnosis-equivalence, calculator, tool-settings, day-hospital-settings, research-form, protocol, trial-source o trial-screening-settings.; `id` (path, obligatorio): Identificador del recurso solicitado.; `revision` (path, obligatorio): Revisión histórica exacta del recurso.
+- **Parámetros:** `kind` (path, obligatorio): Tipo de configuración permitido por el servicio.; `id` (path, obligatorio): Identificador del recurso solicitado.; `revision` (path, obligatorio): Revisión histórica exacta del recurso.
 - **Cuerpo:** Sin cuerpo.
 - **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `500` Error interno sin exposición de detalles sensibles.
 
@@ -781,7 +781,7 @@ Devuelve componentes, duración, periodicidad y vínculos a drogas.
 Edita componentes, preparación, tiempo y periodicidad con versionado.
 
 - **Controlador MVC:** `ProtocolController`
-- **Operación Java/OpenAPI:** `update_1`
+- **Operación Java/OpenAPI:** `update`
 - **Acceso requerido:** `section.protocols.edit`
 - **Parámetros:** `id` (path, obligatorio): Identificador del recurso solicitado.
 - **Cuerpo:** `application/json`
@@ -849,11 +849,23 @@ Informa disponibilidad y cantidad de protocolos y esquemas TNM locales.
 Confirma que los catálogos empaquetados ya están disponibles y versionados.
 
 - **Controlador MVC:** `LegacyCatalogController`
-- **Operación Java/OpenAPI:** `update_3`
+- **Operación Java/OpenAPI:** `update_2`
 - **Acceso requerido:** `authenticated`
 - **Parámetros:** Ninguno.
 - **Cuerpo:** `application/json`
 - **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `409` Conflicto de revisión, estado, superposición o integridad.; `500` Error interno sin exposición de detalles sensibles.
+
+### `GET /api/clinical/research/forms` - Listar formularios activos de investigación
+
+Devuelve exclusivamente formularios activos para la sección Investigación. No expone
+versiones inactivas ni habilita operaciones administrativas de Configuración.
+
+- **Controlador MVC:** `ResearchFormCatalogController`
+- **Operación Java/OpenAPI:** `list_9`
+- **Acceso requerido:** `section.research.view`
+- **Parámetros:** Ninguno.
+- **Cuerpo:** Sin cuerpo.
+- **Respuestas:** `200` Catálogo activo recuperado.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `500` Error interno sin exposición de detalles sensibles.
 
 ### `GET /api/clinical/tools/calculators` - Listar calculadoras operativas
 

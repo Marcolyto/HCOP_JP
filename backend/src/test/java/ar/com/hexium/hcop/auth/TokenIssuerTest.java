@@ -30,9 +30,22 @@ class TokenIssuerTest {
     var claims = issuer.parse(issued.token()).orElseThrow();
     assertThat(claims.userId()).isEqualTo(7L);
     assertThat(claims.sid()).isEqualTo("sid-123");
-    assertThat(claims.roles()).containsExactly("administrator");
+    assertThat(claims.username()).isEqualTo("marcolyto");
+    assertThat(claims.email()).isEqualTo("marcolyto@hcop.invalid");
+    assertThat(claims.displayName()).isEqualTo("Marco Lyto");
+    assertThat(claims.specialty()).isEqualTo("Oncología");
+    assertThat(claims.licenseNumber()).isEqualTo("MP-123");
+    assertThat(claims.active()).isTrue();
+    assertThat(claims.roles()).containsExactly(new SessionPrincipal.RoleView("1", "administrator", "Administrador"));
     assertThat(claims.permissions()).containsExactlyInAnyOrder("section.tools.view", "section.tools.use");
     assertThat(claims.expiresAt()).isAfter(java.time.Instant.now());
+
+    SessionPrincipal rebuilt = claims.toPrincipal(42L);
+    assertThat(rebuilt).isEqualTo(new SessionPrincipal(
+        7L, "marcolyto", "marcolyto@hcop.invalid", "Marco Lyto", "Oncología", "MP-123", true,
+        42L,
+        List.of(new SessionPrincipal.RoleView("1", "administrator", "Administrador")),
+        Set.of("section.tools.view", "section.tools.use")));
   }
 
   @Test

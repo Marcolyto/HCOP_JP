@@ -170,7 +170,28 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
   `internal: true` y no publica puertos sola): login→refresh→reuso del refresh viejo (401,
   rotación real)→logout→refresh tras logout (401). Modo cookie re-verificado sin regresión
   (login/logout con y sin cookie, smoke-test.ps1 verde). 320 tests verdes.
-- [ ] F2.6 — JwtAuthenticationFilter + SecurityFilterChain (commit aislado, riesgoso)
+- [x] F2.6 — JwtAuthenticationFilter + SecurityFilterChain (commit aislado, riesgoso). El access
+  token ahora lleva el `SessionPrincipal` completo salvo `activePatientId` (roles con id/key/name,
+  no solo key — hacía falta para reconstruir sin releer la DB); `JwtAuthenticationFilter` (sin
+  `@Component`, registrado a mano vía `FilterRegistrationBean` en `SecurityConfiguration`, trap
+  del plan evitada) valida firma+expiración, resuelve `activePatientId` con una sola lectura por
+  PK a `local_session_state` y puebla los mismos atributos de request que `AuthInterceptor` usa
+  en modo cookie — `AuthContext.PRINCIPAL_ATTRIBUTE`/`SESSION_ID_ATTRIBUTE`. `AuthInterceptor` se
+  volvió idempotente: si el filtro ya resolvió un principal, lo reusa en vez de re-resolver (no
+  hay doble autenticación, ni en cookie ni en JWT). Con esto los 93 `requirePermission` y los 4
+  `hasPermission` de filtrado de datos funcionan igual en ambos modos, sin tocarlos (hallazgo 6).
+  **Desvío consciente de la redacción literal del plan** ("esto se endurece a
+  anyRequest().authenticated()"): `SecurityConfiguration` se queda en `permitAll()` — los filtros
+  de Spring Security corren *antes* que cualquier `HandlerInterceptor`, así que endurecer el gate
+  ahí rompería el modo cookie (para cuando `AuthInterceptor` resuelve la sesión por cookie, Security
+  ya habría rechazado la request). No hay forma de cumplir la redacción literal sin romper cookie
+  o reescribir los 93 call-sites — ambos fuera de alcance de F2.6 y contra el hallazgo 6.
+  Documentado en el javadoc de `SecurityConfiguration`. 6 tests nuevos (`JwtAuthenticationFilterTest`,
+  incluye guardia por reflexión de que la clase no tiene `@Component`). Verificado en Docker real
+  (contenedor `HCOP_AUTH_MODE=jwt`): endpoint protegido sin token → 401; con el access token JWT
+  del login → 200 (`/api/study-templates`); `PUT /api/auth/active-patient` con JWT funciona
+  (mismo `AuthContext.sessionId` que en cookie); token tamperado → 401. Modo cookie (compose.yaml,
+  default) re-verificado sin regresión, smoke-test.ps1 verde. 326 tests verdes.
 - [ ] F2.7 — Revocación inmediata + revocar en AdminService/changePassword
 - [ ] F2.8 — Eliminar modo cookie + V014 DROP local_sessions + regenerar ENDPOINTS.md
 - [ ] F2.9 — security-review sobre el diff completo

@@ -32,12 +32,10 @@ public class AuthInterceptor implements HandlerInterceptor {
   @Override
   public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
     String path = request.getRequestURI();
-    String token = bearerToken(request).or(() -> cookie(request, cookieName)).orElse("");
-    Optional<SessionPrincipal> principal = auth.authenticate(token);
-    principal.ifPresent(value -> {
-      request.setAttribute(AuthContext.PRINCIPAL_ATTRIBUTE, value);
-      request.setAttribute(AuthContext.SESSION_ID_ATTRIBUTE, auth.sha256(token));
-    });
+    // JwtAuthenticationFilter (F2.6) corre antes y ya puebla estos mismos atributos si el
+    // Bearer es un JWT válido — no volver a resolver acá (evita reautenticar dos veces y
+    // mantiene un solo lugar de verdad para "quién es el principal de esta request").
+    Optional<SessionPrincipal> principal = resolvePrincipal(request);
 
     if (!path.startsWith("/api/") || isPublic(path) || path.equals("/api/auth/me")) return true;
     if (principal.isPresent()) {
@@ -59,6 +57,18 @@ public class AuthInterceptor implements HandlerInterceptor {
     response.setCharacterEncoding("UTF-8");
     mapper.writeValue(response.getOutputStream(), AuthenticationRequiredResponse.required());
     return false;
+  }
+
+  private Optional<SessionPrincipal> resolvePrincipal(HttpServletRequest request) {
+    Object existing = request.getAttribute(AuthContext.PRINCIPAL_ATTRIBUTE);
+    if (existing instanceof SessionPrincipal already) return Optional.of(already);
+    String token = bearerToken(request).or(() -> cookie(request, cookieName)).orElse("");
+    Optional<SessionPrincipal> principal = auth.authenticate(token);
+    principal.ifPresent(value -> {
+      request.setAttribute(AuthContext.PRINCIPAL_ATTRIBUTE, value);
+      request.setAttribute(AuthContext.SESSION_ID_ATTRIBUTE, auth.sha256(token));
+    });
+    return principal;
   }
 
   /**
@@ -89,9 +99,11 @@ public class AuthInterceptor implements HandlerInterceptor {
 
   private boolean isPublic(String path) {
     if (path.equals("/api/auth/login") || path.equals("/api/auth/refresh")) return true;
-    // Modo JWT (F2.5): sin JwtAuthenticationFilter todavía (F2.6), este interceptor no sabe
-    // autenticar un Bearer JWT — logout no puede exigir sesión ya resuelta acá. En modo cookie
-    // el comportamiento no cambia: logout sigue exigiendo la cookie/Bearer opaco válido.
+    // Modo JWT: logout debe poder invalidar la sesión incluso con el access token ya vencido
+    // (el cliente solo conserva un refresh token válido en ese caso) — JwtAuthenticationFilter
+    // no puebla el principal si el access token no verifica, así que exigir sesión acá dejaría
+    // sin forma de cerrar sesión. En modo cookie el comportamiento no cambia: logout sigue
+    // exigiendo la cookie/Bearer opaco válido (igual que siempre).
     if (jwtMode && path.equals("/api/auth/logout")) return true;
     return path.equals("/api/runtime/status")
         || path.equals("/api/clinical/status")

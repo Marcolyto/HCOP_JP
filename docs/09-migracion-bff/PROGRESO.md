@@ -269,7 +269,17 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
   base):** smoke-test.ps1, nginx-routing-test.ps1, los 3 contract-tests (configuration/protocol/
   guide), integration-test.ps1 (flujo clínico integral completo) y test-core-browser-e2e.ps1 3/3
   (Playwright real, DB efímera desde cero con V014). 330 tests del backend verdes.
-- [ ] F2.9 — security-review sobre el diff completo
+- [x] F2.9 — security-review sobre el diff completo (auth/, config/, admin/, bff/auth+security+proxy).
+  Sin hallazgos de severidad alta o media: SQL parametrizado en todo lo nuevo, sin logging de
+  tokens, sin fuga de accessToken/refreshToken al navegador (test explícito), sin bypass de
+  autorización nuevo. Desvíos del plan y el bug real de `active-patient` documentados en
+  `docs/09-migracion-bff/DECISIONES-F2.md`.
+
+## F2 — CERRADA. Token Handler JWT real: TokenIssuer, migración V013/V014, sesión vía
+  `local_session_state`, `JwtAuthenticationFilter`, revocación inmediata, BFF actualizado a JWT
+  (F2.7.5), modo cookie eliminado del código y la base. Commits: `d310518`(F2.1) · `94a9ee7`(F2.2)
+  · `19dd606`(F2.3) · `c6b47b2`(F2.4) · `ee539ab`(F2.5) · `5a3e5d5`(F2.6) · `07805ba`(F2.7) ·
+  `5a3197c`(F2.7.5) · `a69ad8e`(F2.8) · (F2.9, este commit). Siguiente: F3 — Backend hexagonal.
 
 ## F3 — Backend hexagonal (~14 módulos)
 

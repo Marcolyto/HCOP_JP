@@ -43,9 +43,9 @@ $lock = New-HcopExclusiveLock (Join-Path $operationRoot ".hcop-restore.lock")
 $applicationWasRunning = $false
 try {
   Invoke-HcopCompose $deployment @("up", "--detach", "--wait", "database")
-  try { $applicationContainer = Get-HcopServiceContainer $deployment "application" } catch {
-    Invoke-HcopCompose $deployment @("create", "application")
-    $applicationContainer = Get-HcopServiceContainer $deployment "application"
+  try { $applicationContainer = Get-HcopServiceContainer $deployment "backend" } catch {
+    Invoke-HcopCompose $deployment @("create", "backend")
+    $applicationContainer = Get-HcopServiceContainer $deployment "backend"
   }
   $databaseContainer = Get-HcopServiceContainer $deployment "database"
   $applicationWasRunning = Test-HcopContainerRunning $applicationContainer
@@ -58,7 +58,7 @@ try {
       -OutputDirectory (Join-Path $operationRoot "pre-restore") | Out-Host
   }
   if (Test-HcopContainerRunning $applicationContainer) {
-    Invoke-HcopCompose $deployment @("stop", "application")
+    Invoke-HcopCompose $deployment @("stop", "backend")
   }
 
   $databaseName = Get-HcopContainerValue $databaseContainer "POSTGRES_DB"
@@ -94,11 +94,11 @@ try {
     "set -eu; test -f /backup/$([string]$manifest.files.storage.name); find /data -mindepth 1 -maxdepth 1 -exec rm -rf -- '{}' '+'; tar -C /data -xzf /backup/$([string]$manifest.files.storage.name)")
 
   Write-Host "Iniciando y verificando HCOP JP..."
-  Invoke-HcopCompose $deployment @("up", "--detach", "--wait", "application")
+  Invoke-HcopCompose $deployment @("up", "--detach", "--wait", "backend")
   Write-Host "Restauración completada y servicio saludable."
 } catch {
   Write-Warning "La restauración no terminó. HCOP JP permanecerá detenido para evitar usar un estado parcial."
-  try { Invoke-HcopCompose $deployment @("stop", "application") } catch { }
+  try { Invoke-HcopCompose $deployment @("stop", "backend") } catch { }
   throw
 } finally {
   if ($lock) { $lock.Dispose() }

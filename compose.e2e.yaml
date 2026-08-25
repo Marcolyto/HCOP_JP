@@ -16,11 +16,11 @@ services:
       retries: 30
     networks: [conflict_e2e_internal]
 
-  application:
+  backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
-    image: ${HCOP_E2E_APP_IMAGE:-hcop-jp-conflict-e2e:local}
+    image: ${HCOP_E2E_BACKEND_IMAGE:-hcop-jp-e2e-backend:local}
     depends_on:
       database:
         condition: service_healthy
@@ -37,8 +37,6 @@ services:
       HCOP_PUBLIC_BASE_URL: http://localhost:${HCOP_E2E_PORT:-5182}
       HCOP_BIND_ADDRESS: 0.0.0.0
       HCOP_PORT: 5180
-    ports:
-      - "127.0.0.1:${HCOP_E2E_PORT:-5182}:5180"
     volumes:
       - conflict_e2e_storage:/opt/hcop/runtime/storage
     healthcheck:
@@ -47,6 +45,26 @@ services:
       timeout: 5s
       retries: 20
       start_period: 30s
+    networks: [conflict_e2e_internal, conflict_e2e_egress]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    # Se conserva HCOP_E2E_APP_IMAGE (y no un nombre "...frontend...") porque
+    # scripts/test-core-browser-e2e.ps1 usa esa variable para docker image rm en el cleanup.
+    image: ${HCOP_E2E_APP_IMAGE:-hcop-jp-conflict-e2e:local}
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${HCOP_E2E_PORT:-5182}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:8080/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
     networks: [conflict_e2e_internal, conflict_e2e_egress]
 
 volumes:

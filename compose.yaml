@@ -27,11 +27,11 @@ services:
       - hcop_internal
     logging: *hcop-logging
 
-  application:
+  backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
-    image: hcop-jp:local
+    image: hcop-jp-backend:local
     restart: unless-stopped
     init: true
     stop_grace_period: 45s
@@ -51,8 +51,6 @@ services:
       HCOP_PUBLIC_BASE_URL: ${HCOP_PUBLIC_BASE_URL:-http://localhost:5180}
       HCOP_BIND_ADDRESS: 0.0.0.0
       HCOP_PORT: 5180
-    ports:
-      - "${HCOP_PORT:-5180}:5180"
     volumes:
       - hcop_storage:/opt/hcop/runtime/storage
     healthcheck:
@@ -61,6 +59,29 @@ services:
       timeout: 8s
       retries: 8
       start_period: 60s
+    networks:
+      - hcop_internal
+      - hcop_egress
+    logging: *hcop-logging
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: hcop-jp-frontend:local
+    restart: unless-stopped
+    init: true
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${HCOP_PORT:-5180}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 15s
     networks:
       - hcop_internal
       - hcop_egress

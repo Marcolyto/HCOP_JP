@@ -27,8 +27,10 @@ services:
       - hcop_internal
     logging: *hcop-logging
 
-  application:
-    image: ${HCOP_IMAGE:-ghcr.io/marcolyto/hcop_jp:latest}
+  backend:
+    # HCOP_IMAGE es un alias legacy de HCOP_BACKEND_IMAGE: cuando una instalación existente
+    # solo tiene HCOP_IMAGE definido en su .env, sigue apuntando a la imagen del backend.
+    image: ${HCOP_BACKEND_IMAGE:-${HCOP_IMAGE:-ghcr.io/marcolyto/hcop_jp-backend:latest}}
     restart: unless-stopped
     init: true
     stop_grace_period: 45s
@@ -51,8 +53,6 @@ services:
       HCOP_PUBLIC_BASE_URL: ${HCOP_PUBLIC_BASE_URL:-http://localhost:5180}
       HCOP_BIND_ADDRESS: 0.0.0.0
       HCOP_PORT: 5180
-    ports:
-      - "${HCOP_PORT:-5180}:5180"
     volumes:
       - hcop_storage:/opt/hcop/runtime/storage
     healthcheck:
@@ -61,6 +61,27 @@ services:
       timeout: 8s
       retries: 8
       start_period: 60s
+    networks:
+      - hcop_internal
+      - hcop_egress
+    logging: *hcop-logging
+
+  frontend:
+    image: ${HCOP_FRONTEND_IMAGE:-ghcr.io/marcolyto/hcop_jp-frontend:latest}
+    restart: unless-stopped
+    init: true
+    pull_policy: ${HCOP_PULL_POLICY:-missing}
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${HCOP_PORT:-5180}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 15s
     networks:
       - hcop_internal
       - hcop_egress

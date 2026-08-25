@@ -12,8 +12,8 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
 - [x] F0.1 — git mv (backend/, frontend/public, legacy-reference/) — commit 7b42e91
 - [x] F0.2 — Backend deja de servir el frontend (WebConfiguration, pom.xml, Dockerfile, StudyTemplateController) — 308 tests verdes
 - [x] F0.3 — frontend/Dockerfile + frontend/nginx.conf + scripts de contrato visual — npm run build verde (incl. --dist)
-- [ ] F0.4 — compose.yaml/.github/.e2e/.validation + scripts (backup/restore/instalar) + CI
-- [ ] F0.5 — Verificación F0 (gates completos, ver plan)
+- [x] F0.4 — compose.yaml/.github/.e2e/.validation/.dev + scripts (backup/restore/instalar/EJECUTAR-DOCKER) + CI + nginx-routing-test.ps1
+- [~] F0.5 — Verificación F0: falta correr con Docker daemon real (no disponible en este entorno). Pendiente: `docker compose up --build --wait` + todos los scripts .ps1 (requieren pwsh, tampoco disponible acá) + los 2 E2E Playwright.
 
 ## F1 — BFF + Redis (sesión opaca actual, sin JWT)
 

@@ -1,5 +1,11 @@
 name: hcop-jp
 
+x-logging: &hcop-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   database:
     image: ${HCOP_POSTGRES_IMAGE:-postgres:18.4-alpine}
@@ -19,6 +25,7 @@ services:
       start_period: 10s
     networks:
       - hcop_internal
+    logging: *hcop-logging
 
   application:
     image: ${HCOP_IMAGE:-ghcr.io/marcolyto/hcop_jp:latest}
@@ -57,6 +64,7 @@ services:
     networks:
       - hcop_internal
       - hcop_egress
+    logging: *hcop-logging
 
 volumes:
   hcop_postgres:

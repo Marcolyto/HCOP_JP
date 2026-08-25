@@ -17,7 +17,14 @@
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
             "assets": [{ "glob": "**/*", "input": "public" }],
-            "styles": ["src/styles.scss"]
+            "allowedCommonJsDependencies": ["jsqr"],
+            "styles": [
+              "src/styles.scss",
+              "src/generated/legacy-visual-contract/styles.css",
+              "src/generated/legacy-visual-contract/care-scheduler.css",
+              "src/generated/legacy-visual-contract/care-scheduler-modal.css",
+              "src/generated/legacy-visual-contract/help.css"
+            ]
           },
           "configurations": {
             "production": { "outputHashing": "all", "budgets": [{ "type": "initial", "maximumWarning": "750kB", "maximumError": "1.2MB" }] },

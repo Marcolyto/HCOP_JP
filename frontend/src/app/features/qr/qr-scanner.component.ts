@@ -6,11 +6,9 @@ import { FormsModule } from '@angular/forms';
 type JsonObject = Record<string, unknown>;
 interface BarcodeResult { rawValue?: string; }
 interface BarcodeDetectorLike { detect(source: HTMLCanvasElement): Promise<BarcodeResult[]>; }
-interface QrDecoderResult { data?: string; }
-type QrDecoder = (data: Uint8ClampedArray, width: number, height: number, options?: JsonObject) => QrDecoderResult | null;
+type QrDecoder = typeof import('jsqr').default;
 type QrBrowserWindow = Window & typeof globalThis & {
   BarcodeDetector?: new (options: { formats: string[] }) => BarcodeDetectorLike;
-  jsQR?: QrDecoder;
 };
 
 @Component({
@@ -39,6 +37,7 @@ export class QrScannerComponent implements OnChanges, OnDestroy {
   private lastFrameAt = 0;
   private decoding = false;
   private detector: BarcodeDetectorLike | null = null;
+  private decoder: QrDecoder | null = null;
   private decoderLoading: Promise<boolean> | null = null;
   private operationId = '';
   private lastCode = '';
@@ -140,12 +139,11 @@ export class QrScannerComponent implements OnChanges, OnDestroy {
   private async ensureDecoder(): Promise<boolean> {
     const browser = window as QrBrowserWindow;
     if (browser.BarcodeDetector) { try { this.detector ||= new browser.BarcodeDetector({ formats: ['qr_code'] }); return true; } catch { this.detector = null; } }
-    if (browser.jsQR) return true;
-    if (!this.decoderLoading) this.decoderLoading = new Promise<boolean>(resolve => {
-      const script = document.createElement('script'); script.src = '/vendor/jsQR.js'; script.async = true;
-      script.addEventListener('load', () => resolve(Boolean((window as QrBrowserWindow).jsQR)), { once: true });
-      script.addEventListener('error', () => resolve(false), { once: true }); document.head.append(script);
-    }).finally(() => { this.decoderLoading = null; });
+    if (this.decoder) return true;
+    if (!this.decoderLoading) this.decoderLoading = import('jsqr')
+      .then((module) => { this.decoder = module.default; return true; })
+      .catch(() => false)
+      .finally(() => { this.decoderLoading = null; });
     return this.decoderLoading;
   }
   private draw(source: CanvasImageSource, width: number, height: number): { canvas: HTMLCanvasElement; context: CanvasRenderingContext2D } | null {
@@ -156,7 +154,7 @@ export class QrScannerComponent implements OnChanges, OnDestroy {
   }
   private async decode(canvas: HTMLCanvasElement, context: CanvasRenderingContext2D): Promise<string> {
     if (this.detector) { const values = await this.detector.detect(canvas); const value = String(values[0]?.rawValue || '').trim(); if (value) return value; }
-    const decoder = (window as QrBrowserWindow).jsQR; if (!decoder) return '';
+    const decoder = this.decoder; if (!decoder) return '';
     const image = context.getImageData(0, 0, canvas.width, canvas.height);
     return String(decoder(image.data, image.width, image.height, { inversionAttempts: 'attemptBoth' })?.data || '').trim();
   }

@@ -10,6 +10,7 @@ runtime/*.log
 /runtime/e2e-artifacts/
 /frontend/test-results/
 /frontend/playwright-report/
+/frontend/src/generated/legacy-visual-contract/
 /migration/
 *.pid
 .idea/

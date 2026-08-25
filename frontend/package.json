@@ -3,11 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "prepare:visual-contract": "node scripts/prepare-visual-contract.mjs",
+    "verify:packaging": "node scripts/verify-frontend-packaging.mjs",
+    "prebuild": "npm run prepare:visual-contract",
     "build": "ng build",
+    "postbuild": "npm run verify:packaging -- --dist",
+    "prestart": "npm run prepare:visual-contract",
     "start": "ng serve",
-    "test": "npm run test:clinical",
+    "test": "npm run prepare:visual-contract && npm run test:clinical && npm run verify:packaging",
     "test:clinical": "node scripts/run-clinical-tests.mjs",
-    "test:e2e:conflict": "playwright test --config=e2e/playwright.config.ts"
+    "test:e2e:conflict": "playwright test --config=e2e/playwright.config.ts clinical-conflict.spec.ts",
+    "test:e2e:core": "playwright test --config=e2e/playwright.config.ts core-workflows.spec.ts",
+    "test:e2e:browser": "playwright test --config=e2e/playwright.config.ts"
   },
   "engines": {
     "node": ">=22.22.3 || >=24.15.0"
@@ -19,6 +26,7 @@
     "@angular/forms": "^22.1.0",
     "@angular/platform-browser": "^22.1.0",
     "@angular/router": "^22.1.0",
+    "jsqr": "^1.4.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "zone.js": "^0.16.2"

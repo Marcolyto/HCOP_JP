@@ -12,7 +12,11 @@ import static org.mockito.Mockito.when;
 import ar.com.hexium.hcop.auth.AuthContext;
 import ar.com.hexium.hcop.auth.SessionPrincipal;
 import ar.com.hexium.hcop.config.HcopProperties;
-import ar.com.hexium.hcop.configuration.ConfigurationService;
+import ar.com.hexium.hcop.configuration.application.port.in.ConfigurationManagementUseCase;
+import ar.com.hexium.hcop.configuration.application.port.in.ConfigurationManagementUseCase.ConfigurationView;
+import ar.com.hexium.hcop.configuration.application.port.in.ConfigurationManagementUseCase.CreateCommand;
+import ar.com.hexium.hcop.configuration.domain.ConfigurationDefinition;
+import ar.com.hexium.hcop.configuration.infrastructure.web.ConfigurationJsonMapper;
 import ar.com.hexium.hcop.media.ClinicalFileRepository.StoredFile;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -32,17 +36,19 @@ class StudyTemplateControllerTest {
   @Test
   void creaArchivoYConfiguracionCompletaEnUnaSolaOperacion() throws Exception {
     Fixture fixture = fixture();
-    when(fixture.configurations.create(eq("study-template"), any(JsonNode.class), eq(7L)))
-        .thenReturn(Map.of("id", "12", "name", "Pelvis"));
+    ConfigurationView created = view(12L, "Pelvis");
+    when(fixture.configurations.create(any(CreateCommand.class))).thenReturn(created);
 
     var response = fixture.controller.create(
         "Pelvis", "pelvis", "sagital, femenina", "Institución", "Equipo clínico",
         "Propia", "Descripción", "https://example.test/source", "https://example.test/license",
         1, "pelvis.png", fixture.request);
 
-    ArgumentCaptor<JsonNode> body = ArgumentCaptor.forClass(JsonNode.class);
-    verify(fixture.configurations).create(eq("study-template"), body.capture(), eq(7L));
-    JsonNode definition = body.getValue().path("definition");
+    ArgumentCaptor<CreateCommand> command = ArgumentCaptor.forClass(CreateCommand.class);
+    verify(fixture.configurations).create(command.capture());
+    assertThat(command.getValue().kind()).isEqualTo("study-template");
+    assertThat(command.getValue().actorId().value()).isEqualTo(7L);
+    JsonNode definition = mapper.valueToTree(command.getValue().definition().value());
     assertThat(definition.path("attribution").asText()).isEqualTo("Equipo clínico");
     assertThat(definition.path("tags").size()).isEqualTo(2);
     assertThat(definition.path("tags").get(0).asText()).isEqualTo("sagital");
@@ -54,8 +60,7 @@ class StudyTemplateControllerTest {
   void eliminaLaImagenSiNoPuedeCrearLaConfiguracion() {
     Fixture fixture = fixture();
     IllegalStateException databaseFailure = new IllegalStateException("database unavailable");
-    when(fixture.configurations.create(eq("study-template"), any(JsonNode.class), eq(7L)))
-        .thenThrow(databaseFailure);
+    when(fixture.configurations.create(any(CreateCommand.class))).thenThrow(databaseFailure);
 
     assertThatThrownBy(() -> fixture.controller.create(
         "Pelvis", "pelvis", "", "Institución", "", "Propia", "", "", "",
@@ -65,8 +70,16 @@ class StudyTemplateControllerTest {
     verify(fixture.files).discardImage(fixture.image);
   }
 
+  private ConfigurationView view(long id, String name) {
+    Instant now = Instant.parse("2026-08-05T12:00:00Z");
+    return new ConfigurationView(
+        String.valueOf(id), "study-template", "pelvis", name, "", true,
+        ConfigurationDefinition.of(Map.of()), 1, now, now);
+  }
+
   private Fixture fixture() {
-    ConfigurationService configurations = mock(ConfigurationService.class);
+    ConfigurationManagementUseCase configurations = mock(ConfigurationManagementUseCase.class);
+    ConfigurationJsonMapper configurationJson = new ConfigurationJsonMapper(mapper);
     ClinicalFileService files = mock(ClinicalFileService.class);
     AuthContext auth = mock(AuthContext.class);
     MockHttpServletRequest request = new MockHttpServletRequest();
@@ -87,13 +100,14 @@ class StudyTemplateControllerTest {
     HcopProperties properties = new HcopProperties(
         Path.of("runtime"), Path.of("catalog"), Path.of("storage"), "", "HCOP_SESSION", 480,
         1024L, 1024L, "qr", "encryption");
-    StudyTemplateController controller = new StudyTemplateController(configurations, files, auth, mapper, properties);
+    StudyTemplateController controller = new StudyTemplateController(
+        configurations, configurationJson, files, auth, mapper, properties);
     return new Fixture(controller, configurations, files, request, image);
   }
 
   private record Fixture(
       StudyTemplateController controller,
-      ConfigurationService configurations,
+      ConfigurationManagementUseCase configurations,
       ClinicalFileService files,
       MockHttpServletRequest request,
       StoredFile image) {

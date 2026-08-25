@@ -3,7 +3,9 @@ package ar.com.hexium.hcop.media;
 import ar.com.hexium.hcop.auth.AuthContext;
 import ar.com.hexium.hcop.common.ApiException;
 import ar.com.hexium.hcop.config.HcopProperties;
-import ar.com.hexium.hcop.configuration.ConfigurationService;
+import ar.com.hexium.hcop.configuration.application.port.in.ConfigurationManagementUseCase;
+import ar.com.hexium.hcop.configuration.application.service.ConfigurationFailure;
+import ar.com.hexium.hcop.configuration.infrastructure.web.ConfigurationJsonMapper;
 import ar.com.hexium.hcop.media.ClinicalFileRepository.StoredFile;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
@@ -13,6 +15,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,9 +26,16 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
 
+/**
+ * F3.0.2: habla directo con el puerto de {@code configuration} (antes usaba
+ * {@code ConfigurationService}, un puente temporal ya eliminado) — este controller no es
+ * hexagonal todavía (eso llega con {@code media} en F3.2), así que la traducción de
+ * {@link ConfigurationFailure} a {@link ApiException} vive acá, no en un advice compartido.
+ */
 @RestController
 public class StudyTemplateController {
-  private final ConfigurationService configurations;
+  private final ConfigurationManagementUseCase configurations;
+  private final ConfigurationJsonMapper configurationJson;
   private final ClinicalFileService files;
   private final AuthContext auth;
   private final ObjectMapper mapper;
@@ -33,12 +43,14 @@ public class StudyTemplateController {
   private final Path manifestPath;
 
   public StudyTemplateController(
-      ConfigurationService configurations,
+      ConfigurationManagementUseCase configurations,
+      ConfigurationJsonMapper configurationJson,
       ClinicalFileService files,
       AuthContext auth,
       ObjectMapper mapper,
       HcopProperties properties) {
     this.configurations = configurations;
+    this.configurationJson = configurationJson;
     this.files = files;
     this.auth = auth;
     this.mapper = mapper;
@@ -63,7 +75,10 @@ public class StudyTemplateController {
         templates.add(row);
       }
     }
-    List<Map<String, Object>> custom = configurations.list("study-template", includeInactive == 1);
+    List<Map<String, Object>> custom = translate(() -> configurations.list("study-template", includeInactive == 1)
+        .stream()
+        .map(configurationJson::view)
+        .toList());
     for (Map<String, Object> item : custom) templates.add(customTemplate(item));
     Map<String, Integer> categoryCounts = new LinkedHashMap<>();
     for (Object raw : templates) {
@@ -146,7 +161,8 @@ public class StudyTemplateController {
     }
     Map<String, Object> item;
     try {
-      item = configurations.create("study-template", body, auth.require(request).userId());
+      item = translate(() -> configurationJson.view(configurations.create(
+          configurationJson.createCommand("study-template", body, auth.require(request).userId()))));
     } catch (RuntimeException failure) {
       try {
         files.discardImage(image);
@@ -159,6 +175,19 @@ public class StudyTemplateController {
         "ok", true,
         "item", item,
         "template", customTemplate(item)));
+  }
+
+  private <T> T translate(Supplier<T> operation) {
+    try {
+      return operation.get();
+    } catch (ConfigurationFailure failure) {
+      HttpStatus status = switch (failure.type()) {
+        case INVALID -> HttpStatus.BAD_REQUEST;
+        case NOT_FOUND -> HttpStatus.NOT_FOUND;
+        case CONFLICT -> HttpStatus.CONFLICT;
+      };
+      throw new ApiException(status, failure.getMessage(), failure.code());
+    }
   }
 
   private JsonNode manifest() {

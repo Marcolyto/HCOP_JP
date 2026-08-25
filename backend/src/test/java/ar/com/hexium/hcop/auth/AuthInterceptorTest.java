@@ -185,6 +185,48 @@ class AuthInterceptorTest {
     assertThat(allowed).isTrue();
   }
 
+  @Test
+  void aceptaElTokenPorAuthorizationBearerParaElProxyDelBff() throws Exception {
+    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/protocols");
+    request.addHeader("Authorization", "Bearer token-low-role");
+    MockHttpServletResponse response = new MockHttpServletResponse();
+    when(auth.authenticate("token-low-role"))
+        .thenReturn(Optional.of(principal(Set.of("section.protocols.view"))));
+
+    boolean allowed = interceptor.preHandle(request, response, new Object());
+
+    assertThat(allowed).isTrue();
+    assertThat(request.getAttribute(AuthContext.TOKEN_ATTRIBUTE)).isEqualTo("token-low-role");
+  }
+
+  @Test
+  void prefiereAuthorizationBearerPorEncimaDeLaCookieSiAmbasVienen() throws Exception {
+    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/protocols");
+    request.addHeader("Authorization", "Bearer token-bearer");
+    request.setCookies(new Cookie("HCOP_SESSION", "token-cookie"));
+    MockHttpServletResponse response = new MockHttpServletResponse();
+    when(auth.authenticate("token-bearer"))
+        .thenReturn(Optional.of(principal(Set.of("section.protocols.view"))));
+
+    boolean allowed = interceptor.preHandle(request, response, new Object());
+
+    assertThat(allowed).isTrue();
+    assertThat(request.getAttribute(AuthContext.TOKEN_ATTRIBUTE)).isEqualTo("token-bearer");
+  }
+
+  @Test
+  void ignoraUnEncabezadoAuthorizationSinEsquemaBearer() throws Exception {
+    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/protocols");
+    request.addHeader("Authorization", "Basic dXNlcjpwYXNz");
+    MockHttpServletResponse response = new MockHttpServletResponse();
+    when(auth.authenticate("")).thenReturn(Optional.empty());
+
+    boolean allowed = interceptor.preHandle(request, response, new Object());
+
+    assertThat(allowed).isFalse();
+    assertThat(response.getStatus()).isEqualTo(401);
+  }
+
   private MockHttpServletRequest agentRequest() {
     return authenticatedRequest("POST", "/api/agent/chat");
   }

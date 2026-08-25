@@ -25,7 +25,7 @@ public class AuthInterceptor implements HandlerInterceptor {
   @Override
   public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
     String path = request.getRequestURI();
-    String token = cookie(request, cookieName).orElse("");
+    String token = bearerToken(request).or(() -> cookie(request, cookieName)).orElse("");
     Optional<SessionPrincipal> principal = auth.authenticate(token);
     principal.ifPresent(value -> {
       request.setAttribute(AuthContext.PRINCIPAL_ATTRIBUTE, value);
@@ -85,6 +85,18 @@ public class AuthInterceptor implements HandlerInterceptor {
         || path.equals("/api/runtime/status")
         || path.equals("/api/clinical/status")
         || path.equals("/api/lira/status");
+  }
+
+  /**
+   * F1 (BFF): el navegador ya no le habla directo al backend, el BFF reenvía el mismo token
+   * opaco como {@code Authorization: Bearer}. La cookie sigue aceptada para compose.dev.yaml
+   * (debug directo del backend) y los tests/scripts existentes.
+   */
+  private Optional<String> bearerToken(HttpServletRequest request) {
+    String header = request.getHeader("Authorization");
+    if (header == null || !header.regionMatches(true, 0, "Bearer ", 0, 7)) return Optional.empty();
+    String value = header.substring(7).trim();
+    return value.isBlank() ? Optional.empty() : Optional.of(value);
   }
 
   private Optional<String> cookie(HttpServletRequest request, String name) {

@@ -13,7 +13,18 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
 - [x] F0.2 — Backend deja de servir el frontend (WebConfiguration, pom.xml, Dockerfile, StudyTemplateController) — 308 tests verdes
 - [x] F0.3 — frontend/Dockerfile + frontend/nginx.conf + scripts de contrato visual — npm run build verde (incl. --dist)
 - [x] F0.4 — compose.yaml/.github/.e2e/.validation/.dev + scripts (backup/restore/instalar/EJECUTAR-DOCKER) + CI + nginx-routing-test.ps1
-- [~] F0.5 — Verificación F0: falta correr con Docker daemon real (no disponible en este entorno). Pendiente: `docker compose up --build --wait` + todos los scripts .ps1 (requieren pwsh, tampoco disponible acá) + los 2 E2E Playwright.
+- [x] F0.5 — Verificación F0 en runtime real (Docker), con el usuario corriendo los comandos:
+  - `docker compose up --build --wait`: 3 servicios healthy
+  - health, los 12 redirects (Location relativo, sin puerto), `/app/` con `<app-root>`,
+    login/logout real, `/api/clinical/status`, `/api/study-templates`, thumbnail real
+    servido por nginx (`image/webp`), video con `Range` (206), 6 paths legacy en 404 — todo OK
+  - 2 bugs encontrados y corregidos en el camino (ver commits): Host header inválido hacia
+    Tomcat en /actuator/health, /v3/api-docs, /swagger-ui (nginx mandaba el nombre del
+    upstream "api_upstream" como Host, con guion bajo → Tomcat 400); y redirects
+    absolutizados con el puerto interno de nginx (8080) en vez de relativos
+  - Pendiente (no bloqueante para F1): correr los scripts .ps1 (nginx-routing-test,
+    smoke-test, contract-tests) y los E2E de Playwright — necesitan pwsh, no disponible en
+    este entorno. Correrlos en un entorno con pwsh antes de mergear a main.
 
 ## F1 — BFF + Redis (sesión opaca actual, sin JWT)
 

@@ -1,8 +1,8 @@
 package ar.com.hexium.hcop.tools.infrastructure.web;
 
 import ar.com.hexium.hcop.auth.AuthContext;
-import ar.com.hexium.hcop.configuration.application.port.in.ConfigurationManagementUseCase;
-import ar.com.hexium.hcop.configuration.application.port.in.ConfigurationManagementUseCase.ConfigurationView;
+import ar.com.hexium.hcop.tools.application.port.in.CalculatorCatalogUseCase;
+import ar.com.hexium.hcop.tools.domain.CalculatorSummary;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -17,15 +17,15 @@ import tools.jackson.databind.ObjectMapper;
  */
 @RestController
 public class CalculatorCatalogController {
-  private final ConfigurationManagementUseCase configurations;
+  private final CalculatorCatalogUseCase calculators;
   private final AuthContext auth;
   private final ObjectMapper mapper;
 
   public CalculatorCatalogController(
-      ConfigurationManagementUseCase configurations,
+      CalculatorCatalogUseCase calculators,
       AuthContext auth,
       ObjectMapper mapper) {
-    this.configurations = configurations;
+    this.calculators = calculators;
     this.auth = auth;
     this.mapper = mapper;
   }
@@ -33,32 +33,24 @@ public class CalculatorCatalogController {
   @GetMapping("/api/clinical/tools/calculators")
   public Map<String, Object> list(HttpServletRequest request) {
     auth.requirePermission(request, "section.tools.use");
-    List<Map<String, Object>> calculators = configurations.list("calculator", false)
-        .stream()
-        .filter(ConfigurationView::active)
-        .map(this::operationalView)
-        .toList();
-    Map<String, Object> settings = configurations.list("tool-settings", false)
-        .stream()
-        .filter(ConfigurationView::active)
-        .findFirst()
-        .map(this::operationalView)
-        .orElseGet(Map::of);
+    CalculatorCatalogUseCase.CalculatorCatalogView view = calculators.list();
+    List<Map<String, Object>> projected = view.calculators().stream().map(this::view).toList();
+    Map<String, Object> settings = view.settings().map(this::view).orElseGet(Map::of);
     return Map.of(
         "ok", true,
-        "calculators", calculators,
+        "calculators", projected,
         "settings", settings,
-        "total", calculators.size());
+        "total", projected.size());
   }
 
-  private Map<String, Object> operationalView(ConfigurationView item) {
+  private Map<String, Object> view(CalculatorSummary item) {
     Map<String, Object> result = new LinkedHashMap<>();
     result.put("id", item.id());
     result.put("key", item.key());
     result.put("name", item.name());
     result.put("description", item.description());
     result.put("revision", item.revision());
-    result.put("definition", mapper.valueToTree(item.definition().value()));
+    result.put("definition", mapper.valueToTree(item.definition()));
     return result;
   }
 }

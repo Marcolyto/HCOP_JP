@@ -25,6 +25,7 @@
     <build.finalName>hcop-jp</build.finalName>
     <hcop.build.directory>${project.basedir}/target</hcop.build.directory>
     <archunit.version>1.4.2</archunit.version>
+    <jjwt.version>0.12.6</jjwt.version>
   </properties>
 
   <dependencies>
@@ -75,6 +76,27 @@
       <groupId>com.google.zxing</groupId>
       <artifactId>core</artifactId>
       <version>3.5.4</version>
+    </dependency>
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-api</artifactId>
+      <version>${jjwt.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-impl</artifactId>
+      <version>${jjwt.version}</version>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <!-- Gson en vez de jjwt-jackson: jjwt trae Jackson 2 (com.fasterxml.jackson), y este
+           proyecto está en Jackson 3 (tools.jackson, Boot 4.1). Gson evita convivir dos
+           majors de Jackson en el mismo classpath sin aportar nada (jjwt solo lo usa para
+           serializar el payload del JWT, nunca sale al contrato REST). -->
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-gson</artifactId>
+      <version>${jjwt.version}</version>
+      <scope>runtime</scope>
     </dependency>
 
     <dependency>

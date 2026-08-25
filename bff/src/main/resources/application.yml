@@ -40,3 +40,4 @@ hcop:
   bff:
     backend-url: ${BACKEND_URL:http://127.0.0.1:5180}
     session-cookie-name: BFF_SESSION
+    backend-session-cookie-name: HCOP_SESSION

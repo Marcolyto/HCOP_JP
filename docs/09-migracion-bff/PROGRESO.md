@@ -41,7 +41,19 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
 - [x] F1.1 — Scaffolding bff/ (pom.xml, Dockerfile, application.yml, HcopBffApplication) —
   `mvn test` + `package` verdes; jar arranca standalone (`java -jar`), `/actuator/health` responde
   503 DOWN sin Redis levantado (esperado, redis entra en F1.5)
-- [ ] F1.2 — BffAuthController + BffSession + BffSessionService (Redis) + BackendAuthClient
+- [x] F1.2 — BffAuthController + BffSession + BffSessionService (Redis) + BackendAuthClient.
+  Decisión (preguntada al usuario, ver también más abajo): el backend hoy solo lee sesión de la
+  cookie `HCOP_SESSION` (`AuthInterceptor.java`), no de `Authorization` — el plan F1 pedía mandar
+  `Authorization: Bearer` pero eso recién lo soportaba el `JwtAuthenticationFilter` de F2. Se
+  optó por tocar `AuthInterceptor` ahora: acepta `Authorization: Bearer` además de la cookie
+  (misma validación SHA-256 contra `local_sessions`, sin JWT), cambio chico y aislado — 3 tests
+  nuevos, 311 tests del backend verdes. Verificado end-to-end real: `bff/` standalone + Redis
+  efímero + backend reconstruido con el fix, contra el stack F0 real (nginx→backend en :5180):
+  login guarda `{backendToken, expiresAt}` en Redis y setea `BFF_SESSION`, `/me` con sesión
+  reenvía el Bearer y devuelve el usuario completo, `/me` sin sesión y `/logout` responden el
+  contrato exacto de hoy. `smoke-test.ps1` sigue verde con el `AuthInterceptor` tocado (cookie
+  directa intacta). 21 tests nuevos en `bff/` (SetCookieParser, BffSessionService,
+  BffAuthController), todos verdes.
 - [ ] F1.3 — ApiProxyController streaming + DocsProxyController
 - [ ] F1.4 — Security/logging/cache filters + BackendHealthIndicator
 - [ ] F1.5 — Compose con redis+bff, verificación F1

@@ -38,7 +38,7 @@ class BackendApiClientTest {
         JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(httpClient);
         factory.setReadTimeout(Duration.ofSeconds(5));
         RestClient restClient = RestClient.builder().requestFactory(factory).build();
-        BffProperties properties = new BffProperties("http://127.0.0.1:" + port, "BFF_SESSION", "HCOP_SESSION");
+        BffProperties properties = new BffProperties("http://127.0.0.1:" + port, "BFF_SESSION");
         client = new BackendApiClient(restClient, properties);
     }
 
@@ -149,7 +149,7 @@ class BackendApiClientTest {
 
     @Test
     void unBackendInalcanzableSeTraduceEnProxyExceptionUnreachable() {
-        BffProperties properties = new BffProperties("http://127.0.0.1:1", "BFF_SESSION", "HCOP_SESSION");
+        BffProperties properties = new BffProperties("http://127.0.0.1:1", "BFF_SESSION");
         HttpClient httpClient = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
         JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(httpClient);
         factory.setReadTimeout(Duration.ofSeconds(2));

@@ -31,9 +31,10 @@ class BffSessionServiceTest {
     }
 
     @Test
-    void creaUnaSesionYLaGuardaEnRedisConTtlHastaElVencimiento() {
-        Instant expiresAt = Instant.now().plus(Duration.ofMinutes(30));
-        BffSession session = new BffSession("token-backend-123", expiresAt);
+    void creaUnaSesionYLaGuardaEnRedisConTtlHastaElVencimientoDelRefresh() {
+        Instant accessExpiresAt = Instant.now().plus(Duration.ofMinutes(15));
+        Instant refreshExpiresAt = Instant.now().plus(Duration.ofMinutes(30));
+        BffSession session = new BffSession("access-123", accessExpiresAt, "refresh-123", refreshExpiresAt);
 
         String sessionId = sessions.create(session);
 
@@ -44,13 +45,15 @@ class BffSessionServiceTest {
         verify(values).set(keyCaptor.capture(), jsonCaptor.capture(), ttlCaptor.capture());
 
         assertThat(keyCaptor.getValue()).isEqualTo("bff:session:" + sessionId);
-        assertThat(jsonCaptor.getValue()).contains("token-backend-123");
+        assertThat(jsonCaptor.getValue()).contains("access-123").contains("refresh-123");
         assertThat(ttlCaptor.getValue()).isCloseTo(Duration.ofMinutes(30), Duration.ofSeconds(5));
     }
 
     @Test
     void unaSesionYaVencidaUsaUnTtlMinimoEnVezDeUnoNegativo() {
-        BffSession session = new BffSession("token-vencido", Instant.now().minusSeconds(60));
+        BffSession session = new BffSession(
+                "access-vencido", Instant.now().minusSeconds(120),
+                "refresh-vencido", Instant.now().minusSeconds(60));
 
         sessions.create(session);
 
@@ -61,14 +64,17 @@ class BffSessionServiceTest {
 
     @Test
     void encuentraUnaSesionExistenteYLaDeserializa() {
-        Instant expiresAt = Instant.now().plus(Duration.ofMinutes(30));
-        String json = mapper.writeValueAsString(new BffSession("token-xyz", expiresAt));
+        Instant accessExpiresAt = Instant.now().plus(Duration.ofMinutes(15));
+        Instant refreshExpiresAt = Instant.now().plus(Duration.ofMinutes(30));
+        String json = mapper.writeValueAsString(
+                new BffSession("access-xyz", accessExpiresAt, "refresh-xyz", refreshExpiresAt));
         when(values.get("bff:session:abc")).thenReturn(json);
 
         Optional<BffSession> found = sessions.find("abc");
 
         assertThat(found).isPresent();
-        assertThat(found.get().backendToken()).isEqualTo("token-xyz");
+        assertThat(found.get().accessToken()).isEqualTo("access-xyz");
+        assertThat(found.get().refreshToken()).isEqualTo("refresh-xyz");
     }
 
     @Test

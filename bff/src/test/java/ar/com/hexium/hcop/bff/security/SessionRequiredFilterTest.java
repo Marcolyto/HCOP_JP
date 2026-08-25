@@ -51,7 +51,7 @@ class SessionRequiredFilterTest {
     @Test
     void unPathProtegidoConSesionPasa() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/clinical/protocols");
-        request.setAttribute(BffSessionFilter.SESSION_ATTRIBUTE, new BffSession("tok", Instant.now().plus(Duration.ofDays(1))));
+        request.setAttribute(BffSessionFilter.SESSION_ATTRIBUTE, new BffSession("tok", Instant.now().plus(Duration.ofDays(1)), "refresh", Instant.now().plus(Duration.ofDays(30))));
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain chain = new MockFilterChain();
 

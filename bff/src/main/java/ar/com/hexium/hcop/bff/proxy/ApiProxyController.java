@@ -28,6 +28,6 @@ public class ApiProxyController {
 
     @RequestMapping("/api/**")
     public void proxy(HttpServletRequest request, HttpServletResponse response, Optional<BffSession> session) throws IOException {
-        backend.forward(request, response, session.map(BffSession::backendToken).orElse(null));
+        backend.forward(request, response, session.map(BffSession::accessToken).orElse(null));
     }
 }

@@ -21,7 +21,9 @@ class ApiProxyControllerTest {
     void conSesionResueltaReenviaElTokenDelBackend() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("PUT", "/api/auth/password");
         MockHttpServletResponse response = new MockHttpServletResponse();
-        BffSession session = new BffSession("tok-abc", Instant.now().plusSeconds(600));
+        BffSession session = new BffSession(
+                "tok-abc", Instant.now().plusSeconds(600),
+                "refresh-abc", Instant.now().plusSeconds(2_000_000));
 
         controller.proxy(request, response, Optional.of(session));
 

@@ -45,6 +45,7 @@ $env:HCOP_E2E_PASSWORD = New-HcopBrowserE2eSecret
 $env:HCOP_E2E_DB_PASSWORD = New-HcopBrowserE2eSecret
 $env:HCOP_E2E_QR_SECRET = New-HcopBrowserE2eSecret
 $env:HCOP_E2E_ENCRYPTION_SECRET = New-HcopBrowserE2eSecret
+$env:HCOP_E2E_JWT_SECRET = New-HcopBrowserE2eSecret
 $env:HCOP_E2E_SEED_EXAMPLE_PATIENT = 'true'
 if ($useBundledBrowser) {
   $env:HCOP_E2E_USE_BUNDLED_BROWSER = 'true'
@@ -86,7 +87,7 @@ try {
   }
   @(
     'HCOP_E2E_PASSWORD', 'HCOP_E2E_DB_PASSWORD', 'HCOP_E2E_QR_SECRET',
-    'HCOP_E2E_ENCRYPTION_SECRET', 'HCOP_E2E_SEED_EXAMPLE_PATIENT',
+    'HCOP_E2E_ENCRYPTION_SECRET', 'HCOP_E2E_JWT_SECRET', 'HCOP_E2E_SEED_EXAMPLE_PATIENT',
     'HCOP_E2E_USE_BUNDLED_BROWSER', 'HCOP_E2E_BROWSER_CHANNEL', 'HCOP_E2E_APP_IMAGE'
   ) | ForEach-Object { Remove-Item "Env:$_" -ErrorAction SilentlyContinue }
 }

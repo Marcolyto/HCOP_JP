@@ -208,6 +208,36 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
   `marcolyto` vía `PUT /api/admin/users/2`, el access token YA EMITIDO de `marcolyto2` (todavía
   dentro de su TTL de 15 min) devuelve 401 en la request inmediatamente siguiente — sin esperar
   el vencimiento. Modo cookie re-verificado sin regresión, smoke-test.ps1 verde. 333 tests verdes.
+- [x] F2.7.5 — BFF habla JWT (no estaba en el checklist original; se agregó ANTES de F2.8 tras
+  preguntarle al usuario — ver decisión abajo). El BFF (F1) hablaba el contrato viejo: login
+  esperaba `Set-Cookie` del backend, guardaba el token opaco, reenviaba
+  `Authorization: Bearer <token opaco>`. F2.8 iba a cortar `local_sessions` — sin este paso el
+  BFF (y el login vía frontend) se hubiera roto de punta a punta.
+  `BffSession` pasa a `{accessToken, accessExpiresAt, refreshToken, refreshExpiresAt}` (antes
+  `{backendToken, expiresAt}`). `SetCookieParser` eliminado (ya no hay `Set-Cookie` que parsear).
+  `BackendAuthClient`: `login`/`refresh` (nuevo, server-to-server, no expuesto al navegador)/
+  `logout(refreshToken)`/`me(accessToken)` — todo contra el body JSON del backend, no headers.
+  `BffAuthController.login`: **nunca reenvía accessToken/refreshToken al navegador** — el body
+  de respuesta se re-arma a partir de `session` (mismo shape de siempre), los tokens quedan solo
+  en Redis (verificado con un assert explícito en el test). `BffSessionFilter`: el "refresh
+  transparente" de F1 (heurística, solo extendía TTL de Redis) pasa a ser una llamada real y
+  síncrona a `POST /api/auth/refresh` del backend cuando el access token tiene <2 min de vida
+  (antes: <1 día, tenía sentido con TTL de sesión de 30 días; con TTL de access de 15 min ya no).
+  Si el refresh falla (401 — sesión revocada), borra la sesión de Redis: la request sigue sin
+  sesión, `SessionRequiredFilter` corta con 401 — la revocación inmediata del backend (F2.7)
+  ahora se propaga hasta el BFF. `ApiProxyController` reenvía `session.accessToken()`.
+  `compose.yaml`/`compose.e2e.yaml`: `HCOP_AUTH_MODE: jwt` agregado al backend — **modo jwt pasa
+  a ser el default real de la instalación**, antes de que F2.8 borre el modo cookie del código.
+  49 tests del BFF (5 nuevos/reescritos en `BffSessionFilterTest`, `BffAuthControllerTest`
+  reescrito completo, `SetCookieParserTest` eliminado).
+  **Verificado end-to-end real, stack completo (nginx:5180 → frontend → bff → backend, JWT de
+  punta a punta):** build de ambas imágenes con `mvn test` adentro (verde), login real sin
+  accessToken/refreshToken en el body de respuesta (solo `Set-Cookie: BFF_SESSION`), `/me`,
+  endpoint protegido vía proxy (200), logout, `/me` tras logout (401) — smoke-test.ps1 y
+  nginx-routing-test.ps1 verdes — y **`test-core-browser-e2e.ps1` 3/3 passed vía Playwright
+  real** (login por la UI, navegación, Configuración) contra el stack JWT completo, no cookie.
+  `test-core-browser-e2e.ps1`/`test-clinical-conflict-e2e.ps1`: `HCOP_E2E_JWT_SECRET` agregado
+  (faltaba, el compose.e2e.yaml ya lo exigía desde F2.2).
 - [ ] F2.8 — Eliminar modo cookie + V014 DROP local_sessions + regenerar ENDPOINTS.md
 - [ ] F2.9 — security-review sobre el diff completo
 

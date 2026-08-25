@@ -39,6 +39,7 @@ $env:HCOP_E2E_PASSWORD = New-HcopE2eSecret
 $env:HCOP_E2E_DB_PASSWORD = New-HcopE2eSecret
 $env:HCOP_E2E_QR_SECRET = New-HcopE2eSecret
 $env:HCOP_E2E_ENCRYPTION_SECRET = New-HcopE2eSecret
+$env:HCOP_E2E_JWT_SECRET = New-HcopE2eSecret
 
 $compose = @('compose', '--project-name', $project, '--file', $composeFile)
 $failure = $null
@@ -83,6 +84,7 @@ try {
   Remove-Item Env:HCOP_E2E_DB_PASSWORD -ErrorAction SilentlyContinue
   Remove-Item Env:HCOP_E2E_QR_SECRET -ErrorAction SilentlyContinue
   Remove-Item Env:HCOP_E2E_ENCRYPTION_SECRET -ErrorAction SilentlyContinue
+  Remove-Item Env:HCOP_E2E_JWT_SECRET -ErrorAction SilentlyContinue
 }
 
 if ($cleanupFailure) {

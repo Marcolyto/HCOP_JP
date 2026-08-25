@@ -10,9 +10,11 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Único componente del BFF que conoce Redis. Guarda cada {@link BffSession} bajo
- * {@code bff:session:<uuid>} con TTL igual al tiempo que le queda a la sesión del backend —
- * si Redis reinicia (sin persistencia, ver compose F1.5) todos quedan deslogueados, es
- * comportamiento esperado.
+ * {@code bff:session:<uuid>} con TTL igual al tiempo que le queda al refresh token — es el
+ * límite real de vida de la sesión (el access token vence mucho antes, cada
+ * {@code HCOP_JWT_ACCESS_MINUTES}, y {@code BffSessionFilter} lo renueva solo). Si Redis
+ * reinicia (sin persistencia, ver compose F1.5) todos quedan deslogueados, es comportamiento
+ * esperado.
  */
 @Service
 public class BffSessionService {
@@ -65,13 +67,14 @@ public class BffSessionService {
         return Boolean.TRUE.equals(acquired);
     }
 
-    /** Re-emite la sesión con un TTL nuevo. Llamar solo tras ganar {@link #tryAcquireRefreshLock}. */
-    public void refresh(String sessionId, Duration newTtl) {
-        find(sessionId).ifPresent(session -> store(sessionId, new BffSession(session.backendToken(), Instant.now().plus(newTtl))));
+    /** Reemplaza el par access+refresh tras un {@code POST /api/auth/refresh} exitoso contra el
+     * backend. Llamar solo tras ganar {@link #tryAcquireRefreshLock}. */
+    public void replace(String sessionId, BffSession refreshed) {
+        store(sessionId, refreshed);
     }
 
     private void store(String sessionId, BffSession session) {
-        Duration ttl = Duration.between(Instant.now(), session.expiresAt());
+        Duration ttl = Duration.between(Instant.now(), session.refreshExpiresAt());
         if (ttl.isNegative() || ttl.isZero()) ttl = Duration.ofSeconds(1);
         redis.opsForValue().set(KEY_PREFIX + sessionId, mapper.writeValueAsString(session), ttl);
     }

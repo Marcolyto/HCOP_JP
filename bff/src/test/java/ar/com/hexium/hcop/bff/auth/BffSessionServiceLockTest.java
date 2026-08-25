@@ -42,23 +42,14 @@ class BffSessionServiceLockTest {
     }
 
     @Test
-    void refreshReescribeLaSesionConNuevoTtlPreservandoElToken() {
-        String json = mapper.writeValueAsString(new BffSession("tok-original", Instant.now().plusSeconds(60)));
-        when(values.get("bff:session:abc")).thenReturn(json);
+    void replaceReescribeLaSesionConElParNuevoTrasUnRefreshExitoso() {
+        BffSession refreshed = new BffSession(
+                "access-nuevo", Instant.now().plusSeconds(900),
+                "refresh-nuevo", Instant.now().plus(Duration.ofMinutes(43_200)));
 
-        sessions.refresh("abc", Duration.ofMinutes(43_200));
+        sessions.replace("abc", refreshed);
 
-        verify(values).set(eq("bff:session:abc"), org.mockito.ArgumentMatchers.contains("tok-original"),
+        verify(values).set(eq("bff:session:abc"), org.mockito.ArgumentMatchers.contains("access-nuevo"),
                 org.mockito.ArgumentMatchers.<Duration>argThat(ttl -> ttl.compareTo(Duration.ofDays(29)) > 0));
-    }
-
-    @Test
-    void refreshDeUnaSesionInexistenteNoHaceNada() {
-        when(values.get("bff:session:missing")).thenReturn(null);
-
-        sessions.refresh("missing", Duration.ofMinutes(43_200));
-
-        verify(values, org.mockito.Mockito.never()).set(org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(Duration.class));
     }
 }

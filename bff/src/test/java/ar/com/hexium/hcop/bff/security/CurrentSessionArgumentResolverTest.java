@@ -28,7 +28,7 @@ class CurrentSessionArgumentResolverTest {
     @Test
     void resuelveBffSessionDesdeElAtributoDelRequest() throws Exception {
         MockHttpServletRequest servletRequest = new MockHttpServletRequest();
-        BffSession session = new BffSession("tok", Instant.now().plus(Duration.ofDays(1)));
+        BffSession session = new BffSession("tok", Instant.now().plus(Duration.ofDays(1)), "refresh", Instant.now().plus(Duration.ofDays(30)));
         servletRequest.setAttribute(BffSessionFilter.SESSION_ATTRIBUTE, session);
         NativeWebRequest webRequest = mock(NativeWebRequest.class);
         when(webRequest.getNativeRequest()).thenReturn(servletRequest);

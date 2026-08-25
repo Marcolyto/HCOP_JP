@@ -29,7 +29,8 @@ class DatabaseMigrationResourceTest {
                         "V009__workflow_safety_and_legacy_trace.sql",
                         "V010__treatment_creation_idempotency.sql",
                         "V011__preparation_component_trace.sql",
-                        "V012__patient_seed_identity.sql");
+                        "V012__patient_seed_identity.sql",
+                        "V013__jwt_auth.sql");
     }
 
     @Test

@@ -1,0 +1,42 @@
+server:
+  port: ${HCOP_BFF_PORT:8080}
+  address: ${HCOP_BIND_ADDRESS:0.0.0.0}
+  shutdown: graceful
+  forward-headers-strategy: native
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+  # El BFF nunca parsea el body de las requests que reenvía (proxy streaming, hallazgo 4).
+  tomcat:
+    max-swallow-size: -1
+spring:
+  application:
+    name: hcop-bff
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  servlet:
+    multipart:
+      enabled: false
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+  jackson:
+    default-property-inclusion: non_null
+    deserialization:
+      fail-on-unknown-properties: false
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when_authorized
+hcop:
+  bff:
+    backend-url: ${BACKEND_URL:http://127.0.0.1:5180}
+    session-cookie-name: BFF_SESSION

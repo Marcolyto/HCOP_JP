@@ -22,13 +22,25 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
     Tomcat en /actuator/health, /v3/api-docs, /swagger-ui (nginx mandaba el nombre del
     upstream "api_upstream" como Host, con guion bajo → Tomcat 400); y redirects
     absolutizados con el puerto interno de nginx (8080) en vez de relativos
-  - Pendiente (no bloqueante para F1): correr los scripts .ps1 (nginx-routing-test,
-    smoke-test, contract-tests) y los E2E de Playwright — necesitan pwsh, no disponible en
-    este entorno. Correrlos en un entorno con pwsh antes de mergear a main.
+  - pwsh instalado (`brew install powershell`) y scripts corridos contra el stack real:
+    `nginx-routing-test.ps1` OK · `smoke-test.ps1` OK · `configuration/guide/protocol-contract-test.ps1`
+    OK (3/3) · `test-core-browser-e2e.ps1` 3/3 passed.
+  - `test-clinical-conflict-e2e.ps1`: **7/7 failed**, misma causa raíz en los 7 — al abrir el
+    paciente recién creado (`page.goto('./')`), el nombre completo existe en el DOM pero queda
+    `hidden` (timeout esperando `toBeVisible`). El layout carga con el panel Historia colapsado
+    ("Mostrar solo Estudios y colapsar Historia" queda `[pressed]` por default), y el nombre del
+    paciente vive en ese panel. No es un problema de red/proxy/nginx (banner, tabs, login, todo
+    lo demás renderiza bien) — es un bug de la app (default del divisor de Historia/Estudios),
+    preexistente y sin relación con la migración BFF. `clinical-conflict.spec.ts` no se tocó
+    desde `ee62be8` y nunca se había corrido en este entorno (pwsh no estaba disponible antes).
+    **Pendiente, no bloqueante para F1**: investigar `clinical-shell` (posición default del
+    divisor Historia/Estudios) y arreglar antes de mergear a main.
 
 ## F1 — BFF + Redis (sesión opaca actual, sin JWT)
 
-- [ ] F1.1 — Scaffolding bff/ (pom.xml, Dockerfile, application.yml)
+- [x] F1.1 — Scaffolding bff/ (pom.xml, Dockerfile, application.yml, HcopBffApplication) —
+  `mvn test` + `package` verdes; jar arranca standalone (`java -jar`), `/actuator/health` responde
+  503 DOWN sin Redis levantado (esperado, redis entra en F1.5)
 - [ ] F1.2 — BffAuthController + BffSession + BffSessionService (Redis) + BackendAuthClient
 - [ ] F1.3 — ApiProxyController streaming + DocsProxyController
 - [ ] F1.4 — Security/logging/cache filters + BackendHealthIndicator

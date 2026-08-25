@@ -1,7 +1,6 @@
 package ar.com.hexium.hcop.config;
 
 import ar.com.hexium.hcop.catalog.DiagnosisCatalogService;
-import ar.com.hexium.hcop.configuration.domain.TrialConfigurationDefaults;
 import java.util.Map;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -31,8 +30,6 @@ public class ClinicalCatalogBootstrap {
     if (actorId == null) return;
     seedDiagnosisSetting(actorId);
     for (var item : diagnoses.equivalences()) seedEquivalence(item, actorId);
-    for (var source : TrialConfigurationDefaults.sources()) seedTrialConfiguration(source, actorId);
-    seedTrialConfiguration(TrialConfigurationDefaults.screeningPolicy(), actorId);
   }
 
   private void seedDiagnosisSetting(long actorId) {
@@ -69,35 +66,13 @@ public class ClinicalCatalogBootstrap {
 
   private void insertIfMissing(
       String kind, String key, String name, String description, String definition, long actorId) {
-    insertIfMissing(kind, key, name, description, true, definition, actorId);
-  }
-
-  private void seedTrialConfiguration(TrialConfigurationDefaults.Seed seed, long actorId) {
-    insertIfMissing(
-        seed.kind().externalName(),
-        seed.key(),
-        seed.name(),
-        seed.description(),
-        seed.active(),
-        mapper.valueToTree(seed.definition().value()).toString(),
-        actorId);
-  }
-
-  private void insertIfMissing(
-      String kind,
-      String key,
-      String name,
-      String description,
-      boolean active,
-      String definition,
-      long actorId) {
     jdbc.update("""
         INSERT INTO clinical_configuration_items (
           item_kind, item_key, display_name, description, active, definition_json,
           revision, created_by, updated_by
-        ) VALUES (?, ?, ?, ?, ?, CAST(? AS jsonb), 1, ?, ?)
+        ) VALUES (?, ?, ?, ?, true, CAST(? AS jsonb), 1, ?, ?)
         ON CONFLICT (item_kind, item_key) DO NOTHING
-        """, kind, key, name, description, active, definition, actorId, actorId);
+        """, kind, key, name, description, definition, actorId, actorId);
     jdbc.update("""
         INSERT INTO clinical_configuration_versions (
           configuration_item_id, revision, display_name, description, active,

@@ -82,7 +82,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 
 .configuration-tabs {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
+  grid-template-columns: repeat(9, minmax(0, 1fr));
   min-width: 0;
   overflow: hidden;
   border-bottom: 1px solid var(--hub-line-strong);
@@ -167,13 +167,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
   .configuration-title > small,
   .configuration-refresh > span { display: none; }
   .configuration-refresh { width: 34px; padding: 0; }
-  .configuration-tabs {
-    overflow-x: auto;
-    grid-template-columns: none;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(66px, 1fr);
-    scrollbar-width: thin;
-  }
+  .configuration-tabs { overflow-x: auto; grid-template-columns: repeat(9, minmax(66px, 1fr)); scrollbar-width: thin; }
 }
 
 @media (max-height: 650px) {

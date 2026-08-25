@@ -15,9 +15,7 @@ public enum ConfigurationKind {
   TOOL_SETTINGS("tool-settings"),
   DAY_HOSPITAL_SETTINGS("day-hospital-settings"),
   RESEARCH_FORM("research-form"),
-  PROTOCOL("protocol"),
-  TRIAL_SOURCE("trial-source"),
-  TRIAL_SCREENING_SETTINGS("trial-screening-settings");
+  PROTOCOL("protocol");
 
   private final String externalName;
 

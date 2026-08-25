@@ -68,7 +68,6 @@ import org.springframework.web.method.HandlerMethod;
         @Tag(name = "Archivos clínicos", description = "Estudios, imágenes y plantillas con control de sesión."),
         @Tag(name = "Administración", description = "Usuarios, roles, permisos y seguridad."),
         @Tag(name = "Integraciones", description = "Configuración y uso opcional del LLM."),
-        @Tag(name = "Investigación", description = "Preferencias personales y evaluación futura de ensayos oncológicos."),
         @Tag(name = "Estado", description = "Salud y diagnóstico operativo del sistema.")
     })
 @SecurityScheme(
@@ -117,9 +116,9 @@ public class OpenApiConfiguration {
       doc("TreatmentWorkflowController.inbox", "Consultar solicitudes", "Lista las solicitudes asignadas al usuario activo."),
       doc("TreatmentWorkflowController.seen", "Marcar solicitud leída", "Registra que el destinatario abrió la solicitud."),
       doc("TreatmentWorkflowController.resolve", "Resolver solicitud", "Confirma, rechaza, suspende o continúa y deja trazabilidad clínica."),
-      doc("ConfigurationController.list", "Listar configuración", "Lista elementos activos o históricos de un tipo permitido. trial-source describe fuentes oficiales de ensayos y trial-screening-settings conserva la política de ejecución local."),
-      doc("ConfigurationController.create", "Crear configuración", "Crea una definición versionada de guía, cálculo, formulario o parámetro. Para repositorios de ensayos rechaza secretos, endpoints arbitrarios y cualquier configuración que permita enviar PHI."),
-      doc("ConfigurationController.update", "Modificar configuración", "Actualiza con revisión optimista y conserva la versión anterior. La política de evaluación admite ejecución manual, programada cada 24 horas o en tiempo real, con un máximo de un modal y de una a tres preguntas por aviso."),
+      doc("ConfigurationController.list", "Listar configuración", "Lista elementos activos o históricos de un tipo permitido."),
+      doc("ConfigurationController.create", "Crear configuración", "Crea una definición versionada de guía, cálculo, formulario o parámetro."),
+      doc("ConfigurationController.update", "Modificar configuración", "Actualiza con revisión optimista y conserva la versión anterior."),
       doc("ConfigurationController.archive", "Archivar configuración", "Desactiva el elemento sin borrar su historial."),
       doc("ConfigurationController.versions", "Listar versiones", "Devuelve el historial auditable del elemento."),
       doc("ConfigurationController.version", "Leer versión", "Recupera una revisión histórica exacta."),
@@ -155,8 +154,6 @@ public class OpenApiConfiguration {
       doc("AdminController.security", "Leer seguridad", "Devuelve la política de acceso obligatorio y duración de sesión."),
       doc("AdminController.updateSecurity", "Modificar seguridad", "Mantiene login obligatorio y actualiza la duración de sesión."),
       doc("AdminController.clinicalUsers", "Buscar destinatarios clínicos", "Lista usuarios habilitados para una capacidad de flujo."),
-      doc("TrialScreeningPreferenceController.me", "Consultar preferencia personal de investigación", "Devuelve únicamente la preferencia del usuario autenticado y la combina con la política institucional vigente. proactiveActive indica que ambas preferencias permiten un modo programado o en tiempo real; effective exige además que el motor esté disponible. En este corte engineReady y effective son false porque el matching todavía no está implementado."),
-      doc("TrialScreeningPreferenceController.update", "Guardar preferencia personal de investigación", "Acepta exclusivamente researchActive y expectedRevision, aplica control optimista y nunca admite un userId enviado por el cliente. Desactivar esta preferencia sólo limita la evaluación proactiva futura; la consulta manual futura seguirá disponible."),
       doc("StatusController.clinical", "Estado clínico", "Comprueba PostgreSQL y confirma que el sistema es local, unificado e independiente."),
       doc("StatusController.liraCompatibility", "Compatibilidad Lira", "Informa que las rutas históricas operan sobre HCOP JP local."),
       doc("StatusController.runtime", "Estado de ejecución", "Expone versión y motor para diagnóstico y automatización."),
@@ -274,8 +271,6 @@ public class OpenApiConfiguration {
       permission("TreatmentWorkflowController.resume", "workflow.resume"),
       permission("TreatmentWorkflowController.create", "workflow.request-prescription | workflow.request-continuity"),
       permission("TreatmentWorkflowController.resolve", "workflow.resolve-prescription | workflow.resolve-continuity"),
-      permission("TrialScreeningPreferenceController.me", "section.research.view"),
-      permission("TrialScreeningPreferenceController.update", "section.research.view"),
       permission("StatusController.stop", "admin.manage-security")
   );
 
@@ -288,7 +283,7 @@ public class OpenApiConfiguration {
       Map.entry("includeScheduled", "Incluye aplicaciones que ya poseen un turno activo; se usa en Farmacia."),
       Map.entry("id", "Identificador del recurso solicitado."),
       Map.entry("revision", "Revisión histórica exacta del recurso."),
-      Map.entry("kind", "Tipo permitido: guide, study-template, diagnosis-setting, diagnosis-equivalence, calculator, tool-settings, day-hospital-settings, research-form, protocol, trial-source o trial-screening-settings."),
+      Map.entry("kind", "Tipo de configuración permitido por el servicio."),
       Map.entry("name", "Nombre seguro del archivo o recurso."),
       Map.entry("q", "Texto de búsqueda; admite coincidencia parcial."),
       Map.entry("query", "Texto de búsqueda; admite coincidencia parcial."),
@@ -369,12 +364,6 @@ public class OpenApiConfiguration {
       openApi.getComponents().addSchemas("AgentHighlight", agentHighlightSchema());
       openApi.getComponents().addSchemas("AgentChatResponse", agentChatResponseSchema());
       openApi.getComponents().addSchemas("LlmStatusResponse", llmStatusResponseSchema());
-      openApi.getComponents().addSchemas(
-          "TrialScreeningPreferenceResponse",
-          trialScreeningPreferenceResponseSchema());
-      openApi.getComponents().addSchemas(
-          "TrialScreeningPreferenceUpdate",
-          trialScreeningPreferenceUpdateSchema());
       if (openApi.getPaths() == null || openApi.getTags() == null) return;
       Set<String> usedTags = new HashSet<>();
       openApi.getPaths().values().forEach(path ->
@@ -491,14 +480,6 @@ public class OpenApiConfiguration {
       setSuccessSchema(operation, "#/components/schemas/AgentChatResponse");
     } else if ("LlmController.status".equals(key)) {
       setSuccessSchema(operation, "#/components/schemas/LlmStatusResponse");
-    } else if ("TrialScreeningPreferenceController.me".equals(key)) {
-      setSuccessSchema(operation, "#/components/schemas/TrialScreeningPreferenceResponse");
-    } else if ("TrialScreeningPreferenceController.update".equals(key)) {
-      operation.setRequestBody(new RequestBody()
-          .required(true)
-          .description("Preferencia del usuario autenticado y revisión leída previamente; no acepta identidad de usuario ni otros campos.")
-          .content(jsonContent("#/components/schemas/TrialScreeningPreferenceUpdate")));
-      setSuccessSchema(operation, "#/components/schemas/TrialScreeningPreferenceResponse");
     }
   }
 
@@ -886,57 +867,6 @@ public class OpenApiConfiguration {
     return schema;
   }
 
-  private static Schema<?> trialScreeningPreferenceResponseSchema() {
-    ObjectSchema schema = new ObjectSchema();
-    schema.setDescription(
-        "Preferencia personal combinada con el límite institucional. No representa elegibilidad clínica.");
-    schema.addProperty("ok", new BooleanSchema()._default(true));
-    schema.addProperty("researchActive", new BooleanSchema()
-        .description("Preferencia persistida exclusivamente para el usuario autenticado."));
-    schema.addProperty("institutionalEnabled", new BooleanSchema()
-        .description("Límite de la configuración institucional trial-screening-settings."));
-    schema.addProperty("mode", new StringSchema()
-        ._enum(List.of("manual", "scheduled", "realtime"))
-        .description("Modo institucional vigente."));
-    schema.addProperty("proactiveActive", new BooleanSchema()
-        .description("true cuando usuario e institución habilitan un modo programado o en tiempo real."));
-    schema.addProperty("effective", new BooleanSchema()
-        .description("true sólo si proactiveActive y el motor están disponibles."));
-    schema.addProperty("revision", new IntegerSchema()
-        .format("int64")
-        .minimum(java.math.BigDecimal.ZERO)
-        .description("Revisión optimista personal; vale 0 cuando aún no existe una fila persistida."));
-    schema.addProperty("engineReady", new BooleanSchema()
-        ._default(false)
-        .description("false en este corte: ingesta y matching todavía no existen."));
-    schema.setRequired(List.of(
-        "ok",
-        "researchActive",
-        "institutionalEnabled",
-        "mode",
-        "proactiveActive",
-        "effective",
-        "revision",
-        "engineReady"));
-    return schema;
-  }
-
-  private static Schema<?> trialScreeningPreferenceUpdateSchema() {
-    ObjectSchema schema = new ObjectSchema();
-    schema.setAdditionalProperties(false);
-    schema.setDescription(
-        "Cuerpo cerrado y self-only. El servidor obtiene userId de la sesión y rechaza campos adicionales.");
-    schema.addProperty("researchActive", new BooleanSchema()
-        .description("Activa o desactiva sólo la futura evaluación proactiva para este usuario."));
-    schema.addProperty("expectedRevision", new IntegerSchema()
-        .format("int64")
-        .minimum(java.math.BigDecimal.ZERO)
-        .maximum(java.math.BigDecimal.valueOf(Long.MAX_VALUE))
-        .description("Revisión devuelta por GET; 0 crea la primera preferencia."));
-    schema.setRequired(List.of("researchActive", "expectedRevision"));
-    return schema;
-  }
-
   private static boolean isWrite(Method method) {
     return method.isAnnotationPresent(PostMapping.class)
         || method.isAnnotationPresent(PutMapping.class)
@@ -960,7 +890,6 @@ public class OpenApiConfiguration {
     if (controller.startsWith("ClinicalFile") || controller.startsWith("StudyTemplate")) return "Archivos clínicos";
     if (controller.startsWith("Admin")) return "Administración";
     if (controller.startsWith("Llm")) return "Integraciones";
-    if (controller.startsWith("TrialScreening") || controller.startsWith("Research")) return "Investigación";
     if (controller.startsWith("Status")) return "Estado";
     return "Catálogos";
   }

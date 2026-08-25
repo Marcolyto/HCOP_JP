@@ -157,10 +157,6 @@ doradas y un renderizador nativo integrado con la configuración institucional.
   `demoContentVersion=3`; bootstrap best-effort que nunca bloquea el arranque,
   actualización que no pisa una edición humana, sin activación automática de
   sesión y protegido por Flyway `V012`.
-- [Corte Angular 041](CORTE-ANGULAR-041-REPOSITORIOS-ONCOLOGICOS.md):
-  configuración versionada de repositorios de ensayos oncológicos y política de
-  evaluación local, con fuentes oficiales, límites de privacidad y roadmap;
-  todavía sin ingesta, matching, trabajos programados ni avisos clínicos.
 
 ## Ciclo obligatorio por capacidad
 

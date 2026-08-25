@@ -1,42 +1,19 @@
-<section class="research-workspace" aria-label="Investigación oncológica">
+<section class="research-workspace" aria-label="Registro de protocolo de investigación oncológica">
   <header class="research-head">
     <div>
       <strong>Investigación oncológica</strong>
-      <small>Registros clínicos y base auditable para futuras coincidencias</small>
+      <small>Registro estructurado que se incorpora a la historia clínica versionada</small>
     </div>
     <span>{{ records().length }} {{ records().length === 1 ? 'registro' : 'registros' }}</span>
   </header>
 
-  <nav class="research-view-tabs" role="tablist" aria-label="Secciones de Investigación">
-    <button id="researchClinicalRecordsTab" type="button" role="tab"
-      [class.active]="activeView() === 'clinical-records'"
-      [attr.aria-selected]="activeView() === 'clinical-records'"
-      [attr.tabindex]="activeView() === 'clinical-records' ? 0 : -1"
-      aria-controls="researchClinicalRecordsPanel"
-      (click)="selectView('clinical-records')"
-      (keydown)="onViewTabKeydown($event)">Registro clínico</button>
-    <button id="researchMatchMapTab" type="button" role="tab"
-      [class.active]="activeView() === 'match-map'"
-      [attr.aria-selected]="activeView() === 'match-map'"
-      [attr.tabindex]="activeView() === 'match-map' ? 0 : -1"
-      aria-controls="researchMatchMapPanel"
-      (click)="selectView('match-map')"
-      (keydown)="onViewTabKeydown($event)">Mapa de coincidencias</button>
-  </nav>
-
-  @if (activeView() === 'match-map') {
-    <div id="researchMatchMapPanel" class="research-view-panel" role="tabpanel" aria-labelledby="researchMatchMapTab">
-      <app-research-match-map />
+  @if (!workspace.workspace()) {
+    <div class="research-empty-state">
+      <strong>Abra un paciente</strong>
+      <span>Los formularios y los registros de investigación pertenecen a la historia clínica activa.</span>
     </div>
   } @else {
-    <div id="researchClinicalRecordsPanel" class="research-view-panel" role="tabpanel" aria-labelledby="researchClinicalRecordsTab">
-      @if (!workspace.workspace()) {
-        <div class="research-empty-state">
-          <strong>Abra un paciente</strong>
-          <span>Los formularios y los registros de investigación pertenecen a la historia clínica activa.</span>
-        </div>
-      } @else {
-        <form class="research-form" (submit)="$event.preventDefault(); save()" novalidate>
+    <form class="research-form" (submit)="$event.preventDefault(); save()" novalidate>
       <section class="research-template-picker">
         <label>
           <span>Tipo de formulario</span>
@@ -185,9 +162,9 @@
         <button class="tool-button" type="button" [disabled]="busy()" (click)="reset()"><span>Limpiar</span></button>
         <button class="tool-button primary" type="submit" [disabled]="!canEdit() || busy()"><span>{{ busy() ? 'Guardando…' : 'Registrar en historia clínica' }}</span></button>
       </div>
-        </form>
+    </form>
 
-        <section class="research-records">
+    <section class="research-records">
       <header><strong>Registros incorporados</strong><small>Ordenados por fecha del evento</small></header>
       <div id="researchRecordList" class="research-record-list">
         @for (record of records(); track record.id || $index) {
@@ -204,8 +181,6 @@
           <div class="research-records-empty"><span aria-hidden="true">⌬</span><span>Todavía no hay registros incorporados.</span></div>
         }
       </div>
-        </section>
-      }
-    </div>
+    </section>
   }
 </section>

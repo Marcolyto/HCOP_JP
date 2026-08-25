@@ -18,7 +18,6 @@ import { ClinicalInboxComponent } from '../features/clinical-inbox/clinical-inbo
 import { ResearchComponent } from '../features/research/research.component';
 import { ClinicalHighlightActionDirective } from '../core/highlighting/clinical-highlight-action.directive';
 import { ClinicalHighlightFeedbackComponent } from '../features/highlighting/clinical-highlight-feedback.component';
-import { TrialScreeningPreferenceService } from '../core/research/trial-screening-preference.service';
 
 type RightPane = 'studies' | 'care' | 'prescription' | 'agent' | 'research' | 'timeline' | 'protocols' | 'tools';
 
@@ -32,7 +31,6 @@ export class ClinicalShellComponent implements OnInit, AfterViewInit, OnDestroy 
   readonly initialPane = input<RightPane | ''>('');
   readonly auth = inject(AuthService);
   readonly patientWorkspace = inject(PatientWorkspaceService);
-  readonly researchScreening = inject(TrialScreeningPreferenceService);
   private readonly clinicalDrafts = inject(ClinicalDraftRegistryService);
   private readonly router = inject(Router);
   readonly selectedPane = signal<RightPane>('studies');
@@ -90,13 +88,6 @@ export class ClinicalShellComponent implements OnInit, AfterViewInit, OnDestroy 
     this.auth.load().subscribe({
       next: (session) => {
         if (session.activePatientId) this.patientWorkspace.load(session.activePatientId);
-        if (session.authenticated && this.auth.hasPermission('section.research.view')) {
-          this.researchScreening.load().subscribe({
-            error: () => this.showClinicalNotification(this.researchScreening.error())
-          });
-        } else {
-          this.researchScreening.reset();
-        }
         if (!this.canOpen(this.selectedPane())) this.selectedPane.set(this.defaultPane());
         window.setTimeout(() => this.updateRightTabLabels());
       },
@@ -136,69 +127,7 @@ export class ClinicalShellComponent implements OnInit, AfterViewInit, OnDestroy 
   }
   logout(): void {
     if (this.hasPendingConflict()) return;
-    this.auth.logout().subscribe({
-      next: () => {
-        this.researchScreening.reset();
-        void this.router.navigateByUrl('/login');
-      }
-    });
-  }
-  toggleResearchActive(event: Event): void {
-    const control = event.target;
-    const current = this.researchScreening.state();
-    if (!(control instanceof HTMLInputElement) || !current
-        || this.researchScreening.loading() || this.researchScreening.saving()) return;
-    const researchActive = control.checked;
-    this.researchScreening.updateResearchActive(researchActive).subscribe({
-      next: (state) => {
-        let message = 'Investigación activa quedó desactivada para su usuario.';
-        if (state.researchActive && !state.institutionalEnabled) {
-          message = 'Preferencia guardada. La política institucional está pausada.';
-        } else if (state.researchActive && state.mode === 'manual') {
-          message = 'Preferencia guardada. La institución mantiene el modo manual, sin avisos proactivos.';
-        } else if (state.researchActive && !state.engineReady) {
-          message = 'Preferencia preparada. El motor de coincidencias todavía no está disponible.';
-        } else if (state.researchActive && state.effective) {
-          message = 'Investigación activa para su usuario.';
-        } else if (state.researchActive) {
-          message = 'Preferencia de investigación guardada para su usuario.';
-        }
-        this.showClinicalNotification(message);
-      },
-      error: () => this.showClinicalNotification(this.researchScreening.error())
-    });
-  }
-  researchToggleStatus(): string {
-    if (this.researchScreening.loading()) return 'Cargando…';
-    if (this.researchScreening.saving()) return 'Guardando…';
-    const state = this.researchScreening.state();
-    if (!state) return 'No disponible';
-    if (!state.researchActive) return 'Inactiva';
-    if (!state.institutionalEnabled) return 'Guardada · inst. pausada';
-    if (state.mode === 'manual') return 'Guardada · modo manual';
-    if (state.proactiveActive && !state.engineReady) return 'Preparada · motor pendiente';
-    return state.effective ? 'Activa' : 'Preferencia guardada';
-  }
-  researchToggleTitle(): string {
-    if (this.researchScreening.loading()) return 'Consultando su preferencia personal de investigación.';
-    if (this.researchScreening.saving()) return 'Guardando su preferencia personal de investigación.';
-    const state = this.researchScreening.state();
-    if (!state) return this.researchScreening.error() || 'La preferencia personal no está disponible.';
-    if (!state.researchActive) {
-      return 'La evaluación proactiva está desactivada para su usuario. La consulta manual futura seguirá disponible.';
-    }
-    if (!state.institutionalEnabled) {
-      return 'Su preferencia está guardada, pero la institución no habilitó la evaluación. La consulta manual futura seguirá disponible.';
-    }
-    if (state.mode === 'manual') {
-      return 'Su preferencia está guardada; la institución mantiene el modo manual. La consulta manual futura no depende de este control.';
-    }
-    if (!state.engineReady) {
-      return 'Su preferencia está guardada y preparada. El motor de coincidencias todavía no está implementado.';
-    }
-    return state.effective
-      ? 'La evaluación proactiva está activa para su usuario.'
-      : 'Su preferencia está activa, pero la evaluación proactiva no está efectiva.';
+    this.auth.logout().subscribe({ next: () => this.router.navigateByUrl('/login') });
   }
   inboxBlocked(): boolean {
     return this.hasPendingConflict()

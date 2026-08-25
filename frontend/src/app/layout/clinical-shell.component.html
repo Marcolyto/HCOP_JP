@@ -47,22 +47,6 @@
             (patientRefreshRequested)="refreshPatientAfterWorkflow($event)"
             (sessionExpired)="openLogin()"
             (notification)="showClinicalNotification($event)" />
-          @if (auth.hasPermission('section.research.view')) {
-            <label class="clinical-research-toggle"
-              [class.is-active]="researchScreening.state()?.researchActive"
-              [class.is-prepared]="researchScreening.state()?.researchActive && researchScreening.state()?.proactiveActive && !researchScreening.state()?.engineReady"
-              [class.is-limited]="researchScreening.state()?.researchActive && !researchScreening.state()?.proactiveActive"
-              [class.is-disabled]="researchScreening.loading() || researchScreening.saving() || !researchScreening.state()"
-              [title]="researchToggleTitle()">
-              <input type="checkbox" role="switch"
-                [checked]="researchScreening.state()?.researchActive || false"
-                [disabled]="researchScreening.loading() || researchScreening.saving() || !researchScreening.state()"
-                [attr.aria-label]="'Investigación activa. ' + researchToggleStatus()"
-                (change)="toggleResearchActive($event)">
-              <span class="clinical-research-toggle-track" aria-hidden="true"></span>
-              <span class="clinical-research-toggle-copy"><strong>Investigación activa</strong><small aria-live="polite">{{ researchToggleStatus() }}</small></span>
-            </label>
-          }
           <div class="clinical-user-chip" title="Usuario activo"><span class="clinical-user-avatar" aria-hidden="true">{{ initial() }}</span><span><strong>{{ auth.session()?.user?.displayName || auth.session()?.user?.username }}</strong><small>{{ auth.session()?.user?.specialty || 'Sesión clínica' }}</small></span></div>
           <button class="clinical-logout-button" type="button" title="Cerrar sesión" aria-label="Cerrar sesión" [disabled]="hasPendingConflict()" (click)="logout()">↪</button>
         </div>

@@ -4,74 +4,6 @@
 .angular-empty-sheet .tool-button { justify-self: start; }
 .clinical-login-button { display: inline-flex; }
 .clinical-session-controls { display: flex; }
-.clinical-research-toggle {
-  position: relative;
-  display: inline-flex;
-  box-sizing: border-box;
-  height: 34px;
-    min-width: 156px;
-  align-items: center;
-  gap: 7px;
-  border: 1px solid #c9d7df;
-  border-radius: 3px;
-  background: #f8fbfd;
-  padding: 3px 7px;
-  color: #294354;
-  cursor: pointer;
-  user-select: none;
-}
-.clinical-research-toggle:hover { border-color: #88b9d4; background: #f0f8fc; }
-.clinical-research-toggle input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-.clinical-research-toggle-track {
-  position: relative;
-  width: 30px;
-  height: 18px;
-  flex: 0 0 auto;
-  box-sizing: border-box;
-  border: 1px solid #9eb0ba;
-  border-radius: 999px;
-  background: #dfe7eb;
-  transition: background-color .16s ease, border-color .16s ease;
-}
-.clinical-research-toggle-track::after {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 3px rgb(35 67 83 / 28%);
-  content: '';
-  transition: transform .16s ease;
-}
-.clinical-research-toggle input:checked + .clinical-research-toggle-track {
-  border-color: #168ed0;
-  background: #168ed0;
-}
-.clinical-research-toggle input:checked + .clinical-research-toggle-track::after { transform: translateX(12px); }
-.clinical-research-toggle input:focus-visible + .clinical-research-toggle-track {
-  outline: 2px solid #fff;
-  outline-offset: 2px;
-  box-shadow: 0 0 0 4px #168ed0;
-}
-.clinical-research-toggle-copy { display: grid; min-width: 0; line-height: 1.05; }
-.clinical-research-toggle-copy strong,
-.clinical-research-toggle-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .clinical-research-toggle-copy strong { font-size: 11px; }
-  .clinical-research-toggle-copy small { margin-top: 2px; color: #70818c; font-size: 10px; font-weight: 750; }
-.clinical-research-toggle.is-prepared { border-color: #d5c17d; background: #fff9e8; }
-.clinical-research-toggle.is-prepared .clinical-research-toggle-copy small { color: #725b17; }
-.clinical-research-toggle.is-limited { border-color: #c9d2d8; background: #f3f6f8; }
-.clinical-research-toggle.is-limited .clinical-research-toggle-copy small { color: #5f6f79; }
-.clinical-research-toggle.is-disabled { cursor: wait; opacity: .64; }
-.clinical-research-toggle.is-disabled:hover { border-color: #c9d7df; background: #f8fbfd; }
 .paper-clinical-search.open { min-width: 220px; }.paper-clinical-search.open input { display: block; }
 .clinical-save-conflict-banner {
   display: flex;
@@ -131,5 +63,4 @@
   line-height: 1.4;
 }
 @media (max-width: 980px) { .splitter-shell { display: none; }.split-workspace { grid-template-columns: 1fr; gap: 10px; overflow: auto; }.clinical-panel, .studies-panel { min-height: 45vh; border-radius: 8px; } }
-@media (max-width: 1180px) { .clinical-research-toggle { min-width: 128px; }.clinical-research-toggle-copy strong { display: none; } }
-@media (max-width: 720px) { .clinical-research-toggle { width: 38px; min-width: 38px; justify-content: center; padding-inline: 3px; }.clinical-research-toggle-copy { display: none; }.clinical-save-conflict-banner { align-items: stretch; flex-direction: column; }.clinical-save-conflict-actions { justify-content: flex-start; flex-wrap: wrap; }.clinical-save-conflict-banner .tool-button { align-self: flex-start; }.clinical-conflict-review-summary { grid-template-columns: 1fr; } }
+@media (max-width: 720px) { .clinical-save-conflict-banner { align-items: stretch; flex-direction: column; }.clinical-save-conflict-actions { justify-content: flex-start; flex-wrap: wrap; }.clinical-save-conflict-banner .tool-button { align-self: flex-start; }.clinical-conflict-review-summary { grid-template-columns: 1fr; } }

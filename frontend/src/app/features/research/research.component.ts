@@ -22,13 +22,10 @@ import {
   validateResearchRecord
 } from './research.models';
 import { ResearchApiFailure, ResearchService, normalizeResearchFailure } from './research.service';
-import { ResearchMatchMapComponent } from './research-match-map.component';
-
-type ResearchView = 'clinical-records' | 'match-map';
 
 @Component({
   selector: 'app-research',
-  imports: [FormsModule, ResearchMatchMapComponent],
+  imports: [FormsModule],
   host: {
     class: 'right-tab-panel active angular-research-panel',
     'data-right-panel': 'research',
@@ -39,7 +36,6 @@ type ResearchView = 'clinical-records' | 'match-map';
 })
 export class ResearchComponent implements OnInit, OnDestroy {
   readonly focusRequested = output<{ id: string; date: string; text: string }>();
-  readonly activeView = signal<ResearchView>('clinical-records');
   readonly workspace = inject(PatientWorkspaceService);
   readonly auth = inject(AuthService);
   private readonly research = inject(ResearchService);
@@ -91,26 +87,6 @@ export class ResearchComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
     this.releaseDraft();
-  }
-
-  selectView(view: ResearchView): void {
-    this.activeView.set(view);
-  }
-
-  onViewTabKeydown(event: KeyboardEvent): void {
-    const views: readonly ResearchView[] = ['clinical-records', 'match-map'];
-    const current = views.indexOf(this.activeView());
-    const next = event.key === 'ArrowRight' || event.key === 'End'
-      ? (event.key === 'End' ? views.length - 1 : (current + 1) % views.length)
-      : event.key === 'ArrowLeft' || event.key === 'Home'
-        ? (event.key === 'Home' ? 0 : (current - 1 + views.length) % views.length)
-        : -1;
-    if (next < 0) return;
-    event.preventDefault();
-    this.activeView.set(views[next]!);
-    queueMicrotask(() => this.host.nativeElement
-      .querySelector<HTMLButtonElement>(`.research-view-tabs [aria-selected="true"]`)
-      ?.focus());
   }
 
   loadTemplates(force = false): void {

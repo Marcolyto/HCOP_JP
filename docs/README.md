@@ -123,7 +123,6 @@ Con el sistema iniciado también existe una versión navegable en
 - [Corte Angular 038: editor Examen físico](09-migracion-angular-hexagonal/CORTE-ANGULAR-038-EDITOR-EXAMEN-FISICO.md)
 - [Corte Angular 039: Estudios complementarios coordinados](09-migracion-angular-hexagonal/CORTE-ANGULAR-039-ESTUDIOS-COORDINADOS.md)
 - [Corte Angular 040: paciente de ejemplo sintético](09-migracion-angular-hexagonal/CORTE-ANGULAR-040-PACIENTE-EJEMPLO-SINTETICO.md)
-- [Corte Angular 041: configuración de repositorios oncológicos](09-migracion-angular-hexagonal/CORTE-ANGULAR-041-REPOSITORIOS-ONCOLOGICOS.md)
 
 ## Fuentes de verdad
 

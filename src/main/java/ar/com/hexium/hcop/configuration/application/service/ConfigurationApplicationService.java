@@ -9,7 +9,6 @@ import ar.com.hexium.hcop.configuration.domain.ConfigurationDefinition;
 import ar.com.hexium.hcop.configuration.domain.ConfigurationItem;
 import ar.com.hexium.hcop.configuration.domain.ConfigurationKind;
 import ar.com.hexium.hcop.configuration.domain.ConfigurationVersion;
-import ar.com.hexium.hcop.configuration.domain.TrialConfigurationDefinitionPolicy;
 import ar.com.hexium.hcop.sharedkernel.domain.Revision;
 import java.text.Normalizer;
 import java.time.Instant;
@@ -43,8 +42,6 @@ public final class ConfigurationApplicationService implements ConfigurationManag
   @Override
   public ConfigurationView create(CreateCommand command) {
     ConfigurationKind kind = kind(command.kind());
-    ConfigurationDefinition definition = validatedDefinition(
-        kind, command.definition(), command.active());
     String name = normalize(command.name());
     if (name.isBlank()) {
       throw new ConfigurationFailure(
@@ -60,7 +57,7 @@ public final class ConfigurationApplicationService implements ConfigurationManag
           name,
           normalize(command.description()),
           command.active(),
-          definition,
+          command.definition(),
           command.actorId())));
     } catch (ConfigurationKeyConflictException conflict) {
       throw keyConflict();
@@ -86,7 +83,6 @@ public final class ConfigurationApplicationService implements ConfigurationManag
     ConfigurationDefinition definition = command.definition() == null
         ? current.definition()
         : command.definition();
-    definition = validatedDefinition(kind, definition, active);
     try {
       return view(store.update(new ItemUpdate(
           current.id(),
@@ -212,32 +208,6 @@ public final class ConfigurationApplicationService implements ConfigurationManag
 
   private ConfigurationFailure notFound(String message) {
     return new ConfigurationFailure(ConfigurationFailure.Type.NOT_FOUND, message);
-  }
-
-  private ConfigurationDefinition validatedDefinition(
-      ConfigurationKind kind,
-      ConfigurationDefinition definition,
-      boolean active) {
-    if (definition == null) {
-      throw new ConfigurationFailure(
-          ConfigurationFailure.Type.INVALID,
-          "La definición es obligatoria.",
-          "CONFIGURATION_DEFINITION_REQUIRED");
-    }
-    try {
-      ConfigurationDefinition canonical =
-          TrialConfigurationDefinitionPolicy.validateAndCanonicalize(kind, definition);
-      TrialConfigurationDefinitionPolicy.validateActivation(kind, canonical, active);
-      return canonical;
-    } catch (TrialConfigurationDefinitionPolicy.ConfigurationDefinitionException invalid) {
-      String code = kind == ConfigurationKind.TRIAL_SOURCE
-          ? "TRIAL_SOURCE_DEFINITION_INVALID"
-          : "TRIAL_SCREENING_SETTINGS_INVALID";
-      throw new ConfigurationFailure(
-          ConfigurationFailure.Type.INVALID,
-          invalid.getMessage(),
-          code);
-    }
   }
 
   private String normalize(String value) {

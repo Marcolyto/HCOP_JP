@@ -4,17 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import ar.com.hexium.hcop.catalog.AjccCatalogController;
 import ar.com.hexium.hcop.catalog.LegacyCatalogController;
-import ar.com.hexium.hcop.configuration.infrastructure.web.ConfigurationController;
 import ar.com.hexium.hcop.tools.infrastructure.web.CalculatorCatalogController;
 import ar.com.hexium.hcop.integration.LlmController;
 import ar.com.hexium.hcop.integration.LlmController.AgentChatRequest;
 import ar.com.hexium.hcop.patient.ClinicalDocumentController;
-import ar.com.hexium.hcop.trialscreening.TrialScreeningPreferenceController;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
-import io.swagger.v3.oas.models.parameters.Parameter;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.method.HandlerMethod;
@@ -29,11 +26,7 @@ class OpenApiConfigurationTest {
     new OpenApiConfiguration().reusableSchemas().customise(openApi);
 
     assertThat(openApi.getComponents().getSchemas())
-        .containsKeys(
-            "ApiError",
-            "AuthenticationRequired",
-            "TrialScreeningPreferenceResponse",
-            "TrialScreeningPreferenceUpdate");
+        .containsKeys("ApiError", "AuthenticationRequired");
     assertThat(openApi.getComponents().getSchemas().get("ApiError").getRequired())
         .containsExactlyInAnyOrder("ok", "error", "status");
     assertThat(openApi.getComponents().getSchemas().get("AuthenticationRequired").getRequired())
@@ -44,14 +37,6 @@ class OpenApiConfigurationTest {
             "error",
             "code",
             "status");
-    var update = openApi.getComponents().getSchemas().get("TrialScreeningPreferenceUpdate");
-    assertThat(update.getAdditionalProperties()).isEqualTo(false);
-    var expectedRevision = (io.swagger.v3.oas.models.media.Schema<?>)
-        update.getProperties().get("expectedRevision");
-    assertThat(expectedRevision.getFormat()).isEqualTo("int64");
-    assertThat(expectedRevision.getMinimum()).isEqualByComparingTo(java.math.BigDecimal.ZERO);
-    assertThat(expectedRevision.getMaximum())
-        .isEqualByComparingTo(java.math.BigDecimal.valueOf(Long.MAX_VALUE));
   }
 
   @Test
@@ -212,64 +197,6 @@ class OpenApiConfigurationTest {
         .isEqualTo("section.tools.use");
     assertThat(operation.getSummary()).isEqualTo("Listar calculadoras operativas");
     assertThat(operation.getSecurity()).isNotEmpty();
-  }
-
-  @Test
-  void documentaLosKindsDeFuentesExternasYLaPoliticaLocal() throws Exception {
-    ConfigurationController controller = new ConfigurationController(null, null, null);
-    HandlerMethod list = new HandlerMethod(
-        controller,
-        ConfigurationController.class.getDeclaredMethod(
-            "list", String.class, int.class, HttpServletRequest.class));
-    Operation operation = operationWithSuccess()
-        .addParametersItem(new Parameter().name("kind"));
-
-    new OpenApiConfiguration().documentedOperations().customize(operation, list);
-
-    assertThat(operation.getDescription())
-        .contains("trial-source", "trial-screening-settings", "ejecución local");
-    assertThat(operation.getParameters().getFirst().getDescription())
-        .contains("trial-source", "trial-screening-settings");
-    assertThat(operation.getExtensions().get("x-hcop-permission"))
-        .isEqualTo("section.configuration.view");
-  }
-
-  @Test
-  void documentaLaPreferenciaSelfOnlyDeInvestigacionSinFingirMatching() throws Exception {
-    TrialScreeningPreferenceController controller =
-        new TrialScreeningPreferenceController(null, null);
-    HandlerMethod get = new HandlerMethod(
-        controller,
-        TrialScreeningPreferenceController.class.getDeclaredMethod(
-            "me", HttpServletRequest.class));
-    HandlerMethod put = new HandlerMethod(
-        controller,
-        TrialScreeningPreferenceController.class.getDeclaredMethod(
-            "update", JsonNode.class, HttpServletRequest.class));
-    Operation getOperation = operationWithSuccess();
-    Operation putOperation = operationWithSuccess();
-    OpenApiConfiguration configuration = new OpenApiConfiguration();
-
-    configuration.documentedOperations().customize(getOperation, get);
-    configuration.documentedOperations().customize(putOperation, put);
-
-    assertThat(getOperation.getSummary())
-        .isEqualTo("Consultar preferencia personal de investigación");
-    assertThat(getOperation.getTags()).containsExactly("Investigación");
-    assertThat(getOperation.getExtensions().get("x-hcop-permission"))
-        .isEqualTo("section.research.view");
-    assertThat(getOperation.getResponses().get("200").getContent()
-        .get("application/json").getSchema().get$ref())
-        .isEqualTo("#/components/schemas/TrialScreeningPreferenceResponse");
-    assertThat(putOperation.getRequestBody().getContent()
-        .get("application/json").getSchema().get$ref())
-        .isEqualTo("#/components/schemas/TrialScreeningPreferenceUpdate");
-    assertThat(putOperation.getResponses().get("200").getContent()
-        .get("application/json").getSchema().get$ref())
-        .isEqualTo("#/components/schemas/TrialScreeningPreferenceResponse");
-    assertThat(putOperation.getDescription())
-        .contains("expectedRevision", "nunca admite un userId", "consulta manual");
-    assertThat(putOperation.getResponses()).containsKeys("400", "401", "403", "409");
   }
 
   @Test

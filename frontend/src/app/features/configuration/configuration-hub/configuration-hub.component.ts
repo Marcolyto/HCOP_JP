@@ -16,12 +16,10 @@ import { ConfigurationCatalogSection } from '../catalogs/configuration-catalogs.
 import { ConfigurationCatalogsComponent } from '../catalogs/configuration-catalogs.component';
 import { ConfigurationOperationsComponent } from '../operations/configuration-operations.component';
 import { OperationsSection } from '../operations/configuration-operations.models';
-import { OncologyRepositoriesComponent } from '../oncology-repositories/oncology-repositories.component';
 import { ProtocolConfigurationComponent } from '../protocols/protocol-configuration.component';
 
 export type ConfigurationHubTab =
   | 'protocols'
-  | 'repositories'
   | 'diagnoses'
   | 'guides'
   | 'templates'
@@ -44,7 +42,6 @@ interface HubTabDescriptor {
 
 const HUB_TABS: readonly HubTabDescriptor[] = [
   { id: 'protocols', label: 'Protocolos', shortLabel: 'Protocolos', description: 'Esquemas, drogas y tiempos', icon: 'protocol' },
-  { id: 'repositories', label: 'Repositorios oncológicos', shortLabel: 'Repositorios', description: 'Fuentes y preselección local', icon: 'repositories' },
   { id: 'diagnoses', label: 'Diagnósticos', shortLabel: 'Diagnósticos', description: 'SNOMED, CIE-10 y AJCC', icon: 'diagnosis' },
   { id: 'guides', label: 'Guías', shortLabel: 'Guías', description: 'Documentos clínicos', icon: 'guides' },
   { id: 'templates', label: 'Plantillas', shortLabel: 'Plantillas', description: 'Imágenes anatómicas', icon: 'templates' },
@@ -75,7 +72,6 @@ const OPERATIONS_TABS: Readonly<Partial<Record<ConfigurationHubTab, OperationsSe
     CommonModule,
     RouterLink,
     ProtocolConfigurationComponent,
-    OncologyRepositoriesComponent,
     ConfigurationCatalogsComponent,
     ConfigurationOperationsComponent
   ],
@@ -91,7 +87,6 @@ export class ConfigurationHubComponent implements AfterViewInit, OnDestroy {
   private viewReady = false;
 
   @ViewChild(ProtocolConfigurationComponent) private protocols?: ProtocolConfigurationComponent;
-  @ViewChild(OncologyRepositoriesComponent) private repositories?: OncologyRepositoriesComponent;
   @ViewChild(ConfigurationCatalogsComponent) private catalogs?: ConfigurationCatalogsComponent;
   @ViewChild(ConfigurationOperationsComponent) private operations?: ConfigurationOperationsComponent;
 
@@ -143,10 +138,6 @@ export class ConfigurationHubComponent implements AfterViewInit, OnDestroy {
       this.protocols?.reload();
       return;
     }
-    if (tab === 'repositories') {
-      this.repositories?.reload();
-      return;
-    }
     const catalog = CATALOG_TABS[tab];
     if (catalog) {
       if (!this.catalogs?.confirmDiscardChanges('Actualizar descartará los cambios que todavía no guardó. ¿Desea continuar?')) return;
@@ -164,7 +155,6 @@ export class ConfigurationHubComponent implements AfterViewInit, OnDestroy {
 
   panelId(tab: ConfigurationHubTab): string {
     if (tab === 'protocols') return 'configuration-panel-protocols';
-    if (tab === 'repositories') return 'configuration-panel-repositories';
     if (CATALOG_TABS[tab]) return 'configuration-panel-catalogs';
     return 'configuration-panel-operations';
   }
@@ -190,7 +180,6 @@ export class ConfigurationHubComponent implements AfterViewInit, OnDestroy {
   private canLeaveCurrentTab(): boolean {
     const tab = this.activeTab();
     if (tab === 'protocols') return this.protocols?.confirmDiscardAndRestore() ?? true;
-    if (tab === 'repositories') return this.repositories?.confirmDiscardAndRestore() ?? true;
     const catalog = CATALOG_TABS[tab];
     if (catalog) return this.catalogs?.confirmDiscardChanges() ?? true;
     const operation = OPERATIONS_TABS[tab];
@@ -200,7 +189,6 @@ export class ConfigurationHubComponent implements AfterViewInit, OnDestroy {
   private hasUnsavedChangesInCurrentTab(): boolean {
     const tab = this.activeTab();
     if (tab === 'protocols') return this.protocols?.hasUnsavedChanges() ?? false;
-    if (tab === 'repositories') return this.repositories?.hasUnsavedChanges() ?? false;
     const catalog = CATALOG_TABS[tab];
     if (catalog) return this.catalogs?.hasUnsavedChanges() ?? false;
     const operation = OPERATIONS_TABS[tab];

@@ -60,10 +60,6 @@ public class AuthInterceptor implements HandlerInterceptor {
    * el mismo control como segunda barrera.
    */
   private String earlyPermission(String path, String method) {
-    if (("GET".equalsIgnoreCase(method) || "PUT".equalsIgnoreCase(method))
-        && "/api/clinical/trial-screening/me".equals(path)) {
-      return "section.research.view";
-    }
     if ("POST".equalsIgnoreCase(method) && "/api/agent/chat".equals(path)) {
       return "section.agent.view";
     }

@@ -27,7 +27,6 @@
           <span class="tab-icon" aria-hidden="true">
             @switch (tab.icon) {
               @case ('protocol') { <svg viewBox="0 0 24 24"><path d="M5 3h14v18H5z"></path><path d="M8 7h8M8 11h8M8 15h5"></path></svg> }
-              @case ('repositories') { <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"></ellipse><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"></path></svg> }
               @case ('diagnosis') { <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4M11 8v6M8 11h6"></path></svg> }
               @case ('guides') { <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5z"></path><path d="M8 8h8M8 12h6"></path></svg> }
               @case ('templates') { <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-4-4L5 21"></path></svg> }
@@ -47,11 +46,6 @@
       <div class="configuration-panel" id="configuration-panel-protocols" role="tabpanel"
         [class.active]="activeTab() === 'protocols'" [attr.aria-hidden]="activeTab() !== 'protocols'">
         <app-protocol-configuration [embedded]="true" [autoLoad]="true" [canEdit]="canEditProtocols()" />
-      </div>
-
-      <div class="configuration-panel" id="configuration-panel-repositories" role="tabpanel"
-        [class.active]="activeTab() === 'repositories'" [attr.aria-hidden]="activeTab() !== 'repositories'">
-        <app-oncology-repositories [canManage]="canManage()" />
       </div>
 
       <div class="configuration-panel" id="configuration-panel-catalogs" role="tabpanel"

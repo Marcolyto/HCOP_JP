@@ -29,21 +29,7 @@ class DatabaseMigrationResourceTest {
                         "V009__workflow_safety_and_legacy_trace.sql",
                         "V010__treatment_creation_idempotency.sql",
                         "V011__preparation_component_trace.sql",
-                        "V012__patient_seed_identity.sql",
-                        "V013__user_research_preferences.sql");
-    }
-
-    @Test
-    void userResearchPreferenceIsPersonalAndOptimisticallyVersioned() throws Exception {
-        String sql = new ClassPathResource(
-                "db/migration/V013__user_research_preferences.sql")
-                .getContentAsString(StandardCharsets.UTF_8);
-
-        assertThat(sql)
-                .contains("CREATE TABLE local_user_preferences")
-                .contains("user_id bigint PRIMARY KEY REFERENCES local_users(id) ON DELETE CASCADE")
-                .contains("research_active boolean NOT NULL DEFAULT false")
-                .contains("revision bigint NOT NULL DEFAULT 1 CHECK (revision > 0)");
+                        "V012__patient_seed_identity.sql");
     }
 
     @Test

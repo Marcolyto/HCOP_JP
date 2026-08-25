@@ -1,43 +1,37 @@
 package ar.com.hexium.hcop.config;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Map;
+import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Desde el corte de infraestructura (F0) el backend deja de servir el frontend: nginx replica los
+ * redirects legacy y sirve los estáticos (ver {@code frontend/nginx.conf}). Este test es el
+ * guardián de que el corte se mantiene — que {@code WebConfiguration} no vuelva a acumular esas
+ * responsabilidades y que el classpath no vuelva a traer un {@code static/} embebido.
+ */
 class WebConfigurationRoutingTest {
   @Test
-  void rootAndHistoricalApplicationAliasesEnterTheNativeAngularFrontend() {
-    Map<String, String> redirects = WebConfiguration.ANGULAR_ENTRY_REDIRECTS;
+  void webConfigurationOnlyRegistersTheAuthInterceptor() {
+    Method[] declared = WebConfiguration.class.getDeclaredMethods();
+    boolean declaresViewControllers =
+        java.util.Arrays.stream(declared).anyMatch(m -> m.getName().equals("addViewControllers"));
+    boolean declaresResourceHandlers =
+        java.util.Arrays.stream(declared).anyMatch(m -> m.getName().equals("addResourceHandlers"));
 
-    assertEquals("/app/", redirects.get("/"));
-    assertEquals("/app/", redirects.get("/index.html"));
-    assertEquals("/app/", redirects.get("/app"));
-    assertEquals("/app/#/configuration", redirects.get("/configuration"));
-    assertEquals("/app/#/configuration", redirects.get("/configuration/index.html"));
-    assertEquals(
-        "/app/#/configuration?tab=protocols",
-        redirects.get("/protocol-admin/index.html"));
-    assertEquals("/app/#/herramientas", redirects.get("/herramientas/index.html"));
-    assertTrue(redirects.values().stream().allMatch(target -> target.startsWith("/app/")));
-    assertFalse(redirects.values().stream().anyMatch(target ->
-        target.contains("configuration/index.html")
-            || target.contains("protocol-admin/index.html")
-            || target.contains("herramientas/index.html")));
+    assertFalse(declaresViewControllers, "el backend ya no redirige rutas de entrada al frontend");
+    assertFalse(declaresResourceHandlers, "el backend ya no sirve estáticos del frontend");
   }
 
   @Test
-  void technicalAndDocumentationRoutesAreNotCapturedByApplicationRedirects() {
-    Map<String, String> redirects = WebConfiguration.ANGULAR_ENTRY_REDIRECTS;
-
-    assertFalse(redirects.containsKey("/api"));
-    assertFalse(redirects.containsKey("/api/clinical/status"));
-    assertFalse(redirects.containsKey("/swagger-ui.html"));
-    assertFalse(redirects.containsKey("/v3/api-docs"));
-    assertFalse(redirects.containsKey("/actuator/health"));
-    assertFalse(redirects.containsKey("/docs"));
-    assertFalse(redirects.containsKey("/docs/"));
+  void classpathHasNoEmbeddedFrontend() {
+    Path staticDir = Path.of("src/main/resources/static");
+    assertTrue(
+        Files.notExists(staticDir),
+        "src/main/resources/static no debe reaparecer: el frontend vive en frontend/ y lo sirve nginx");
   }
 }

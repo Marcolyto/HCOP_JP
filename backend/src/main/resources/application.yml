@@ -40,9 +40,7 @@ spring:
       fail-on-unknown-properties: false
   web:
     resources:
-      cache:
-        cachecontrol:
-          no-cache: true
+      add-mappings: false
 management:
   endpoints:
     web:

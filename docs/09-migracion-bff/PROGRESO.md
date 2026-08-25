@@ -9,8 +9,8 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
 
 ## F0 — Separar en 3 servicios Docker (sin BFF, sin tocar auth)
 
-- [ ] F0.1 — git mv (backend/, frontend/public, legacy-reference/)
-- [ ] F0.2 — Backend deja de servir el frontend (WebConfiguration, pom.xml, Dockerfile, StudyTemplateController)
+- [x] F0.1 — git mv (backend/, frontend/public, legacy-reference/) — commit 7b42e91
+- [x] F0.2 — Backend deja de servir el frontend (WebConfiguration, pom.xml, Dockerfile, StudyTemplateController) — 308 tests verdes
 - [ ] F0.3 — frontend/Dockerfile + frontend/nginx.conf + scripts de contrato visual
 - [ ] F0.4 — compose.yaml/.github/.e2e/.validation + scripts (backup/restore/instalar) + CI
 - [ ] F0.5 — Verificación F0 (gates completos, ver plan)

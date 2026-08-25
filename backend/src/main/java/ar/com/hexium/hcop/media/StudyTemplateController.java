@@ -7,11 +7,12 @@ import ar.com.hexium.hcop.configuration.ConfigurationService;
 import ar.com.hexium.hcop.media.ClinicalFileRepository.StoredFile;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,6 +30,7 @@ public class StudyTemplateController {
   private final AuthContext auth;
   private final ObjectMapper mapper;
   private final long maxImageBytes;
+  private final Path manifestPath;
 
   public StudyTemplateController(
       ConfigurationService configurations,
@@ -41,6 +43,7 @@ public class StudyTemplateController {
     this.auth = auth;
     this.mapper = mapper;
     this.maxImageBytes = properties.maxImageBytes();
+    this.manifestPath = properties.catalogRoot().resolve("study-templates").resolve("manifest.json");
   }
 
   @GetMapping("/api/study-templates")
@@ -160,8 +163,7 @@ public class StudyTemplateController {
 
   private JsonNode manifest() {
     try {
-      ClassPathResource resource = new ClassPathResource("static/assets/study-templates/manifest.json");
-      return mapper.readTree(resource.getInputStream());
+      return mapper.readTree(Files.newInputStream(manifestPath));
     } catch (IOException error) {
       throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo abrir la biblioteca anatómica.");
     }

@@ -99,27 +99,6 @@
   <build>
     <directory>${hcop.build.directory}</directory>
     <finalName>${build.finalName}</finalName>
-    <resources>
-      <resource>
-        <directory>src/main/resources</directory>
-        <excludes>
-          <!-- El frontend anterior queda disponible como referencia de paridad,
-               pero nunca forma parte del artefacto ejecutable. -->
-          <exclude>static/index.html</exclude>
-          <exclude>static/app.js</exclude>
-          <exclude>static/configuration/index.html</exclude>
-          <exclude>static/configuration/**/*.js</exclude>
-          <exclude>static/protocol-admin/index.html</exclude>
-          <exclude>static/protocol-admin/**/*.js</exclude>
-          <exclude>static/herramientas/index.html</exclude>
-          <exclude>static/herramientas/pages/**/*.html</exclude>
-          <exclude>static/herramientas/**/*.js</exclude>
-          <exclude>static/help/help.js</exclude>
-          <exclude>static/help/help-content.js</exclude>
-          <exclude>static/__clone/**</exclude>
-        </excludes>
-      </resource>
-    </resources>
     <plugins>
       <plugin>
         <groupId>org.springframework.boot</groupId>

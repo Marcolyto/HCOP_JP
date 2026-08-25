@@ -1,30 +1,18 @@
 # syntax=docker/dockerfile:1.7
-FROM node:24-alpine AS frontend-build
-WORKDIR /workspace/frontend
-COPY frontend/package.json frontend/package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci
-COPY frontend ./
-# El CSS, iconografía y activos clínicos vigentes siguen siendo autoridad visual
-# durante la migración, pero Angular no ejecuta app.js ni usa iframes.
-COPY src/main/resources/static ./src/main/resources/static
-RUN npm test && npm run build
-
 FROM maven:3.9.11-eclipse-temurin-21 AS build
 WORKDIR /workspace
 COPY pom.xml .
 RUN --mount=type=cache,target=/root/.m2 mvn -B -DskipTests dependency:go-offline
 COPY src ./src
 COPY runtime/catalogs ./runtime/catalogs
-COPY --from=frontend-build /workspace/frontend/dist/hcop-jp-angular/browser ./src/main/resources/static/app
 RUN --mount=type=cache,target=/root/.m2 mvn -B test && mvn -B -DskipTests package
-# Defensa de empaquetado: el contenedor puede incluir documentación y librerías
-# de terceros, pero nunca HTML o JavaScript ejecutable del frontend anterior.
-RUN ! jar tf target/hcop-jp.jar | grep -E 'BOOT-INF/classes/static/(index\.html|app\.js|configuration/(index\.html|.*\.js)|protocol-admin/(index\.html|.*\.js)|herramientas/(index\.html|pages/.*\.html|.*\.js)|help/(help|help-content)\.js|__clone/.*)$'
+# Defensa de empaquetado: el backend es API pura, nunca debe llevar estáticos del frontend.
+RUN ! jar tf target/hcop-jp.jar | grep -q '^BOOT-INF/classes/static/'
 
 FROM eclipse-temurin:21-jre-jammy AS runtime
 ARG APP_VERSION=dev
-LABEL org.opencontainers.image.title="HCOP JP" \
-      org.opencontainers.image.description="Historia clínica oncológica y Hospital de Día" \
+LABEL org.opencontainers.image.title="HCOP JP Backend" \
+      org.opencontainers.image.description="API de historia clínica oncológica y Hospital de Día" \
       org.opencontainers.image.version="${APP_VERSION}" \
       org.opencontainers.image.source="https://github.com/Marcolyto/HCOP_JP"
 

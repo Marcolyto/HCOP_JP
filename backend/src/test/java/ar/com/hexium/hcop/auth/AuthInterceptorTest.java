@@ -1,13 +1,8 @@
 package ar.com.hexium.hcop.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
-import ar.com.hexium.hcop.config.HcopProperties;
-import jakarta.servlet.http.Cookie;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -17,22 +12,19 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+/**
+ * F2.8: quién resuelve el principal es {@code JwtAuthenticationFilter} — este interceptor solo
+ * gatea autorización leyendo {@code AuthContext.PRINCIPAL_ATTRIBUTE}, que estos tests simulan
+ * seteando el atributo directo en el request, tal como haría el filtro real antes de llegar acá.
+ */
 class AuthInterceptorTest {
-  private final AuthService auth = mock(AuthService.class);
-  private final HcopProperties properties = mock(HcopProperties.class);
   private final ObjectMapper mapper = new ObjectMapper();
-  private final AuthInterceptor interceptor;
-
-  AuthInterceptorTest() {
-    when(properties.sessionCookieName()).thenReturn("HCOP_SESSION");
-    interceptor = new AuthInterceptor(auth, mapper, properties, "cookie");
-  }
+  private final AuthInterceptor interceptor = new AuthInterceptor(mapper);
 
   @Test
   void rechazaAgenteAntesDelBindingSiLaSesionNoTienePermiso() throws Exception {
-    MockHttpServletRequest request = agentRequest();
+    MockHttpServletRequest request = agentRequest(Set.of());
     MockHttpServletResponse response = new MockHttpServletResponse();
-    when(auth.authenticate("token-low-role")).thenReturn(Optional.of(principal(Set.of())));
 
     boolean allowed = interceptor.preHandle(request, response, new Object());
 
@@ -44,23 +36,18 @@ class AuthInterceptorTest {
 
   @Test
   void permiteAgenteAntesDelBindingConPermisoEspecifico() throws Exception {
-    MockHttpServletRequest request = agentRequest();
+    MockHttpServletRequest request = agentRequest(Set.of("section.agent.view"));
     MockHttpServletResponse response = new MockHttpServletResponse();
-    when(auth.authenticate("token-low-role"))
-        .thenReturn(Optional.of(principal(Set.of("section.agent.view"))));
 
     boolean allowed = interceptor.preHandle(request, response, new Object());
 
     assertThat(allowed).isTrue();
-    assertThat(request.getAttribute(AuthContext.PRINCIPAL_ATTRIBUTE))
-        .isInstanceOf(SessionPrincipal.class);
   }
 
   @Test
   void conservaElRechazoDeSesionAusente() throws Exception {
-    MockHttpServletRequest request = agentRequest();
+    MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/agent/chat");
     MockHttpServletResponse response = new MockHttpServletResponse();
-    when(auth.authenticate("token-low-role")).thenReturn(Optional.empty());
 
     boolean allowed = interceptor.preHandle(request, response, new Object());
 
@@ -74,9 +61,8 @@ class AuthInterceptorTest {
   @ValueSource(strings = {"/api/protocols", "/api/protocols/detail"})
   void rechazaCatalogosCompatiblesAntesDelControladorSinPermiso(String path)
       throws Exception {
-    MockHttpServletRequest request = authenticatedRequest("GET", path);
+    MockHttpServletRequest request = authenticatedRequest("GET", path, Set.of());
     MockHttpServletResponse response = new MockHttpServletResponse();
-    when(auth.authenticate("token-low-role")).thenReturn(Optional.of(principal(Set.of())));
 
     boolean allowed = interceptor.preHandle(request, response, new Object());
 
@@ -89,24 +75,19 @@ class AuthInterceptorTest {
   @ParameterizedTest
   @ValueSource(strings = {"/api/protocols", "/api/protocols/detail"})
   void permiteCatalogosCompatiblesConLecturaDeProtocolos(String path) throws Exception {
-    MockHttpServletRequest request = authenticatedRequest("GET", path);
+    MockHttpServletRequest request = authenticatedRequest("GET", path, Set.of("section.protocols.view"));
     MockHttpServletResponse response = new MockHttpServletResponse();
-    when(auth.authenticate("token-low-role"))
-        .thenReturn(Optional.of(principal(Set.of("section.protocols.view"))));
 
     boolean allowed = interceptor.preHandle(request, response, new Object());
 
     assertThat(allowed).isTrue();
-    assertThat(request.getAttribute(AuthContext.PRINCIPAL_ATTRIBUTE))
-        .isInstanceOf(SessionPrincipal.class);
   }
 
   @ParameterizedTest
   @ValueSource(strings = {"/api/ajcc8", "/api/ajcc8/detail"})
   void rechazaAjccAntesDelControladorSinLecturaDeHerramientas(String path) throws Exception {
-    MockHttpServletRequest request = authenticatedRequest("GET", path);
+    MockHttpServletRequest request = authenticatedRequest("GET", path, Set.of());
     MockHttpServletResponse response = new MockHttpServletResponse();
-    when(auth.authenticate("token-low-role")).thenReturn(Optional.of(principal(Set.of())));
 
     boolean allowed = interceptor.preHandle(request, response, new Object());
 
@@ -119,10 +100,8 @@ class AuthInterceptorTest {
   @ParameterizedTest
   @ValueSource(strings = {"/api/ajcc8", "/api/ajcc8/detail"})
   void permiteAjccConLecturaDeHerramientas(String path) throws Exception {
-    MockHttpServletRequest request = authenticatedRequest("GET", path);
+    MockHttpServletRequest request = authenticatedRequest("GET", path, Set.of("section.tools.view"));
     MockHttpServletResponse response = new MockHttpServletResponse();
-    when(auth.authenticate("token-low-role"))
-        .thenReturn(Optional.of(principal(Set.of("section.tools.view"))));
 
     boolean allowed = interceptor.preHandle(request, response, new Object());
 
@@ -131,12 +110,10 @@ class AuthInterceptorTest {
 
   @Test
   void rechazaCalculoAjccAntesDeMaterializarElBodySinPermisoDeUso() throws Exception {
-    MockHttpServletRequest request = authenticatedRequest("POST", "/api/ajcc8/stage");
+    MockHttpServletRequest request = authenticatedRequest("POST", "/api/ajcc8/stage", Set.of("section.tools.view"));
     request.setContentType("application/json");
     request.setContent("{contenido-invalido".getBytes(java.nio.charset.StandardCharsets.UTF_8));
     MockHttpServletResponse response = new MockHttpServletResponse();
-    when(auth.authenticate("token-low-role"))
-        .thenReturn(Optional.of(principal(Set.of("section.tools.view"))));
 
     boolean allowed = interceptor.preHandle(request, response, new Object());
 
@@ -148,10 +125,8 @@ class AuthInterceptorTest {
 
   @Test
   void permiteCalculoAjccConPermisoDeUsoDeHerramientas() throws Exception {
-    MockHttpServletRequest request = authenticatedRequest("POST", "/api/ajcc8/stage");
+    MockHttpServletRequest request = authenticatedRequest("POST", "/api/ajcc8/stage", Set.of("section.tools.use"));
     MockHttpServletResponse response = new MockHttpServletResponse();
-    when(auth.authenticate("token-low-role"))
-        .thenReturn(Optional.of(principal(Set.of("section.tools.use"))));
 
     boolean allowed = interceptor.preHandle(request, response, new Object());
 
@@ -160,10 +135,9 @@ class AuthInterceptorTest {
 
   @Test
   void rechazaCatalogoOperativoDeCalculadorasSinPermisoDeUso() throws Exception {
-    MockHttpServletRequest request = authenticatedRequest("GET", "/api/clinical/tools/calculators");
+    MockHttpServletRequest request =
+        authenticatedRequest("GET", "/api/clinical/tools/calculators", Set.of("section.tools.view"));
     MockHttpServletResponse response = new MockHttpServletResponse();
-    when(auth.authenticate("token-low-role"))
-        .thenReturn(Optional.of(principal(Set.of("section.tools.view"))));
 
     boolean allowed = interceptor.preHandle(request, response, new Object());
 
@@ -175,10 +149,9 @@ class AuthInterceptorTest {
 
   @Test
   void permiteCatalogoOperativoDeCalculadorasConPermisoDeUso() throws Exception {
-    MockHttpServletRequest request = authenticatedRequest("GET", "/api/clinical/tools/calculators");
+    MockHttpServletRequest request =
+        authenticatedRequest("GET", "/api/clinical/tools/calculators", Set.of("section.tools.use"));
     MockHttpServletResponse response = new MockHttpServletResponse();
-    when(auth.authenticate("token-low-role"))
-        .thenReturn(Optional.of(principal(Set.of("section.tools.use"))));
 
     boolean allowed = interceptor.preHandle(request, response, new Object());
 
@@ -186,79 +159,31 @@ class AuthInterceptorTest {
   }
 
   @Test
-  void aceptaElTokenPorAuthorizationBearerParaElProxyDelBff() throws Exception {
-    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/protocols");
-    request.addHeader("Authorization", "Bearer token-low-role");
-    MockHttpServletResponse response = new MockHttpServletResponse();
-    when(auth.authenticate("token-low-role"))
-        .thenReturn(Optional.of(principal(Set.of("section.protocols.view"))));
-    when(auth.sha256("token-low-role")).thenReturn("hash-low-role");
-
-    boolean allowed = interceptor.preHandle(request, response, new Object());
-
-    assertThat(allowed).isTrue();
-    assertThat(request.getAttribute(AuthContext.SESSION_ID_ATTRIBUTE)).isEqualTo("hash-low-role");
-  }
-
-  @Test
-  void prefiereAuthorizationBearerPorEncimaDeLaCookieSiAmbasVienen() throws Exception {
-    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/protocols");
-    request.addHeader("Authorization", "Bearer token-bearer");
-    request.setCookies(new Cookie("HCOP_SESSION", "token-cookie"));
-    MockHttpServletResponse response = new MockHttpServletResponse();
-    when(auth.authenticate("token-bearer"))
-        .thenReturn(Optional.of(principal(Set.of("section.protocols.view"))));
-    when(auth.sha256("token-bearer")).thenReturn("hash-bearer");
-
-    boolean allowed = interceptor.preHandle(request, response, new Object());
-
-    assertThat(allowed).isTrue();
-    assertThat(request.getAttribute(AuthContext.SESSION_ID_ATTRIBUTE)).isEqualTo("hash-bearer");
-  }
-
-  @Test
-  void ignoraUnEncabezadoAuthorizationSinEsquemaBearer() throws Exception {
-    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/protocols");
-    request.addHeader("Authorization", "Basic dXNlcjpwYXNz");
-    MockHttpServletResponse response = new MockHttpServletResponse();
-    when(auth.authenticate("")).thenReturn(Optional.empty());
-
-    boolean allowed = interceptor.preHandle(request, response, new Object());
-
-    assertThat(allowed).isFalse();
-    assertThat(response.getStatus()).isEqualTo(401);
-  }
-
-  @Test
-  void enModoCookieLogoutSigueExigiendoSesionValida() throws Exception {
-    AuthInterceptor cookieInterceptor = new AuthInterceptor(auth, mapper, properties, "cookie");
+  void logoutEsPublicoAunqueNoHayaSesionResuelta() throws Exception {
     MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/logout");
     MockHttpServletResponse response = new MockHttpServletResponse();
 
-    boolean allowed = cookieInterceptor.preHandle(request, response, new Object());
-
-    assertThat(allowed).isFalse();
-    assertThat(response.getStatus()).isEqualTo(401);
-  }
-
-  @Test
-  void enModoJwtLogoutEsPublicoPorqueNoHayFiltroJwtTodavia() throws Exception {
-    AuthInterceptor jwtInterceptor = new AuthInterceptor(auth, mapper, properties, "jwt");
-    MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/logout");
-    MockHttpServletResponse response = new MockHttpServletResponse();
-
-    boolean allowed = jwtInterceptor.preHandle(request, response, new Object());
+    boolean allowed = interceptor.preHandle(request, response, new Object());
 
     assertThat(allowed).isTrue();
   }
 
-  private MockHttpServletRequest agentRequest() {
-    return authenticatedRequest("POST", "/api/agent/chat");
+  @Test
+  void loginYRefreshSonPublicos() throws Exception {
+    MockHttpServletRequest login = new MockHttpServletRequest("POST", "/api/auth/login");
+    MockHttpServletRequest refresh = new MockHttpServletRequest("POST", "/api/auth/refresh");
+
+    assertThat(interceptor.preHandle(login, new MockHttpServletResponse(), new Object())).isTrue();
+    assertThat(interceptor.preHandle(refresh, new MockHttpServletResponse(), new Object())).isTrue();
   }
 
-  private MockHttpServletRequest authenticatedRequest(String method, String path) {
+  private MockHttpServletRequest agentRequest(Set<String> permissions) {
+    return authenticatedRequest("POST", "/api/agent/chat", permissions);
+  }
+
+  private MockHttpServletRequest authenticatedRequest(String method, String path, Set<String> permissions) {
     MockHttpServletRequest request = new MockHttpServletRequest(method, path);
-    request.setCookies(new Cookie("HCOP_SESSION", "token-low-role"));
+    request.setAttribute(AuthContext.PRINCIPAL_ATTRIBUTE, principal(permissions));
     return request;
   }
 

@@ -1,34 +1,34 @@
 package ar.com.hexium.hcop.auth;
 
 import ar.com.hexium.hcop.common.ApiException;
-import ar.com.hexium.hcop.config.HcopProperties;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.HexFormat;
-import java.util.Optional;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Token Handler JWT (F2.8 — el modo cookie/opaco se eliminó junto con {@code local_sessions},
+ * ver {@code V014}). La sesión vive en {@code local_session_state} (claim {@code sid}); el
+ * cliente solo recibe el par access+refresh, nunca {@code Set-Cookie} — quien guarda eso es el
+ * BFF (F2.7.5), no el navegador.
+ */
 @Service
 public class AuthService {
   private final AuthRepository repository;
   private final PasswordService passwords;
-  private final HcopProperties properties;
   private final Clock clock;
   private final TokenIssuer tokens;
   private final JwtProperties jwtProperties;
   private final SessionStateRepository sessions;
   private final RefreshTokenRepository refreshTokens;
-  private final SecureRandom random = new SecureRandom();
   private final String bootstrapUsername;
   private final String bootstrapPassword;
   private final String bootstrapEmail;
@@ -37,7 +37,6 @@ public class AuthService {
   public AuthService(
       AuthRepository repository,
       PasswordService passwords,
-      HcopProperties properties,
       Clock clock,
       TokenIssuer tokens,
       JwtProperties jwtProperties,
@@ -49,7 +48,6 @@ public class AuthService {
       @Value("${HCOP_BOOTSTRAP_SECOND_USERNAME:marcolyto2}") String secondaryUsername) {
     this.repository = repository;
     this.passwords = passwords;
-    this.properties = properties;
     this.clock = clock;
     this.tokens = tokens;
     this.jwtProperties = jwtProperties;
@@ -92,87 +90,7 @@ public class AuthService {
   }
 
   @Transactional
-  public LoginResult login(String identifier, String password, String clientAddress, String userAgent) {
-    Instant now = clock.instant();
-    repository.removeExpired(now);
-    AuthRepository.UserCredential credential = repository.findCredential(identifier)
-        .filter(AuthRepository.UserCredential::enabled)
-        .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Usuario o contraseña incorrectos."));
-    if (!passwords.matches(password, credential.passwordHash())) {
-      throw new ApiException(HttpStatus.UNAUTHORIZED, "Usuario o contraseña incorrectos.");
-    }
-    byte[] tokenBytes = new byte[32];
-    random.nextBytes(tokenBytes);
-    String token = Base64.getUrlEncoder().withoutPadding().encodeToString(tokenBytes);
-    String tokenHash = sha256(token);
-    Instant expiresAt = now.plus(Duration.ofMinutes(properties.sessionDurationMinutes()));
-    repository.insertSession(tokenHash, credential.id(), expiresAt, clientAddress, userAgent);
-    repository.markLogin(credential.id(), now);
-    SessionPrincipal principal = repository.findSession(tokenHash, now).orElseThrow();
-    return new LoginResult(token, expiresAt, principal);
-  }
-
-  @Transactional
-  public Optional<SessionPrincipal> authenticate(String token) {
-    if (token == null || token.isBlank()) return Optional.empty();
-    Instant now = clock.instant();
-    String hash = sha256(token);
-    Optional<SessionPrincipal> principal = repository.findSession(hash, now)
-        .filter(SessionPrincipal::active);
-    principal.ifPresent(ignored -> repository.touchSession(hash, now));
-    return principal;
-  }
-
-  /** {@code sessionId}: ya viene calculado por {@link AuthContext#sessionId} (sha256 del token
-   * opaco hoy, {@code sid} del JWT en F2.5+) — no volver a hashear acá. */
-  @Transactional
-  public void logout(String sessionId) {
-    if (sessionId != null && !sessionId.isBlank()) repository.deleteSession(sessionId);
-  }
-
-  @Transactional
-  public void changePassword(
-      SessionPrincipal principal, String sessionId, String currentPassword, String newPassword) {
-    if (newPassword == null || newPassword.length() < 10 || newPassword.length() > 256) {
-      throw new ApiException(HttpStatus.BAD_REQUEST, "La nueva contraseña debe tener entre 10 y 256 caracteres.");
-    }
-    AuthRepository.UserCredential credential = repository.findCredential(principal.username()).orElseThrow();
-    if (!passwords.matches(currentPassword, credential.passwordHash())) {
-      throw new ApiException(HttpStatus.UNAUTHORIZED, "La contraseña actual es incorrecta.");
-    }
-    Instant now = clock.instant();
-    repository.changePassword(principal.userId(), passwords.encode(newPassword), now);
-    repository.deleteOtherSessions(principal.userId(), sessionId);
-    revokeOtherJwtSessions(principal.userId(), sessionId, now);
-  }
-
-  /** {@code sessionId} es un hash (modo cookie, no aplica acá) o un {@code sid} real (modo JWT)
-   * — F2.7: cambiar la contraseña revoca toda otra sesión JWT del usuario, preservando la que
-   * hizo el cambio (mismo criterio que {@code deleteOtherSessions} en modo cookie). */
-  private void revokeOtherJwtSessions(long userId, String sessionId, Instant now) {
-    UUID currentSid;
-    try {
-      currentSid = UUID.fromString(sessionId);
-    } catch (IllegalArgumentException | NullPointerException notAJwtSession) {
-      return;
-    }
-    sessions.revokeAllForUserExcept(userId, currentSid, now);
-    refreshTokens.revokeAllForUserExcept(userId, currentSid);
-  }
-
-  @Transactional
-  public void setActivePatient(String sessionId, Long patientId) {
-    if (patientId != null && !repository.patientExists(patientId)) {
-      throw new ApiException(HttpStatus.NOT_FOUND, "Paciente no encontrado.");
-    }
-    repository.setActivePatient(sessionId, patientId, clock.instant());
-  }
-
-  /** Modo dual (F2.5): igual verificación de credenciales que {@link #login}, pero sin tocar
-   * {@code local_sessions} — la sesión vive en {@code local_session_state} (sid) y el par de
-   * JWT es lo único que el cliente recibe (nada de {@code Set-Cookie}). */
-  @Transactional
-  public JwtLoginResult loginJwt(String identifier, String password, String clientAddress, String userAgent) {
+  public JwtLoginResult login(String identifier, String password, String clientAddress, String userAgent) {
     Instant now = clock.instant();
     AuthRepository.UserCredential credential = repository.findCredential(identifier)
         .filter(AuthRepository.UserCredential::enabled)
@@ -210,12 +128,41 @@ public class AuthService {
   }
 
   @Transactional
-  public void logoutJwt(String refreshToken) {
+  public void logout(String refreshToken) {
     if (refreshToken == null || refreshToken.isBlank()) return;
     tokens.parseRefreshToken(refreshToken).ifPresent(claims -> {
       sessions.revoke(claims.sid(), clock.instant());
       refreshTokens.revokeAllForSession(claims.sid());
     });
+  }
+
+  @Transactional
+  public void changePassword(
+      SessionPrincipal principal, String sessionId, String currentPassword, String newPassword) {
+    if (newPassword == null || newPassword.length() < 10 || newPassword.length() > 256) {
+      throw new ApiException(HttpStatus.BAD_REQUEST, "La nueva contraseña debe tener entre 10 y 256 caracteres.");
+    }
+    AuthRepository.UserCredential credential = repository.findCredential(principal.username()).orElseThrow();
+    if (!passwords.matches(currentPassword, credential.passwordHash())) {
+      throw new ApiException(HttpStatus.UNAUTHORIZED, "La contraseña actual es incorrecta.");
+    }
+    Instant now = clock.instant();
+    repository.changePassword(principal.userId(), passwords.encode(newPassword), now);
+    // Revoca toda otra sesión del usuario, preserva la que hizo el cambio.
+    currentSid(sessionId).ifPresent(currentSid -> {
+      sessions.revokeAllForUserExcept(principal.userId(), currentSid, now);
+      refreshTokens.revokeAllForUserExcept(principal.userId(), currentSid);
+    });
+  }
+
+  @Transactional
+  public void setActivePatient(String sessionId, Long patientId) {
+    if (patientId != null && !repository.patientExists(patientId)) {
+      throw new ApiException(HttpStatus.NOT_FOUND, "Paciente no encontrado.");
+    }
+    UUID sid = currentSid(sessionId)
+        .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Debe iniciar sesión."));
+    sessions.setActivePatient(sid, patientId, clock.instant());
   }
 
   private JwtLoginResult issueTokens(
@@ -228,6 +175,16 @@ public class AuthService {
     return new JwtLoginResult(access, refresh, principal);
   }
 
+  private java.util.Optional<UUID> currentSid(String sessionId) {
+    try {
+      return java.util.Optional.of(UUID.fromString(sessionId));
+    } catch (IllegalArgumentException | NullPointerException malformed) {
+      return java.util.Optional.empty();
+    }
+  }
+
+  /** Usado por {@code ClinicalFileService} para el token de un solo uso de borrado de estudios
+   * — sin relación con la sesión (eso es {@link AuthContext#sessionId}). */
   public String sha256(String value) {
     try {
       return HexFormat.of().formatHex(
@@ -235,9 +192,6 @@ public class AuthService {
     } catch (NoSuchAlgorithmException exception) {
       throw new IllegalStateException(exception);
     }
-  }
-
-  public record LoginResult(String token, Instant expiresAt, SessionPrincipal principal) {
   }
 
   public record JwtLoginResult(

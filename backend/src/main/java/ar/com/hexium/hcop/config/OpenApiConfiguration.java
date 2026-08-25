@@ -1,7 +1,6 @@
 package ar.com.hexium.hcop.config;
 
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
-import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.info.Contact;
 import io.swagger.v3.oas.annotations.info.Info;
@@ -71,17 +70,19 @@ import org.springframework.web.method.HandlerMethod;
         @Tag(name = "Estado", description = "Salud y diagnóstico operativo del sistema.")
     })
 @SecurityScheme(
-    name = "sessionCookie",
-    type = SecuritySchemeType.APIKEY,
-    in = SecuritySchemeIn.COOKIE,
-    paramName = "HCOP_SESSION",
-    description = "Cookie HttpOnly obtenida mediante POST /api/auth/login.")
+    name = "bearerAuth",
+    type = SecuritySchemeType.HTTP,
+    scheme = "bearer",
+    bearerFormat = "JWT",
+    description = "Access token JWT obtenido mediante POST /api/auth/login o POST /api/auth/refresh "
+        + "(F2). El navegador nunca lo ve — lo guarda el BFF y lo reenvía como Authorization: Bearer.")
 public class OpenApiConfiguration {
 
   private static final Map<String, Documentation> DOCUMENTATION = Map.ofEntries(
       doc("AuthController.me", "Consultar sesión", "Devuelve el usuario, roles, permisos y paciente activo; no expone el token."),
-      doc("AuthController.login", "Iniciar sesión", "Valida usuario y contraseña y crea una cookie HttpOnly SameSite=Strict."),
-      doc("AuthController.logout", "Cerrar sesión", "Revoca la sesión actual y elimina su cookie."),
+      doc("AuthController.login", "Iniciar sesión", "Valida usuario y contraseña y devuelve un access token JWT de corta duración y un refresh token — nunca una cookie; quien los guarda es el BFF."),
+      doc("AuthController.logout", "Cerrar sesión", "Revoca la sesión (access y refresh token) a partir del refresh token enviado."),
+      doc("AuthController.refresh", "Renovar access token", "Rota el refresh token y emite un access token nuevo; no está pensado para el navegador — lo llama el BFF server-to-server."),
       doc("AuthController.password", "Cambiar contraseña", "Cambia la contraseña y revoca las otras sesiones del usuario."),
       doc("AuthController.activePatient", "Cambiar paciente activo", "Asocia o limpia el paciente activo únicamente para la sesión actual."),
       doc("PatientController.search", "Buscar pacientes", "Sin consulta devuelve los pacientes recientes; con texto filtra por nombre, apellido, DNI, historia clínica o identificador local."),
@@ -452,8 +453,8 @@ public class OpenApiConfiguration {
       String key = controller + "." + method.getName();
       boolean secured = requiresSession(controller, method.getName());
       if (secured) {
-        operation.addSecurityItem(new SecurityRequirement().addList("sessionCookie"));
-        operation.addExtension("x-hcop-authentication", "cookie HttpOnly y permiso por rol");
+        operation.addSecurityItem(new SecurityRequirement().addList("bearerAuth"));
+        operation.addExtension("x-hcop-authentication", "Bearer JWT y permiso por rol");
         operation.addExtension("x-hcop-permission", PERMISSIONS.getOrDefault(key, "authenticated"));
       } else {
         operation.addExtension("x-hcop-authentication", "public");
@@ -558,6 +559,8 @@ public class OpenApiConfiguration {
       ensureErrorResponse(responses, "403", "El usuario no posee el permiso requerido.");
     } else if ("AuthController.login".equals(key)) {
       ensureErrorResponse(responses, "401", "Usuario o contraseña incorrectos.");
+    } else if ("AuthController.refresh".equals(key)) {
+      ensureErrorResponse(responses, "401", "Refresh token inválido, vencido o de una sesión revocada.");
     }
     ensureErrorResponse(responses, "400", "Parámetros o cuerpo de solicitud inválidos.");
     if (secured) {
@@ -876,7 +879,8 @@ public class OpenApiConfiguration {
 
   private static boolean requiresSession(String controller, String method) {
     if ("StatusController".equals(controller) && !"stop".equals(method)) return false;
-    return !("AuthController".equals(controller) && ("login".equals(method) || "me".equals(method)));
+    return !("AuthController".equals(controller)
+        && ("login".equals(method) || "me".equals(method) || "refresh".equals(method)));
   }
 
   private static String tag(String controller) {

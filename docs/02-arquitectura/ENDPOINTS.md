@@ -5,7 +5,7 @@
 - Especificación: `GET /v3/api-docs/hcop-jp-completa`
 - Swagger UI: `GET /swagger-ui.html`
 - Versión declarada: `1.0.0`
-- Operaciones documentadas: **113**
+- Operaciones documentadas: **114**
 - Autenticación: cookie HttpOnly `HCOP_SESSION`; las operaciones públicas se identifican expresamente.
 
 Los permisos se validan en el servidor. `authenticated` significa que la ruta exige una sesión activa pero no aplica un permiso granular adicional en el controlador.
@@ -42,7 +42,7 @@ Revoca la sesión actual y elimina su cookie.
 - **Operación Java/OpenAPI:** `logout`
 - **Acceso requerido:** `authenticated`
 - **Parámetros:** Ninguno.
-- **Cuerpo:** Sin cuerpo.
+- **Cuerpo:** `application/json`
 - **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `500` Error interno sin exposición de detalles sensibles.
 
 ### `GET /api/auth/me` - Consultar sesión
@@ -62,6 +62,17 @@ Cambia la contraseña y revoca las otras sesiones del usuario.
 
 - **Controlador MVC:** `AuthController`
 - **Operación Java/OpenAPI:** `password`
+- **Acceso requerido:** `authenticated`
+- **Parámetros:** Ninguno.
+- **Cuerpo:** `application/json`
+- **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `500` Error interno sin exposición de detalles sensibles.
+
+### `POST /api/auth/refresh` - refresh
+
+Operación MVC del módulo Auth.
+
+- **Controlador MVC:** `AuthController`
+- **Operación Java/OpenAPI:** `refresh`
 - **Acceso requerido:** `authenticated`
 - **Parámetros:** Ninguno.
 - **Cuerpo:** `application/json`
@@ -434,6 +445,19 @@ No crea disponibilidad ficticia ni reserva stock.
 - **Cuerpo:** `application/json`
 - **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `409` Conflicto de revisión, estado, superposición o integridad.; `500` Error interno sin exposición de detalles sensibles.
 
+### `GET /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/preparation-label` - Imprimir etiqueta trazable de la mezcla
+
+Incluye dos identificadores del paciente, esquema/ciclo/día, droga y dosis,
+lote, vencimiento, diluyente, volumen, concentración, preparador, verificador
+declarado, TTL y enlace al QR de identificación.
+
+- **Controlador MVC:** `InfusionApplicationWorkflowController`
+- **Operación Java/OpenAPI:** `preparationLabel`
+- **Acceso requerido:** `application.preparation.manage`
+- **Parámetros:** `patientId` (path, obligatorio): Identificador local inmutable del paciente.; `treatmentId` (path, obligatorio): Identificador local o importado del tratamiento.; `cycleNumber` (path, obligatorio): Número de ciclo, comenzando en 1.; `applicationDay` (path, obligatorio): Día del ciclo en el que se administra esta aplicación.
+- **Cuerpo:** Sin cuerpo.
+- **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `500` Error interno sin exposición de detalles sensibles.
+
 ### `POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/preparation/complete` - Registrar mezcla, lotes, etiqueta y TTL
 
 Guarda trazabilidad por droga. Para stock del centro debe vincular todas las reservas
@@ -481,19 +505,6 @@ Exige PASS clínico y medicación asegurada para esa aplicación.
 - **Parámetros:** `patientId` (path, obligatorio): Identificador local inmutable del paciente.; `treatmentId` (path, obligatorio): Identificador local o importado del tratamiento.; `cycleNumber` (path, obligatorio): Número de ciclo, comenzando en 1.; `applicationDay` (path, obligatorio): Día del ciclo en el que se administra esta aplicación.
 - **Cuerpo:** `application/json`
 - **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `409` Conflicto de revisión, estado, superposición o integridad.; `500` Error interno sin exposición de detalles sensibles.
-
-### `GET /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/preparation-label` - Imprimir etiqueta trazable de la mezcla
-
-Incluye dos identificadores del paciente, esquema/ciclo/día, droga y dosis,
-lote, vencimiento, diluyente, volumen, concentración, preparador, verificador
-declarado, TTL y enlace al QR de identificación.
-
-- **Controlador MVC:** `InfusionApplicationWorkflowController`
-- **Operación Java/OpenAPI:** `preparationLabel`
-- **Acceso requerido:** `application.preparation.manage`
-- **Parámetros:** `patientId` (path, obligatorio): Identificador local inmutable del paciente.; `treatmentId` (path, obligatorio): Identificador local o importado del tratamiento.; `cycleNumber` (path, obligatorio): Número de ciclo, comenzando en 1.; `applicationDay` (path, obligatorio): Día del ciclo en el que se administra esta aplicación.
-- **Cuerpo:** Sin cuerpo.
-- **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `500` Error interno sin exposición de detalles sensibles.
 
 ### `POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/stock-reservation` - Reservar o liberar stock por componente
 
@@ -587,28 +598,6 @@ Registra para un ciclo y día concretos la medicación recibida, en poder del pa
 
 ## Flujos clínicos
 
-### `POST /api/clinical/treatments/{patientId}/{treatmentId}/resume` - Reanudar tratamiento
-
-Reanuda desde un ciclo válido y exige nueva prescripción cuando corresponde.
-
-- **Controlador MVC:** `TreatmentWorkflowController`
-- **Operación Java/OpenAPI:** `resume`
-- **Acceso requerido:** `workflow.resume`
-- **Parámetros:** `patientId` (path, obligatorio): Identificador local inmutable del paciente.; `treatmentId` (path, obligatorio): Identificador local o importado del tratamiento.
-- **Cuerpo:** `application/json`
-- **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `409` Conflicto de revisión, estado, superposición o integridad.; `500` Error interno sin exposición de detalles sensibles.
-
-### `POST /api/clinical/treatments/{patientId}/{treatmentId}/suspend` - Suspender tratamiento
-
-Suspende transitoria o definitivamente y documenta el motivo.
-
-- **Controlador MVC:** `TreatmentWorkflowController`
-- **Operación Java/OpenAPI:** `suspend`
-- **Acceso requerido:** `workflow.suspend`
-- **Parámetros:** `patientId` (path, obligatorio): Identificador local inmutable del paciente.; `treatmentId` (path, obligatorio): Identificador local o importado del tratamiento.
-- **Cuerpo:** `application/json`
-- **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `409` Conflicto de revisión, estado, superposición o integridad.; `500` Error interno sin exposición de detalles sensibles.
-
 ### `POST /api/clinical/treatment-workflow-requests` - Crear solicitud clínica
 
 Solicita prescripción o continuidad a un usuario autorizado.
@@ -652,6 +641,28 @@ Lista las solicitudes asignadas al usuario activo.
 - **Parámetros:** Ninguno.
 - **Cuerpo:** Sin cuerpo.
 - **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `500` Error interno sin exposición de detalles sensibles.
+
+### `POST /api/clinical/treatments/{patientId}/{treatmentId}/resume` - Reanudar tratamiento
+
+Reanuda desde un ciclo válido y exige nueva prescripción cuando corresponde.
+
+- **Controlador MVC:** `TreatmentWorkflowController`
+- **Operación Java/OpenAPI:** `resume`
+- **Acceso requerido:** `workflow.resume`
+- **Parámetros:** `patientId` (path, obligatorio): Identificador local inmutable del paciente.; `treatmentId` (path, obligatorio): Identificador local o importado del tratamiento.
+- **Cuerpo:** `application/json`
+- **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `409` Conflicto de revisión, estado, superposición o integridad.; `500` Error interno sin exposición de detalles sensibles.
+
+### `POST /api/clinical/treatments/{patientId}/{treatmentId}/suspend` - Suspender tratamiento
+
+Suspende transitoria o definitivamente y documenta el motivo.
+
+- **Controlador MVC:** `TreatmentWorkflowController`
+- **Operación Java/OpenAPI:** `suspend`
+- **Acceso requerido:** `workflow.suspend`
+- **Parámetros:** `patientId` (path, obligatorio): Identificador local inmutable del paciente.; `treatmentId` (path, obligatorio): Identificador local o importado del tratamiento.
+- **Cuerpo:** `application/json`
+- **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `409` Conflicto de revisión, estado, superposición o integridad.; `500` Error interno sin exposición de detalles sensibles.
 
 ## Configuración
 

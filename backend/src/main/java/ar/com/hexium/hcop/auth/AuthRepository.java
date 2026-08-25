@@ -31,28 +31,11 @@ public class AuthRepository {
         """, this::credential, identifier, identifier, identifier).stream().findFirst();
   }
 
-  Optional<SessionPrincipal> findSession(String tokenHash, Instant now) {
-    List<UserRow> rows = jdbc.query("""
-        SELECT u.id, u.username, u.email, u.display_name, u.specialty, u.license_number,
-               u.enabled, s.active_patient_id, r.id AS role_id, r.role_key, r.display_name AS role_name,
-               p.permission_key
-          FROM local_sessions s
-          JOIN local_users u ON u.id = s.user_id
-          LEFT JOIN local_user_roles ur ON ur.user_id = u.id
-          LEFT JOIN local_roles r ON r.id = ur.role_id AND r.enabled = true
-          LEFT JOIN local_role_permissions rp ON rp.role_id = r.id
-          LEFT JOIN local_permissions p ON p.id = rp.permission_id
-         WHERE s.token_hash = ? AND s.expires_at > ?
-         ORDER BY r.id, p.permission_key
-        """, this::userRow, tokenHash, Timestamp.from(now));
-    return principalFromRows(rows);
-  }
-
   /**
-   * F2.5 (modo JWT): no hay {@code local_sessions.token_hash} que consultar — el access token ya
-   * demostró autenticidad por firma. Se relee el usuario por id (roles/permisos frescos, nunca
-   * más viejos que el último refresh) con el {@code activePatientId} de {@code local_session_state}
-   * inyectado (ahí vive, no en esta tabla, en modo JWT).
+   * El access token JWT ya demostró autenticidad por firma — no hay {@code local_sessions} que
+   * consultar (F2.8). Se relee el usuario por id (roles/permisos frescos, nunca más viejos que
+   * el último login/refresh); el llamador inyecta {@code activePatientId} desde
+   * {@code local_session_state}, que es donde vive en modo JWT.
    */
   Optional<SessionPrincipal> findPrincipalByUserId(long userId, Long activePatientId) {
     List<UserRow> rows = jdbc.query("""
@@ -66,11 +49,8 @@ public class AuthRepository {
           LEFT JOIN local_permissions p ON p.id = rp.permission_id
          WHERE u.id = ?
          ORDER BY r.id, p.permission_key
-        """, this::userRowWithoutSession, userId);
-    return principalFromRows(rows).map(principal -> new SessionPrincipal(
-        principal.userId(), principal.username(), principal.email(), principal.displayName(),
-        principal.specialty(), principal.licenseNumber(), principal.active(), activePatientId,
-        principal.roles(), principal.permissions()));
+        """, this::userRow, userId);
+    return principalFromRows(rows, activePatientId);
   }
 
   int sessionDurationMinutes() {
@@ -79,7 +59,7 @@ public class AuthRepository {
     return minutes == null ? 43_200 : minutes;
   }
 
-  private Optional<SessionPrincipal> principalFromRows(List<UserRow> rows) {
+  private Optional<SessionPrincipal> principalFromRows(List<UserRow> rows, Long activePatientId) {
     if (rows.isEmpty()) return Optional.empty();
     UserRow first = rows.getFirst();
     List<RoleView> roles = new ArrayList<>();
@@ -94,31 +74,7 @@ public class AuthRepository {
     return Optional.of(new SessionPrincipal(
         first.id(), first.username(), first.email(), value(first.displayName(), first.username()),
         value(first.specialty(), ""), value(first.licenseNumber(), ""), first.enabled(),
-        first.activePatientId(), List.copyOf(roles), Set.copyOf(permissions)));
-  }
-
-  void insertSession(String tokenHash, long userId, Instant expiresAt, String clientAddress, String userAgent) {
-    jdbc.update("""
-        INSERT INTO local_sessions
-          (token_hash, user_id, expires_at, client_address, user_agent)
-        VALUES (?, ?, ?, CAST(NULLIF(?, '') AS inet), ?)
-        """, tokenHash, userId, Timestamp.from(expiresAt), clientAddress, userAgent);
-  }
-
-  void touchSession(String tokenHash, Instant now) {
-    jdbc.update("UPDATE local_sessions SET last_seen_at = ? WHERE token_hash = ?", Timestamp.from(now), tokenHash);
-  }
-
-  void deleteSession(String tokenHash) {
-    jdbc.update("DELETE FROM local_sessions WHERE token_hash = ?", tokenHash);
-  }
-
-  void deleteOtherSessions(long userId, String currentTokenHash) {
-    jdbc.update("DELETE FROM local_sessions WHERE user_id = ? AND token_hash <> ?", userId, currentTokenHash);
-  }
-
-  void removeExpired(Instant now) {
-    jdbc.update("DELETE FROM local_sessions WHERE expires_at <= ?", Timestamp.from(now));
+        activePatientId, List.copyOf(roles), Set.copyOf(permissions)));
   }
 
   void markLogin(long userId, Instant now) {
@@ -128,14 +84,6 @@ public class AuthRepository {
 
   void changePassword(long userId, String encoded, Instant now) {
     jdbc.update("UPDATE local_users SET password_hash = ?, updated_at = ? WHERE id = ?", encoded, Timestamp.from(now), userId);
-  }
-
-  void setActivePatient(String tokenHash, Long patientId, Instant now) {
-    jdbc.update("""
-        UPDATE local_sessions
-           SET active_patient_id = ?, last_seen_at = ?
-         WHERE token_hash = ?
-        """, patientId, Timestamp.from(now), tokenHash);
   }
 
   boolean patientExists(long patientId) {
@@ -196,32 +144,10 @@ public class AuthRepository {
         result.getString("specialty"),
         result.getString("license_number"),
         result.getBoolean("enabled"),
-        nullableLong(result, "active_patient_id"),
         result.getString("role_id"),
         result.getString("role_key"),
         result.getString("role_name"),
         result.getString("permission_key"));
-  }
-
-  private UserRow userRowWithoutSession(ResultSet result, int rowNumber) throws SQLException {
-    return new UserRow(
-        result.getLong("id"),
-        result.getString("username"),
-        result.getString("email"),
-        result.getString("display_name"),
-        result.getString("specialty"),
-        result.getString("license_number"),
-        result.getBoolean("enabled"),
-        null,
-        result.getString("role_id"),
-        result.getString("role_key"),
-        result.getString("role_name"),
-        result.getString("permission_key"));
-  }
-
-  private Long nullableLong(ResultSet result, String column) throws SQLException {
-    long value = result.getLong(column);
-    return result.wasNull() ? null : value;
   }
 
   private String value(String value, String fallback) {
@@ -239,7 +165,6 @@ public class AuthRepository {
       String specialty,
       String licenseNumber,
       boolean enabled,
-      Long activePatientId,
       String roleId,
       String roleKey,
       String roleName,

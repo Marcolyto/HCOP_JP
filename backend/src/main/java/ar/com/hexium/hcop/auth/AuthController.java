@@ -1,11 +1,7 @@
 package ar.com.hexium.hcop.auth;
 
 import ar.com.hexium.hcop.auth.AuthService.JwtLoginResult;
-import ar.com.hexium.hcop.auth.AuthService.LoginResult;
-import ar.com.hexium.hcop.config.HcopProperties;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -13,8 +9,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.ResponseCookie;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -22,23 +16,21 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Token Handler JWT (F2.8 — el modo cookie se eliminó, {@code local_sessions} ya no existe:
+ * {@code V014}). El navegador nunca habla directo con este controller — es {@code hcop-bff}
+ * quien guarda access+refresh y arma la cookie {@code BFF_SESSION} (ver {@code base/03-bff.md}
+ * y F2.7.5).
+ */
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
   private final AuthService auth;
   private final AuthContext context;
-  private final HcopProperties properties;
-  private final boolean jwtMode;
 
-  public AuthController(
-      AuthService auth,
-      AuthContext context,
-      HcopProperties properties,
-      @Value("${hcop.auth.mode:cookie}") String authMode) {
+  public AuthController(AuthService auth, AuthContext context) {
     this.auth = auth;
     this.context = context;
-    this.properties = properties;
-    this.jwtMode = "jwt".equalsIgnoreCase(authMode);
   }
 
   @GetMapping("/me")
@@ -55,32 +47,13 @@ public class AuthController {
   }
 
   @PostMapping("/login")
-  Map<String, Object> login(
-      @Valid @RequestBody LoginRequest body,
-      HttpServletRequest request,
-      HttpServletResponse response) {
-    if (jwtMode) {
-      JwtLoginResult result = auth.loginJwt(
-          body.identifier(), body.password(), clientAddress(request), request.getHeader("User-Agent"));
-      return jwtResponse(result);
-    }
-    LoginResult result = auth.login(
-        body.identifier(),
-        body.password(),
-        clientAddress(request),
-        request.getHeader("User-Agent"));
-    ResponseCookie cookie = ResponseCookie.from(properties.sessionCookieName(), result.token())
-        .httpOnly(true)
-        .sameSite("Strict")
-        .secure(request.isSecure())
-        .path("/")
-        .maxAge(Duration.between(java.time.Instant.now(), result.expiresAt()))
-        .build();
-    response.addHeader("Set-Cookie", cookie.toString());
-    return response(result.principal());
+  Map<String, Object> login(@Valid @RequestBody LoginRequest body, HttpServletRequest request) {
+    JwtLoginResult result = auth.login(
+        body.identifier(), body.password(), clientAddress(request), request.getHeader("User-Agent"));
+    return jwtResponse(result);
   }
 
-  /** No expuesto al navegador — lo consume el BFF server-to-server (modo JWT). */
+  /** No expuesto al navegador — lo consume el BFF server-to-server. */
   @PostMapping("/refresh")
   Map<String, Object> refresh(@Valid @RequestBody RefreshRequest body, HttpServletRequest request) {
     JwtLoginResult result = auth.refresh(
@@ -89,16 +62,8 @@ public class AuthController {
   }
 
   @PostMapping("/logout")
-  Map<String, Object> logout(
-      @RequestBody(required = false) LogoutRequest body,
-      HttpServletRequest request,
-      HttpServletResponse response) {
-    if (jwtMode) {
-      auth.logoutJwt(body == null ? "" : body.refreshToken());
-      return Map.of("ok", true, "authenticated", false);
-    }
-    auth.logout(context.sessionId(request));
-    expireCookie(request, response);
+  Map<String, Object> logout(@RequestBody(required = false) LogoutRequest body) {
+    auth.logout(body == null ? "" : body.refreshToken());
     return Map.of("ok", true, "authenticated", false);
   }
 
@@ -157,17 +122,6 @@ public class AuthController {
     body.put("refreshExpiresIn", Duration.between(now, result.refresh().expiresAt()).toSeconds());
     body.put("session", response(result.principal()));
     return body;
-  }
-
-  private void expireCookie(HttpServletRequest request, HttpServletResponse response) {
-    ResponseCookie cookie = ResponseCookie.from(properties.sessionCookieName(), "")
-        .httpOnly(true)
-        .sameSite("Strict")
-        .secure(request.isSecure())
-        .path("/")
-        .maxAge(Duration.ZERO)
-        .build();
-    response.addHeader("Set-Cookie", cookie.toString());
   }
 
   private String clientAddress(HttpServletRequest request) {

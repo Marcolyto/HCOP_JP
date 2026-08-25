@@ -238,7 +238,37 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
   real** (login por la UI, navegación, Configuración) contra el stack JWT completo, no cookie.
   `test-core-browser-e2e.ps1`/`test-clinical-conflict-e2e.ps1`: `HCOP_E2E_JWT_SECRET` agregado
   (faltaba, el compose.e2e.yaml ya lo exigía desde F2.2).
-- [ ] F2.8 — Eliminar modo cookie + V014 DROP local_sessions + regenerar ENDPOINTS.md
+- [x] F2.8 — Eliminar modo cookie + V014 DROP local_sessions + regenerar ENDPOINTS.md.
+  `AuthService`/`AuthController`/`AuthInterceptor` reescritos: sin flag `hcop.auth.mode`, sin
+  `authenticate(token)`/`login()`/`logout(hash)` de modo cookie, sin `Set-Cookie`.
+  `AuthInterceptor` quedó mínimo — ya no resuelve nada, solo lee `PRINCIPAL_ATTRIBUTE` que
+  `JwtAuthenticationFilter` pobló y gatea permisos (`isPublic`/`earlyPermission`). `AuthRepository`
+  perdió `findSession`/`insertSession`/`touchSession`/`deleteSession`/`deleteOtherSessions`/
+  `setActivePatient` (todo `local_sessions`).
+  **Bug real encontrado y corregido en esta limpieza** (no en verificación de fases previas):
+  `AuthService.setActivePatient` seguía escribiendo en `AuthRepository.setActivePatient`
+  (`local_sessions.token_hash = ?`) con `sessionId` = un `sid` UUID desde F2.5 — la condición
+  `WHERE` nunca matcheaba nada, así que `PUT /api/auth/active-patient` en modo JWT era un no-op
+  silencioso desde F2.5 hasta ahora (devolvía 200 pero no persistía nada; F2.6/F2.7 nunca lo
+  probaron con un `patientId` real, solo con `null`). Fix: usa
+  `SessionStateRepository.setActivePatient(sid, ...)`. Verificado en Docker real con un paciente
+  real: `PUT active-patient` → `GET /me` refleja `activePatientId` correctamente.
+  `V014__drop_local_sessions.sql` (aditiva-terminal: `DROP TABLE local_sessions`) — aplicó limpio
+  contra la base real con datos (contenedor persistente, no efímero) y contra la base efímera de
+  `test-core-browser-e2e.ps1`. `OpenApiConfiguration`: `@SecurityScheme` `sessionCookie`
+  (APIKEY/COOKIE/`HCOP_SESSION`) → `bearerAuth` (HTTP bearer/JWT); doc de `login`/`logout`
+  actualizada, `refresh` documentado y excluido de `requiresSession` (es público).
+  `generate-api-docs.ps1`: línea de autenticación hardcodeada también actualizada (no salía del
+  spec). `ENDPOINTS.md` regenerado: **114 operaciones** (113 + `POST /api/auth/refresh`, nueva
+  desde F2.5, nunca se había regenerado el doc). `HCOP_AUTH_MODE` retirado de compose.yaml/
+  compose.e2e.yaml/application.yml (sin lector desde este commit). `HcopProperties.sessionCookieName`/
+  `sessionDurationMinutes` quedan sin lector pero NO se tocan — sacarlos del record obligaría a
+  actualizar varios tests no relacionados con auth que lo construyen posicional; no vale la pena
+  el blast radius para un cleanup cosmético.
+  **Verificado end-to-end real, stack completo con V014 aplicada (sin `local_sessions` en la
+  base):** smoke-test.ps1, nginx-routing-test.ps1, los 3 contract-tests (configuration/protocol/
+  guide), integration-test.ps1 (flujo clínico integral completo) y test-core-browser-e2e.ps1 3/3
+  (Playwright real, DB efímera desde cero con V014). 330 tests del backend verdes.
 - [ ] F2.9 — security-review sobre el diff completo
 
 ## F3 — Backend hexagonal (~14 módulos)

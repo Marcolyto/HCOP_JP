@@ -30,7 +30,8 @@ class DatabaseMigrationResourceTest {
                         "V010__treatment_creation_idempotency.sql",
                         "V011__preparation_component_trace.sql",
                         "V012__patient_seed_identity.sql",
-                        "V013__jwt_auth.sql");
+                        "V013__jwt_auth.sql",
+                        "V014__drop_local_sessions.sql");
     }
 
     @Test

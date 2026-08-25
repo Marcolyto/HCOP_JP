@@ -49,9 +49,6 @@ services:
       HCOP_QR_SECRET: ${HCOP_QR_SECRET:?Defina HCOP_QR_SECRET en .env}
       HCOP_ENCRYPTION_SECRET: ${HCOP_ENCRYPTION_SECRET:?Defina HCOP_ENCRYPTION_SECRET en .env}
       HCOP_JWT_SECRET: ${HCOP_JWT_SECRET:?Defina HCOP_JWT_SECRET en .env}
-      # F2.7.5: el BFF habla JWT (guarda access+refresh en Redis, ya no cookie/token opaco) —
-      # este flag deja de tener sentido en cookie mode una vez que el BFF se actualizó.
-      HCOP_AUTH_MODE: jwt
       HCOP_PUBLIC_BASE_URL: ${HCOP_PUBLIC_BASE_URL:-http://localhost:5180}
       HCOP_BIND_ADDRESS: 0.0.0.0
       HCOP_PORT: 5180

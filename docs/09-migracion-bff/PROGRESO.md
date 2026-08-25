@@ -312,11 +312,56 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
   interfaz (`CreateCommand`, `ConfigurationView`, etc. — el propio patrón #1 del plan, "DTO
   anidados como records") — se restringió a clases de primer nivel. 343 tests verdes (1 skip:
   R4), `mvn verify` completo verde.
-- [ ] F3.1 — tools, system, admin (calibrar patrón; escribir tests que faltan)
+### F3.1 — tools, system, admin (calibrar patrón; escribir tests que faltan)
+
+- [x] F3.1 (1/3) — `tools` migrado, commit `1c5fb90`. Módulo de 1 archivo (proyección read-only
+  sobre `configuration`, cero lógica propia) — se usó para calibrar las 7 piezas con el riesgo
+  más bajo posible antes de `admin` (el primer `Postgres*Store` real). `domain/CalculatorSummary`
+  (proyección propia, no atada a `ConfigurationDefinition`) · `application/port/in/CalculatorCatalogUseCase`
+  · `application/port/out/CalculatorCatalogPort` (rompe la dependencia directa a `configuration`,
+  patrón #7) · `application/service/CalculatorCatalogApplicationService` (final, sin `@Service`,
+  sin lógica propia) · `infrastructure/configuration/ConfigurationCalculatorCatalogAdapter`
+  (el ÚNICO lugar que importa `configuration.ConfigurationManagementUseCase` directo — mismo
+  patrón que `guide/infrastructure/configuration/ConfigurationGuideMetadataAdapter`) ·
+  `infrastructure/configuration/CalculatorModuleConfiguration` (variante B, `@Configuration`+`@Bean`,
+  read-only) · `infrastructure/web/CalculatorCatalogController` (sin cambio de contrato). `tools`
+  sale de `TRACKED_LEGACY_MODULES` en `HexagonalArchitectureTest`. Verificado en Docker real:
+  rebuild, snapshot OpenAPI sin diff, `GET /api/clinical/tools/calculators` funcionando igual.
+  348 tests verdes.
+- [ ] F3.1 (2/3) — `system` (81 LOC, `StatusController` — elimina la fuga JDBC-en-controller,
+  hoy hace `new JdbcTemplate(dataSource)` a mano en el controller, el antipatrón explícito del
+  plan). Sin tests hoy → escribirlos acá.
+- [ ] F3.1 (3/3) — `admin` (557 LOC, `AdminController`/`AdminService`/`AdminRepository` — el
+  primer `Postgres*Store` real, con `@Transactional` de verdad). Sin tests hoy → escribirlos acá.
+  Ya tiene `AdminServiceRevocationTest` (F2.7) cubriendo la parte de revocación JWT — no debería
+  romperse, pero va a necesitar actualizarse cuando `AdminService` se parta en
+  `AdminApplicationService`.
+
+### Siguientes etapas (no arrancadas)
+
 - [ ] F3.2 — catalog, integration, media
 - [ ] F3.3.0 — Puertos cruzados (patient/treatment/infusion) — commit propio
 - [ ] F3.3 — patient, diagnosis, workflow, treatment, infusion (3 PRs), qr
 - [ ] F3.4 — common→sharedkernel/platform, config→platform (NO hexagonal), eliminar ApiException
+
+### Cómo continuar F3 en una sesión nueva
+
+1. Releer este archivo (`PROGRESO.md`) y `DECISIONES-F2.md` (para F2; F3 todavía no tiene su
+   propio doc de decisiones — crearlo si aparecen desvíos del plan literal, mismo criterio que F2).
+2. El plan completo con el detalle de las 7 piezas del patrón, el orden de migración y los
+   riesgos está en `~/.claude/plans/fuzzy-waddling-galaxy.md`, sección `## F3`.
+3. `tools/` (ver arriba) es el ejemplo de referencia más simple ya migrado y verificado — junto
+   con `configuration/`, `guide/` y `protocol/` (los módulos ya hexagonales antes de F3), son los
+   4 ejemplos reales a seguir. `guide/infrastructure/configuration/ConfigurationGuideMetadataAdapter`
+   es la referencia concreta del patrón #7 (puertos cruzados).
+4. Antes de cada commit de módulo: correr `mvn -f backend/pom.xml verify` (incluye
+   `HexagonalArchitectureTest` y `OpenApiDocumentationKeysTest`), levantar el stack Docker real
+   y correr `scripts/generate-openapi-snapshot.ps1 -Check` — **diff vacío es criterio de
+   aceptación bloqueante**, ver F3.0.4.
+5. Al terminar un módulo: sacarlo de `TRACKED_LEGACY_MODULES` en
+   `backend/src/test/java/ar/com/hexium/hcop/architecture/HexagonalArchitectureTest.java` (esa
+   lista ES el tracker ejecutable) y marcarlo `[x]` acá con el hash del commit.
+6. Próximo paso concreto: **F3.1 (2/3) — `system`**.
 
 ## Decisiones ya tomadas (no volver a preguntar)
 - Layout: backend/ bff/ frontend/ en raíz · Auth: JWT completo · Alcance: hexagonal completo

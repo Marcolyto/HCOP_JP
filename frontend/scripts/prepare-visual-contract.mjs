@@ -7,12 +7,9 @@ const files = [
   ['styles.css', 'styles.css'],
   ['care-scheduler.css', 'care-scheduler.css'],
   ['care-scheduler-modal.css', 'care-scheduler-modal.css'],
-  [join('help', 'help.css'), 'help.css']
+  ['help.css', 'help.css']
 ];
-const sourceCandidates = [
-  resolve(frontendRoot, '..', 'src', 'main', 'resources', 'static'),
-  resolve(frontendRoot, 'src', 'main', 'resources', 'static')
-];
+const sourceCandidates = [resolve(frontendRoot, 'src', 'legacy-visual-contract')];
 const sourceRoot = sourceCandidates.find((candidate) =>
   files.every(([source]) => existsSync(join(candidate, source))));
 

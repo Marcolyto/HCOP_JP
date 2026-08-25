@@ -143,6 +143,21 @@ public class AuthService {
     Instant now = clock.instant();
     repository.changePassword(principal.userId(), passwords.encode(newPassword), now);
     repository.deleteOtherSessions(principal.userId(), sessionId);
+    revokeOtherJwtSessions(principal.userId(), sessionId, now);
+  }
+
+  /** {@code sessionId} es un hash (modo cookie, no aplica acá) o un {@code sid} real (modo JWT)
+   * — F2.7: cambiar la contraseña revoca toda otra sesión JWT del usuario, preservando la que
+   * hizo el cambio (mismo criterio que {@code deleteOtherSessions} en modo cookie). */
+  private void revokeOtherJwtSessions(long userId, String sessionId, Instant now) {
+    UUID currentSid;
+    try {
+      currentSid = UUID.fromString(sessionId);
+    } catch (IllegalArgumentException | NullPointerException notAJwtSession) {
+      return;
+    }
+    sessions.revokeAllForUserExcept(userId, currentSid, now);
+    refreshTokens.revokeAllForUserExcept(userId, currentSid);
   }
 
   @Transactional

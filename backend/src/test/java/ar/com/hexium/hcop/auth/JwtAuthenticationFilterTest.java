@@ -20,7 +20,7 @@ import org.springframework.stereotype.Component;
 class JwtAuthenticationFilterTest {
   private final TokenIssuer tokens = mock(TokenIssuer.class);
   private final SessionStateRepository sessions = mock(SessionStateRepository.class);
-  private final JwtAuthenticationFilter filter = new JwtAuthenticationFilter(tokens, sessions);
+  private final JwtAuthenticationFilter filter = new JwtAuthenticationFilter(tokens, sessions, true);
 
   private final TokenIssuer.AccessTokenClaims claims = new TokenIssuer.AccessTokenClaims(
       7L, UUID.randomUUID().toString(), "marcolyto", "marcolyto@hcop.invalid", "Marco Lyto",
@@ -98,6 +98,40 @@ class JwtAuthenticationFilterTest {
 
     assertThat(request.getAttribute(AuthContext.PRINCIPAL_ATTRIBUTE)).isNull();
     verify(chain).doFilter(any(), any());
+  }
+
+  @Test
+  void noPueblaNadaSiLaSesionEstaRevocadaConElChequeoActivo() throws Exception {
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    request.addHeader("Authorization", "Bearer valid-jwt");
+    MockHttpServletResponse response = new MockHttpServletResponse();
+    FilterChain chain = mock(FilterChain.class);
+    UUID sid = UUID.fromString(claims.sid());
+    when(tokens.parse("valid-jwt")).thenReturn(Optional.of(claims));
+    when(sessions.find(sid)).thenReturn(
+        Optional.of(new SessionStateRepository.SessionState(sid, 7L, null, true)));
+
+    filter.doFilter(request, response, chain);
+
+    assertThat(request.getAttribute(AuthContext.PRINCIPAL_ATTRIBUTE)).isNull();
+    verify(chain).doFilter(any(), any());
+  }
+
+  @Test
+  void ignoraSesionRevocadaSiElChequeoEstaDesactivado() throws Exception {
+    JwtAuthenticationFilter filterSinChequeo = new JwtAuthenticationFilter(tokens, sessions, false);
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    request.addHeader("Authorization", "Bearer valid-jwt");
+    MockHttpServletResponse response = new MockHttpServletResponse();
+    FilterChain chain = mock(FilterChain.class);
+    UUID sid = UUID.fromString(claims.sid());
+    when(tokens.parse("valid-jwt")).thenReturn(Optional.of(claims));
+    when(sessions.find(sid)).thenReturn(
+        Optional.of(new SessionStateRepository.SessionState(sid, 7L, null, true)));
+
+    filterSinChequeo.doFilter(request, response, chain);
+
+    assertThat(request.getAttribute(AuthContext.PRINCIPAL_ATTRIBUTE)).isNotNull();
   }
 
   @Test

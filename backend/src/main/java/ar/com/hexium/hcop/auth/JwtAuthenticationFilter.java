@@ -28,10 +28,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
   private final TokenIssuer tokens;
   private final SessionStateRepository sessions;
+  private final boolean revocationCheckEnabled;
 
-  public JwtAuthenticationFilter(TokenIssuer tokens, SessionStateRepository sessions) {
+  public JwtAuthenticationFilter(
+      TokenIssuer tokens, SessionStateRepository sessions, boolean revocationCheckEnabled) {
     this.tokens = tokens;
     this.sessions = sessions;
+    this.revocationCheckEnabled = revocationCheckEnabled;
   }
 
   @Override
@@ -51,12 +54,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     } catch (IllegalArgumentException malformed) {
       return;
     }
-    // F2.7 agrega acá el corte por state.revoked() — por ahora solo activePatientId fresco
-    // (cambia sin reemitir el token, ver TokenIssuer).
-    sessions.find(sid).ifPresent(state -> {
-      request.setAttribute(AuthContext.PRINCIPAL_ATTRIBUTE, claims.toPrincipal(state.activePatientId()));
-      request.setAttribute(AuthContext.SESSION_ID_ATTRIBUTE, claims.sid());
-    });
+    // Revocación inmediata (F2.7, detrás de hcop.jwt.session-revocation-check): 1 lookup por PK
+    // — más barato que el join de 6 tablas que hoy hace AuthRepository.findSession en cada
+    // request. Sin esto, deshabilitar un usuario o cambiarle los roles solo surtiría efecto
+    // cuando el access token expira (hasta HCOP_JWT_ACCESS_MINUTES después).
+    sessions.find(sid)
+        .filter(state -> !revocationCheckEnabled || !state.revoked())
+        .ifPresent(state -> {
+          request.setAttribute(AuthContext.PRINCIPAL_ATTRIBUTE, claims.toPrincipal(state.activePatientId()));
+          request.setAttribute(AuthContext.SESSION_ID_ATTRIBUTE, claims.sid());
+        });
   }
 
   private Optional<String> bearerToken(HttpServletRequest request) {

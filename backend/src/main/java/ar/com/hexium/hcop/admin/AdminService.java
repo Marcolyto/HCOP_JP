@@ -1,13 +1,17 @@
 package ar.com.hexium.hcop.admin;
 
 import ar.com.hexium.hcop.auth.PasswordService;
+import ar.com.hexium.hcop.auth.RefreshTokenRepository;
+import ar.com.hexium.hcop.auth.SessionStateRepository;
 import ar.com.hexium.hcop.common.ApiException;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -19,11 +23,20 @@ public class AdminService {
   private final AdminRepository repository;
   private final PasswordService passwords;
   private final Clock clock;
+  private final SessionStateRepository sessions;
+  private final RefreshTokenRepository refreshTokens;
 
-  public AdminService(AdminRepository repository, PasswordService passwords, Clock clock) {
+  public AdminService(
+      AdminRepository repository,
+      PasswordService passwords,
+      Clock clock,
+      SessionStateRepository sessions,
+      RefreshTokenRepository refreshTokens) {
     this.repository = repository;
     this.passwords = passwords;
     this.clock = clock;
+    this.sessions = sessions;
+    this.refreshTokens = refreshTokens;
   }
 
   public List<Map<String, Object>> users() {
@@ -67,11 +80,22 @@ public class AdminService {
     if (!repository.rolesExist(input.roleIds())) {
       throw new ApiException(HttpStatus.BAD_REQUEST, "Uno o más roles no son válidos.");
     }
+    Set<Long> previousRoleIds = repository.roleIdsForUser(id);
     String passwordHash = input.password().isBlank() ? null : passwords.encode(input.password());
+    Instant now = clock.instant();
     repository.updateUser(id, input.username(), input.email(), input.displayName(), input.specialty(),
-        input.licenseNumber(), input.active(), passwordHash, clock.instant());
+        input.licenseNumber(), input.active(), passwordHash, now);
     repository.replaceUserRoles(id, input.roleIds(), actorId);
     if (!input.active() || passwordHash != null) repository.revokeSessions(id);
+    // F2.7: el access token JWT lleva roles/permisos horneados — sin esto, deshabilitar un
+    // usuario, cambiarle la contraseña o reasignarle roles desde acá solo surtiría efecto cuando
+    // el token vence (hasta HCOP_JWT_ACCESS_MINUTES después). El refresh siguiente relee todo
+    // de la base igual, así que revocar acá es lo único que falta para que sea inmediato.
+    boolean rolesChanged = !previousRoleIds.equals(Set.copyOf(input.roleIds()));
+    if (!input.active() || passwordHash != null || rolesChanged) {
+      sessions.revokeAllForUser(id, now);
+      refreshTokens.revokeAllForUser(id);
+    }
     return repository.user(id).orElse(current);
   }
 
@@ -100,8 +124,14 @@ public class AdminService {
   public Map<String, Object> updateRole(long id, JsonNode body, long actorId) {
     repository.role(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Rol no encontrado."));
     RoleInput input = roleInput(body, false);
-    repository.updateRole(id, input.name(), input.description(), input.active(), actorId, clock.instant());
+    Instant now = clock.instant();
+    repository.updateRole(id, input.name(), input.description(), input.active(), actorId, now);
     repository.replaceRolePermissions(id, input.permissions());
+    // F2.7: cambiar los permisos (o deshabilitar) un rol afecta a todos sus usuarios de una —
+    // sin esto quedarían con permisos viejos horneados en el JWT hasta que vence.
+    List<Long> affectedUserIds = repository.userIdsForRole(id);
+    sessions.revokeAllForUsers(affectedUserIds, now);
+    refreshTokens.revokeAllForUsers(affectedUserIds);
     return repository.role(id).orElseThrow();
   }
 

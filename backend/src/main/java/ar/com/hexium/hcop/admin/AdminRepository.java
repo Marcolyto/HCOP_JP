@@ -89,6 +89,16 @@ public class AdminRepository {
     jdbc.update("DELETE FROM local_sessions WHERE user_id = ?", userId);
   }
 
+  public Set<Long> roleIdsForUser(long userId) {
+    return Set.copyOf(jdbc.queryForList(
+        "SELECT role_id FROM local_user_roles WHERE user_id = ?", Long.class, userId));
+  }
+
+  public List<Long> userIdsForRole(long roleId) {
+    return jdbc.queryForList(
+        "SELECT user_id FROM local_user_roles WHERE role_id = ?", Long.class, roleId);
+  }
+
   public boolean usernameOrEmailExists(String username, String email, Long excludedId) {
     Integer count = jdbc.queryForObject("""
         SELECT count(*) FROM local_users

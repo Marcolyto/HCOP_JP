@@ -4,6 +4,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -63,6 +64,24 @@ public class SessionStateRepository {
         UPDATE local_session_state SET revoked = true, updated_at = ?
          WHERE user_id = ? AND revoked = false
         """, Timestamp.from(now), userId);
+  }
+
+  /** F2.7: changePassword revoca todo lo demás pero preserva la sesión que hizo el cambio —
+   * mismo criterio que {@code AuthRepository.deleteOtherSessions} en modo cookie. */
+  public void revokeAllForUserExcept(long userId, UUID currentSid, Instant now) {
+    jdbc.update("""
+        UPDATE local_session_state SET revoked = true, updated_at = ?
+         WHERE user_id = ? AND sid <> ? AND revoked = false
+        """, Timestamp.from(now), userId, currentSid);
+  }
+
+  /** F2.7: revocación disparada por AdminService.updateRole (cambia permisos de un rol) —
+   * revoca a todos los usuarios que hoy tienen ese rol, sin excepción. */
+  public void revokeAllForUsers(Collection<Long> userIds, Instant now) {
+    if (userIds.isEmpty()) return;
+    jdbc.batchUpdate(
+        "UPDATE local_session_state SET revoked = true, updated_at = ? WHERE user_id = ? AND revoked = false",
+        userIds.stream().map(userId -> new Object[] {Timestamp.from(now), userId}).toList());
   }
 
   private SessionState row(ResultSet result, int rowNumber) throws SQLException {

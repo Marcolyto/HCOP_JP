@@ -4,6 +4,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -49,6 +50,19 @@ public class RefreshTokenRepository {
 
   public void revokeAllForUser(long userId) {
     jdbc.update("UPDATE local_refresh_tokens SET revoked = true WHERE user_id = ? AND revoked = false", userId);
+  }
+
+  public void revokeAllForUserExcept(long userId, UUID currentSid) {
+    jdbc.update(
+        "UPDATE local_refresh_tokens SET revoked = true WHERE user_id = ? AND sid <> ? AND revoked = false",
+        userId, currentSid);
+  }
+
+  public void revokeAllForUsers(Collection<Long> userIds) {
+    if (userIds.isEmpty()) return;
+    jdbc.batchUpdate(
+        "UPDATE local_refresh_tokens SET revoked = true WHERE user_id = ? AND revoked = false",
+        userIds.stream().map(userId -> new Object[] {userId}).toList());
   }
 
   public void removeExpired(Instant now) {

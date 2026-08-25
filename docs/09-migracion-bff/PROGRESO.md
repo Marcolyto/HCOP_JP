@@ -192,7 +192,22 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
   del login → 200 (`/api/study-templates`); `PUT /api/auth/active-patient` con JWT funciona
   (mismo `AuthContext.sessionId` que en cookie); token tamperado → 401. Modo cookie (compose.yaml,
   default) re-verificado sin regresión, smoke-test.ps1 verde. 326 tests verdes.
-- [ ] F2.7 — Revocación inmediata + revocar en AdminService/changePassword
+- [x] F2.7 — Revocación inmediata + revocar en AdminService/changePassword. `JwtAuthenticationFilter`
+  ahora rechaza (no puebla nada) si `local_session_state.revoked` — detrás de
+  `hcop.jwt.session-revocation-check` (default `true`). `AuthService.changePassword` revoca
+  toda otra sesión JWT del usuario (preserva la actual, mismo criterio que `deleteOtherSessions`
+  en modo cookie) — detecta modo JWT parseando `sessionId` como UUID (falla silencioso en modo
+  cookie, es un hash ahí). `AdminService.updateUser` revoca TODAS las sesiones JWT del usuario
+  (deshabilitar, cambiar contraseña, o reasignar roles — se compara el set de roles antes/después
+  con `AdminRepository.roleIdsForUser`, nuevo). `AdminService.updateRole` revoca a todos los
+  usuarios del rol (`AdminRepository.userIdsForRole`, nuevo) cuando se editan sus permisos.
+  `SessionStateRepository`/`RefreshTokenRepository`: `revokeAllForUserExcept`/`revokeAllForUsers`
+  nuevos (batch). 13 tests nuevos (`JwtAuthenticationFilterTest` +2, `AdminServiceRevocationTest`
+  nuevo — sin cobertura previa de `AdminService`, mismo patrón mock-based que el resto).
+  Verificado en Docker real (`HCOP_AUTH_MODE=jwt`): login de `marcolyto2`, deshabilitado por
+  `marcolyto` vía `PUT /api/admin/users/2`, el access token YA EMITIDO de `marcolyto2` (todavía
+  dentro de su TTL de 15 min) devuelve 401 en la request inmediatamente siguiente — sin esperar
+  el vencimiento. Modo cookie re-verificado sin regresión, smoke-test.ps1 verde. 333 tests verdes.
 - [ ] F2.8 — Eliminar modo cookie + V014 DROP local_sessions + regenerar ENDPOINTS.md
 - [ ] F2.9 — security-review sobre el diff completo
 

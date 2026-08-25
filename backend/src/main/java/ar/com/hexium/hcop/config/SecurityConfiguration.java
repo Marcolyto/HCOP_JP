@@ -3,6 +3,7 @@ package ar.com.hexium.hcop.config;
 import ar.com.hexium.hcop.auth.JwtAuthenticationFilter;
 import ar.com.hexium.hcop.auth.SessionStateRepository;
 import ar.com.hexium.hcop.auth.TokenIssuer;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -48,9 +49,11 @@ public class SecurityConfiguration {
    */
   @Bean
   FilterRegistrationBean<JwtAuthenticationFilter> jwtAuthenticationFilter(
-      TokenIssuer tokens, SessionStateRepository sessions) {
-    FilterRegistrationBean<JwtAuthenticationFilter> registration =
-        new FilterRegistrationBean<>(new JwtAuthenticationFilter(tokens, sessions));
+      TokenIssuer tokens,
+      SessionStateRepository sessions,
+      @Value("${hcop.jwt.session-revocation-check:true}") boolean revocationCheckEnabled) {
+    FilterRegistrationBean<JwtAuthenticationFilter> registration = new FilterRegistrationBean<>(
+        new JwtAuthenticationFilter(tokens, sessions, revocationCheckEnabled));
     registration.addUrlPatterns("/api/*");
     registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 10);
     return registration;

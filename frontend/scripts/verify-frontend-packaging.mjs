@@ -74,27 +74,37 @@ if (process.argv.includes('--dist')) {
 const publicRoot = resolve(frontendRoot, 'public');
 const catalogsRoot = resolve(frontendRoot, '..', 'backend', 'runtime', 'catalogs');
 
-const manifest = JSON.parse(
-  readFileSync(resolve(catalogsRoot, 'study-templates', 'manifest.json'), 'utf8'));
-for (const template of manifest.templates) {
-  for (const key of ['file', 'thumbnail']) {
-    const relativePath = template[key];
+// El contexto de build Docker del frontend es SOLO frontend/ (backend/ no existe ahí a
+// propósito: son servicios independientes). Este cruce solo puede correr donde el repo
+// completo está presente (checkout local, job "frontend" de CI) — se omite en el build
+// de imagen, que valida el contrato de otra forma (tests + guardián de la propia imagen).
+if (existsSync(catalogsRoot)) {
+  const manifest = JSON.parse(
+    readFileSync(resolve(catalogsRoot, 'study-templates', 'manifest.json'), 'utf8'));
+  for (const template of manifest.templates) {
+    for (const key of ['file', 'thumbnail']) {
+      const relativePath = template[key];
+      assert(
+        existsSync(resolve(publicRoot, relativePath)),
+        `study-templates/manifest.json referencia ${relativePath} (${key} de "${template.id}") ` +
+          `que no existe en frontend/public/`
+      );
+    }
+  }
+
+  const underlays = JSON.parse(
+    readFileSync(resolve(catalogsRoot, 'systemic-form-underlays.json'), 'utf8'));
+  for (const pagePath of Object.keys(underlays.pages)) {
+    const relativePath = pagePath.replace(/^\//, '');
     assert(
       existsSync(resolve(publicRoot, relativePath)),
-      `study-templates/manifest.json referencia ${relativePath} (${key} de "${template.id}") ` +
-        `que no existe en frontend/public/`
+      `systemic-form-underlays.json referencia la página ${pagePath} que no existe en frontend/public/`
     );
   }
-}
-
-const underlays = JSON.parse(
-  readFileSync(resolve(catalogsRoot, 'systemic-form-underlays.json'), 'utf8'));
-for (const pagePath of Object.keys(underlays.pages)) {
-  const relativePath = pagePath.replace(/^\//, '');
-  assert(
-    existsSync(resolve(publicRoot, relativePath)),
-    `systemic-form-underlays.json referencia la página ${pagePath} que no existe en frontend/public/`
-  );
+} else {
+  console.log(
+    `(omitido) ${catalogsRoot} no existe en este contexto de build — ` +
+      'el cruce con los catálogos del backend solo corre con el repo completo.');
 }
 
 console.log('OK · contrato visual, lector QR y activos de catálogo empaquetados por Angular');

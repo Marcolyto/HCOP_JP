@@ -71,7 +71,26 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
   público y autenticado (Bearer reenviado), 401 pass-through sin sesión, docs proxy
   (`/v3/api-docs` 200, `/swagger-ui.html` 302→`/swagger-ui/index.html`), `Set-Cookie` del backend
   confirmado sin fuga al navegador.
-- [ ] F1.4 — Security/logging/cache filters + BackendHealthIndicator
+- [x] F1.4 — Security/logging/cache filters + BackendHealthIndicator.
+  `security/`: `BffSessionFilter` (@Order 30, resuelve sesión una vez por request + refresh
+  transparente — TTL<1 día ⇒ extiende Redis Y reemite cookie, con lock SETNX 5s así de N
+  requests concurrentes solo uno refresca), `SessionRequiredFilter` (@Order 40, 401 byte a byte
+  igual a `AuthenticationRequiredResponse` del backend, mismos paths públicos que
+  `AuthInterceptor.isPublic()`), `CurrentSessionArgumentResolver` (inyecta
+  `Optional<BffSession>`/`BffSession` en controllers desde el atributo del filtro — se usó para
+  sacarle a `ApiProxyController` el lookup a Redis que tenía interino desde F1.3).
+  `logging/`: `CorrelationIdFilter` (@Order 10, respeta `X-Correlation-Id` entrante o genera uno,
+  MDC), `RequestResponseLoggingFilter` (@Order 20, una línea por request, excluye
+  `/actuator/health` vía `LoggingPolicy`), `LogEvent`.
+  `cache/CacheControlFilter` (@Order 50, el más interno — `HttpServletResponseWrapper` que
+  decide `no-store` recién en `getOutputStream()`/`getWriter()`, porque `BackendApiClient` ya
+  comprometió la respuesta con `flushBuffer()` para cuando un filtro normal post-`chain.doFilter`
+  podría tocarla).
+  `health/BackendHealthIndicator`: `/actuator/health` del BFF ahora depende del health real del
+  backend. 55 tests verdes en `bff/` (25 nuevos). Verificado end-to-end real (Redis efímero +
+  backend F0 real): endpoint protegido sin sesión corta en el BFF con el 401 nuevo (nunca llega
+  al backend), `X-Correlation-Id` presente en toda respuesta, login + endpoint protegido con
+  sesión 200, `Cache-Control: no-store` por default confirmado, `/actuator/health` sigue UP.
 - [ ] F1.5 — Compose con redis+bff, verificación F1
 
 ## F2 — Token Handler JWT real

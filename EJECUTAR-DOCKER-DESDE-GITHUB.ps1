@@ -164,6 +164,7 @@ services:
       HCOP_SEED_EXAMPLE_PATIENT: ${HCOP_SEED_EXAMPLE_PATIENT:-true}
       HCOP_QR_SECRET: ${HCOP_QR_SECRET:?Falta HCOP_QR_SECRET en .env}
       HCOP_ENCRYPTION_SECRET: ${HCOP_ENCRYPTION_SECRET:?Falta HCOP_ENCRYPTION_SECRET en .env}
+      HCOP_JWT_SECRET: ${HCOP_JWT_SECRET:?Falta HCOP_JWT_SECRET en .env}
       HCOP_PUBLIC_BASE_URL: ${HCOP_PUBLIC_BASE_URL:-http://localhost:__HOST_PORT__}
       HCOP_BIND_ADDRESS: 0.0.0.0
       HCOP_PORT: 5180
@@ -348,6 +349,7 @@ function New-InitialEnvironmentContent(
     "HCOP_SEED_EXAMPLE_PATIENT=true",
     "HCOP_QR_SECRET=$(ConvertTo-EnvLiteral (New-RandomHex 48))",
     "HCOP_ENCRYPTION_SECRET=$(ConvertTo-EnvLiteral (New-RandomHex 48))",
+    "HCOP_JWT_SECRET=$(ConvertTo-EnvLiteral (New-RandomHex 48))",
     "HCOP_PUBLIC_BASE_URL=http://localhost:$Port"
   ) -join "`r`n") + "`r`n"
 }
@@ -436,6 +438,7 @@ function Ensure-Environment([string]$Path, [string]$DockerPath) {
     "HCOP_BOOTSTRAP_SECOND_USERNAME",
     "HCOP_QR_SECRET",
     "HCOP_ENCRYPTION_SECRET",
+    "HCOP_JWT_SECRET",
     "HCOP_PUBLIC_BASE_URL")
 
   if (Test-Path -LiteralPath $Path -PathType Leaf) {

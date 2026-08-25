@@ -161,6 +161,7 @@ function Write-DotEnv([string]$Path, [hashtable]$Values) {
     "HCOP_SEED_EXAMPLE_PATIENT",
     "HCOP_QR_SECRET",
     "HCOP_ENCRYPTION_SECRET",
+    "HCOP_JWT_SECRET",
     "HCOP_PUBLIC_BASE_URL"
   )
   $lines = [System.Collections.Generic.List[string]]::new()
@@ -228,6 +229,7 @@ function Ensure-Environment([string]$Root) {
     HCOP_SEED_EXAMPLE_PATIENT = "true"
     HCOP_QR_SECRET = (New-RandomSecret 48)
     HCOP_ENCRYPTION_SECRET = (New-RandomSecret 48)
+    HCOP_JWT_SECRET = (New-RandomSecret 48)
     HCOP_PUBLIC_BASE_URL = "http://localhost:$portValue"
   }
   foreach ($key in $defaults.Keys) {

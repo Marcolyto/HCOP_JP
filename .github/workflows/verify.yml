@@ -24,6 +24,7 @@ env:
   HCOP_BOOTSTRAP_PASSWORD: hcop-ci-login-${{ github.run_id }}-${{ github.run_attempt }}
   HCOP_QR_SECRET: hcop-ci-qr-${{ github.run_id }}-${{ github.run_attempt }}-not-production
   HCOP_ENCRYPTION_SECRET: hcop-ci-encryption-${{ github.run_id }}-${{ github.run_attempt }}-not-production
+  HCOP_JWT_SECRET: hcop-ci-jwt-${{ github.run_id }}-${{ github.run_attempt }}-not-production-not-production
 
 jobs:
   launcher:

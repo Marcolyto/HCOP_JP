@@ -176,6 +176,7 @@ try {
     "HCOP_BOOTSTRAP_SECOND_USERNAME=marcolyto2",
     "HCOP_QR_SECRET='qr-secret-test'",
     "HCOP_ENCRYPTION_SECRET='encryption-secret-test'",
+    "HCOP_JWT_SECRET='jwt-secret-test-at-least-32-bytes-long'",
     "HCOP_PUBLIC_BASE_URL=http://localhost:6199"
   ) -join "`r`n"
   [IO.File]::WriteAllText(

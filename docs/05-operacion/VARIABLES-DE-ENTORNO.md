@@ -63,11 +63,14 @@ es un defecto de release que debe detectarse antes de publicar la imagen.
 |---|---|---|
 | `HCOP_QR_SECRET` | obligatorio | Firma HMAC de códigos QR. |
 | `HCOP_ENCRYPTION_SECRET` | obligatorio | Cifrado de secretos como la API key del LLM. |
+| `HCOP_JWT_SECRET` | obligatorio, ≥32 bytes | Firma HS256 de los JWT de sesión (F2, `TokenIssuer`). |
 
-En producción use dos cadenas aleatorias diferentes, largas y respaldadas en un
-gestor seguro. Si se pierde `HCOP_QR_SECRET`, los QR emitidos dejan de ser
-verificables. Si se pierde `HCOP_ENCRYPTION_SECRET`, los secretos cifrados no se
-pueden recuperar. No coloque ninguno en Git.
+En producción use cadenas aleatorias diferentes para cada una, largas y
+respaldadas en un gestor seguro. Si se pierde `HCOP_QR_SECRET`, los QR
+emitidos dejan de ser verificables. Si se pierde `HCOP_ENCRYPTION_SECRET`,
+los secretos cifrados no se pueden recuperar. Si se pierde o rota
+`HCOP_JWT_SECRET`, todas las sesiones activas quedan invalidadas (todo JWT
+firmado con el secreto anterior deja de verificar). No coloque ninguno en Git.
 
 ## Ejemplo mínimo seguro
 
@@ -84,6 +87,7 @@ HCOP_BOOTSTRAP_SECOND_USERNAME=medico2
 HCOP_SEED_EXAMPLE_PATIENT=false
 HCOP_QR_SECRET=secreto-aleatorio-de-al-menos-32-caracteres
 HCOP_ENCRYPTION_SECRET=otro-secreto-aleatorio-independiente
+HCOP_JWT_SECRET=otro-secreto-aleatorio-de-al-menos-32-bytes
 HCOP_PUBLIC_BASE_URL=https://hcop.institucion.example
 ```
 

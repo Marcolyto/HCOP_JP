@@ -52,6 +52,7 @@ services:
       HCOP_SEED_EXAMPLE_PATIENT: "false"
       HCOP_QR_SECRET: ${HCOP_TEST_QR_SECRET}
       HCOP_ENCRYPTION_SECRET: ${HCOP_TEST_ENCRYPTION_SECRET}
+      HCOP_JWT_SECRET: ${HCOP_TEST_JWT_SECRET}
       HCOP_BIND_ADDRESS: 0.0.0.0
       HCOP_PORT: 5180
     volumes:
@@ -72,6 +73,7 @@ HCOP_TEST_DB_PASSWORD=backup-db-$([Guid]::NewGuid().ToString('N'))
 HCOP_TEST_LOGIN_PASSWORD=Backup-test-2026!
 HCOP_TEST_QR_SECRET=backup-qr-$([Guid]::NewGuid().ToString('N'))
 HCOP_TEST_ENCRYPTION_SECRET=backup-encryption-$([Guid]::NewGuid().ToString('N'))
+HCOP_TEST_JWT_SECRET=backup-jwt-$([Guid]::NewGuid().ToString('N'))-$([Guid]::NewGuid().ToString('N'))
 "@
 [System.IO.File]::WriteAllText($composePath, $compose, (New-Object System.Text.UTF8Encoding($false)))
 [System.IO.File]::WriteAllText($environmentPath, $environment, (New-Object System.Text.UTF8Encoding($false)))

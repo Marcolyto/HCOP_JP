@@ -51,7 +51,7 @@ public class PatientWorkspaceController {
   Map<String, Object> activate(@PathVariable long patientId, HttpServletRequest request) {
     auth.requirePermission(request, "section.history.view");
     SessionPrincipal principal = auth.require(request);
-    authService.setActivePatient(auth.token(request), patientId);
+    authService.setActivePatient(auth.sessionId(request), patientId);
     return workspace(patientId, principal);
   }
 

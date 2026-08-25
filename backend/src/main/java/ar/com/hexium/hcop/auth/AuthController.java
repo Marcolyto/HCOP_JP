@@ -68,7 +68,7 @@ public class AuthController {
 
   @PostMapping("/logout")
   Map<String, Object> logout(HttpServletRequest request, HttpServletResponse response) {
-    auth.logout(context.token(request));
+    auth.logout(context.sessionId(request));
     expireCookie(request, response);
     return Map.of("ok", true, "authenticated", false);
   }
@@ -79,7 +79,7 @@ public class AuthController {
       HttpServletRequest request) {
     auth.changePassword(
         context.require(request),
-        context.token(request),
+        context.sessionId(request),
         body.currentPassword(),
         body.newPassword());
     return Map.of("ok", true);
@@ -90,7 +90,7 @@ public class AuthController {
       @RequestBody ActivePatientRequest body,
       HttpServletRequest request) {
     context.require(request);
-    auth.setActivePatient(context.token(request), body.patientId());
+    auth.setActivePatient(context.sessionId(request), body.patientId());
     return Map.of("ok", true, "activePatientId", body.patientId() == null ? "" : body.patientId().toString());
   }
 

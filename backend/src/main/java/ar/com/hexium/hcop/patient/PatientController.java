@@ -59,7 +59,7 @@ public class PatientController {
     authContext.requirePermission(request, "section.history.edit");
     SessionPrincipal actor = authContext.require(request);
     try {
-      Creation creation = patients.create(body.toDomain(), actor, authContext.token(request));
+      Creation creation = patients.create(body.toDomain(), actor, authContext.sessionId(request));
       JsonNode state = accessPolicy.visibleState(documents.state(creation.document()), actor);
       Map<String, Object> result = new LinkedHashMap<>();
       result.put("ok", true);
@@ -97,7 +97,7 @@ public class PatientController {
     SessionPrincipal principal = authContext.require(request);
     Patient patient = patients.require(patientId);
     StoredDocument document = documents.require(patientId);
-    auth.setActivePatient(authContext.token(request), patientId);
+    auth.setActivePatient(authContext.sessionId(request), patientId);
     return Map.of(
         "ok", true,
         "state", accessPolicy.visibleState(documents.state(document), principal),

@@ -118,7 +118,7 @@ public class StudyTemplateController {
     String contentType = request.getContentType() == null ? "image/png"
         : request.getContentType().split(";")[0].trim();
     StoredFile image = files.storeImage(
-        fileName, bytes, contentType, "original", auth.require(request), auth.token(request));
+        fileName, bytes, contentType, "original", auth.require(request), auth.sessionId(request));
     Map<String, Object> imageView = files.imageView(image);
     ObjectNode body = mapper.createObjectNode();
     body.put("name", title.trim());

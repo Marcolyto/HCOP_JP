@@ -41,7 +41,7 @@ class PatientControllerPermissionTest {
     StoredDocument stored = new StoredDocument(42L, storedState, 3L, null, now, now);
 
     when(authContext.require(request)).thenReturn(principal);
-    when(authContext.token(request)).thenReturn("token-qa");
+    when(authContext.sessionId(request)).thenReturn("session-qa");
     when(patients.require(42L)).thenReturn(patient);
     when(documents.require(42L)).thenReturn(stored);
     when(documents.state(stored)).thenReturn(storedState.deepCopy());

@@ -81,7 +81,7 @@ public class ClinicalFileService {
 
   public StudyUpload uploadStudy(
       HttpServletRequest request, long patientId, String studyId, String requestedName,
-      SessionPrincipal actor, String rawSessionToken) {
+      SessionPrincipal actor, String sessionId) {
     patients.require(patientId);
     String originalName = safeName(requestedName);
     String extension = extension(originalName);
@@ -132,7 +132,7 @@ public class ClinicalFileService {
 
   public StoredFile storeImage(
       String fileName, byte[] bytes, String contentType, String kind,
-      SessionPrincipal actor, String rawSessionToken) {
+      SessionPrincipal actor, String sessionId) {
     if (bytes.length < 4 || bytes.length > properties.maxImageBytes()) {
       throw new ApiException(HttpStatus.PAYLOAD_TOO_LARGE, "La imagen supera el límite permitido.");
     }
@@ -163,7 +163,7 @@ public class ClinicalFileService {
       return files.insert(
           id, null, "", "image", safeName(fileName + extension),
           "images/" + id + extension, normalizedType, bytes.length, sha, metadata,
-          actor.userId(), auth.sha256(rawSessionToken), now.plus(Duration.ofHours(24)), now);
+          actor.userId(), sessionId, now.plus(Duration.ofHours(24)), now);
     } catch (RuntimeException databaseError) {
       deleteQuietly(destination);
       throw databaseError;

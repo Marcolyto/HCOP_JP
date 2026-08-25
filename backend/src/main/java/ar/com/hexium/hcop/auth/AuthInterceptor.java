@@ -29,7 +29,7 @@ public class AuthInterceptor implements HandlerInterceptor {
     Optional<SessionPrincipal> principal = auth.authenticate(token);
     principal.ifPresent(value -> {
       request.setAttribute(AuthContext.PRINCIPAL_ATTRIBUTE, value);
-      request.setAttribute(AuthContext.TOKEN_ATTRIBUTE, token);
+      request.setAttribute(AuthContext.SESSION_ID_ATTRIBUTE, auth.sha256(token));
     });
 
     if (!path.startsWith("/api/") || isPublic(path) || path.equals("/api/auth/me")) return true;

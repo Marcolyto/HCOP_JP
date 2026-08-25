@@ -45,7 +45,7 @@ public class ClinicalFileController {
       HttpServletRequest request) {
     auth.requirePermission(request, "section.studies.edit");
     StudyUpload upload = files.uploadStudy(
-        request, patientId, studyId, fileName, auth.require(request), auth.token(request));
+        request, patientId, studyId, fileName, auth.require(request), auth.sessionId(request));
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(withOk(files.studyView(upload.file(), upload.deleteToken())));
   }
@@ -98,7 +98,7 @@ public class ClinicalFileController {
         contentType,
         body.path("kind").asText("original"),
         actor,
-        auth.token(request));
+        auth.sessionId(request));
     return ResponseEntity.status(HttpStatus.CREATED).body(withOk(files.imageView(stored)));
   }
 

@@ -192,11 +192,12 @@ class AuthInterceptorTest {
     MockHttpServletResponse response = new MockHttpServletResponse();
     when(auth.authenticate("token-low-role"))
         .thenReturn(Optional.of(principal(Set.of("section.protocols.view"))));
+    when(auth.sha256("token-low-role")).thenReturn("hash-low-role");
 
     boolean allowed = interceptor.preHandle(request, response, new Object());
 
     assertThat(allowed).isTrue();
-    assertThat(request.getAttribute(AuthContext.TOKEN_ATTRIBUTE)).isEqualTo("token-low-role");
+    assertThat(request.getAttribute(AuthContext.SESSION_ID_ATTRIBUTE)).isEqualTo("hash-low-role");
   }
 
   @Test
@@ -207,11 +208,12 @@ class AuthInterceptorTest {
     MockHttpServletResponse response = new MockHttpServletResponse();
     when(auth.authenticate("token-bearer"))
         .thenReturn(Optional.of(principal(Set.of("section.protocols.view"))));
+    when(auth.sha256("token-bearer")).thenReturn("hash-bearer");
 
     boolean allowed = interceptor.preHandle(request, response, new Object());
 
     assertThat(allowed).isTrue();
-    assertThat(request.getAttribute(AuthContext.TOKEN_ATTRIBUTE)).isEqualTo("token-bearer");
+    assertThat(request.getAttribute(AuthContext.SESSION_ID_ATTRIBUTE)).isEqualTo("hash-bearer");
   }
 
   @Test

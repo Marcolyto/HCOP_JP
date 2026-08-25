@@ -39,14 +39,14 @@ public class PatientService {
   }
 
   @Transactional
-  public Creation create(NewPatient input, SessionPrincipal actor, String token) {
+  public Creation create(NewPatient input, SessionPrincipal actor, String sessionId) {
     validate(input);
     patients.findDuplicate(input.dni(), input.medicalRecord()).ifPresent(existing -> {
       throw new DuplicatePatientException(existing);
     });
     Patient patient = patients.insert(input);
     StoredDocument document = documents.createBlank(patient, actor.userId());
-    auth.setActivePatient(token, patient.id());
+    auth.setActivePatient(sessionId, patient.id());
     return new Creation(patient, document);
   }
 

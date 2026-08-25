@@ -75,7 +75,7 @@ class StudyTemplateControllerTest {
     SessionPrincipal actor = new SessionPrincipal(
         7L, "oncologo", "", "Oncólogo", "Oncología", "MN 1", true, null, List.of(), Set.of());
     when(auth.require(request)).thenReturn(actor);
-    when(auth.token(request)).thenReturn("session-token");
+    when(auth.sessionId(request)).thenReturn("session-token");
     StoredFile image = new StoredFile(
         UUID.fromString("00000000-0000-0000-0000-000000000012"), null, "", "image",
         "pelvis.png", "images/pelvis.png", "image/png", 4L, "sha", mapper.createObjectNode(),

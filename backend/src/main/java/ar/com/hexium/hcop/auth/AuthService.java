@@ -110,13 +110,16 @@ public class AuthService {
     return principal;
   }
 
+  /** {@code sessionId}: ya viene calculado por {@link AuthContext#sessionId} (sha256 del token
+   * opaco hoy, {@code sid} del JWT en F2.5+) — no volver a hashear acá. */
   @Transactional
-  public void logout(String token) {
-    if (token != null && !token.isBlank()) repository.deleteSession(sha256(token));
+  public void logout(String sessionId) {
+    if (sessionId != null && !sessionId.isBlank()) repository.deleteSession(sessionId);
   }
 
   @Transactional
-  public void changePassword(SessionPrincipal principal, String token, String currentPassword, String newPassword) {
+  public void changePassword(
+      SessionPrincipal principal, String sessionId, String currentPassword, String newPassword) {
     if (newPassword == null || newPassword.length() < 10 || newPassword.length() > 256) {
       throw new ApiException(HttpStatus.BAD_REQUEST, "La nueva contraseña debe tener entre 10 y 256 caracteres.");
     }
@@ -126,15 +129,15 @@ public class AuthService {
     }
     Instant now = clock.instant();
     repository.changePassword(principal.userId(), passwords.encode(newPassword), now);
-    repository.deleteOtherSessions(principal.userId(), sha256(token));
+    repository.deleteOtherSessions(principal.userId(), sessionId);
   }
 
   @Transactional
-  public void setActivePatient(String token, Long patientId) {
+  public void setActivePatient(String sessionId, Long patientId) {
     if (patientId != null && !repository.patientExists(patientId)) {
       throw new ApiException(HttpStatus.NOT_FOUND, "Paciente no encontrado.");
     }
-    repository.setActivePatient(sha256(token), patientId, clock.instant());
+    repository.setActivePatient(sessionId, patientId, clock.instant());
   }
 
   public String sha256(String value) {

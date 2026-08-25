@@ -5,6 +5,8 @@
     "Start",
     "Update",
     "Repair",
+    "Backup",
+    "Restore",
     "Stop",
     "Preflight",
     "ValidateOnly",
@@ -12,6 +14,8 @@
     "SourceStop",
     "SourceRestart")]
   [string]$Mode = "Install",
+  [string]$BackupDirectory = "",
+  [switch]$ConfirmRestore,
   [switch]$NoOpenBrowser,
   [switch]$Elevated
 )
@@ -704,7 +708,10 @@ function Install-Candidate([string]$Root) {
         "compose.yaml",
         "compose.github.yaml",
         "Dockerfile",
-        "scripts\instalar-desde-github.ps1")) {
+        "scripts\instalar-desde-github.ps1",
+        "scripts\backup-hcop.ps1",
+        "scripts\restore-hcop.ps1",
+        "scripts\hcop-data-common.ps1")) {
       if (-not (Test-Path -LiteralPath (Join-Path $destination $required) -PathType Leaf)) {
         throw "La versión descargada no contiene $required."
       }
@@ -1015,12 +1022,44 @@ exit /b %HCOP_RESULT%
   [System.IO.File]::WriteAllText($Path, $content, [System.Text.Encoding]::ASCII)
 }
 
+function Write-DataLauncherFile(
+  [string]$Path,
+  [ValidateSet("Backup", "Restore")][string]$LauncherMode,
+  [string]$SuccessMessage
+) {
+  $content = @"
+@echo off
+setlocal EnableExtensions
+cd /d "%~dp0"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0instalar-desde-github.ps1" -Mode $LauncherMode -InstallDir "%~dp0"
+set "HCOP_RESULT=%ERRORLEVEL%"
+if not "%HCOP_RESULT%"=="0" (
+  echo.
+  echo La operacion no pudo completarse. Revise la ruta del registro mostrada arriba.
+) else (
+  echo.
+  echo $SuccessMessage
+)
+pause
+exit /b %HCOP_RESULT%
+"@
+  [System.IO.File]::WriteAllText($Path, $content, [System.Text.Encoding]::ASCII)
+}
+
 function Write-Launchers([string]$Root) {
   Write-LauncherFile (Join-Path $Root "Iniciar HCOP JP.bat") "Start"
   Write-LauncherFile (Join-Path $Root "Actualizar HCOP JP.bat") "Update"
   Write-LauncherFile (Join-Path $Root "Reparar HCOP JP.bat") "Repair"
   Write-LauncherFile (Join-Path $Root "Detener HCOP JP.bat") "Stop"
   Write-LauncherFile (Join-Path $Root "Lanzar HCOP JP.bat") "Start"
+  Write-DataLauncherFile `
+    (Join-Path $Root "Respaldar HCOP JP.bat") `
+    "Backup" `
+    "Backup completado. La ubicacion verificada aparece arriba."
+  Write-DataLauncherFile `
+    (Join-Path $Root "Restaurar HCOP JP.bat") `
+    "Restore" `
+    "Operacion finalizada. Revise el resultado indicado arriba."
   try {
     $desktop = [Environment]::GetFolderPath("Desktop")
     $shortcutPath = Join-Path $desktop "HCOP JP.lnk"
@@ -1219,6 +1258,86 @@ function Stop-Stable([string]$Root) {
   Write-Ok "HCOP JP fue detenido. Los datos se conservaron."
 }
 
+function Get-StableDataScript(
+  [string]$Root,
+  [ValidateSet("backup-hcop.ps1", "restore-hcop.ps1")][string]$Name
+) {
+  $current = Read-VersionPointer $Root "current.txt"
+  $script:ActiveRelease = $current
+  $path = [System.IO.Path]::GetFullPath((Join-Path $current.Path "scripts\$Name"))
+  if (-not (Test-SafeVersionPath $Root $path) -or
+      -not (Test-Path -LiteralPath $path -PathType Leaf)) {
+    throw "La versión instalada no contiene scripts\$Name. Ejecute 'Actualizar HCOP JP.bat'."
+  }
+  Test-InstallerScript $path
+  $common = [System.IO.Path]::GetFullPath((Join-Path $current.Path "scripts\hcop-data-common.ps1"))
+  if (-not (Test-SafeVersionPath $Root $common) -or
+      -not (Test-Path -LiteralPath $common -PathType Leaf)) {
+    throw "La versión instalada no contiene scripts\hcop-data-common.ps1. Ejecute 'Actualizar HCOP JP.bat'."
+  }
+  Test-InstallerScript $common
+  return $path
+}
+
+function Initialize-StableDataOperation([string]$Root) {
+  Ensure-Docker $Root $false
+  $dockerDirectory = Split-Path -Parent $script:DockerPath
+  if (-not [string]::IsNullOrWhiteSpace($dockerDirectory)) {
+    $env:Path = "$dockerDirectory$([System.IO.Path]::PathSeparator)$env:Path"
+  }
+}
+
+function Backup-Stable([string]$Root) {
+  $backupScript = Get-StableDataScript $Root "backup-hcop.ps1"
+  Initialize-StableDataOperation $Root
+  Write-Step "Creando backup íntegro de HCOP JP"
+  & $backupScript -ProjectRoot $Root -ProjectName $script:ProjectName
+  Write-Ok "El backup de PostgreSQL y archivos clínicos quedó verificado."
+}
+
+function Restore-Stable(
+  [string]$Root,
+  [string]$RequestedBackupDirectory,
+  [bool]$AlreadyConfirmed
+) {
+  $restoreScript = Get-StableDataScript $Root "restore-hcop.ps1"
+  $selected = $RequestedBackupDirectory
+  if ([string]::IsNullOrWhiteSpace($selected)) {
+    Write-Host ""
+    Write-Host "Seleccione una carpeta hcop-backup-* que contenga manifest.json." -ForegroundColor Cyan
+    $selected = Read-Host "Ruta completa del backup"
+  }
+  if ([string]::IsNullOrWhiteSpace($selected)) {
+    Write-Ok "Restauración cancelada; no se modificó ningún dato."
+    return
+  }
+  $selected = [Environment]::ExpandEnvironmentVariables($selected.Trim())
+  if ($selected.Length -ge 2 -and $selected.StartsWith('"') -and $selected.EndsWith('"')) {
+    $selected = $selected.Substring(1, $selected.Length - 2)
+  }
+  $selected = [System.IO.Path]::GetFullPath($selected)
+
+  if (-not $AlreadyConfirmed) {
+    Write-Host ""
+    Write-Host "ATENCIÓN: se reemplazarán la base y los archivos clínicos actuales." -ForegroundColor Yellow
+    Write-Host "Antes de reemplazarlos se creará automáticamente un backup de seguridad."
+    $answer = Read-Host "Escriba RESTAURAR para continuar"
+    if ($answer -cne "RESTAURAR") {
+      Write-Ok "Restauración cancelada; no se modificó ningún dato."
+      return
+    }
+  }
+
+  Initialize-StableDataOperation $Root
+  Write-Step "Verificando y restaurando HCOP JP"
+  & $restoreScript `
+    -BackupDirectory $selected `
+    -ProjectRoot $Root `
+    -ProjectName $script:ProjectName `
+    -ConfirmRestore
+  Write-Ok "La restauración terminó y HCOP JP volvió a quedar saludable."
+}
+
 function New-SourceRelease([string]$Root) {
   $compose = Join-Path $Root "compose.yaml"
   if (-not (Test-Path -LiteralPath $compose -PathType Leaf)) {
@@ -1313,7 +1432,10 @@ function Invoke-ValidateOnly {
     "INSTALAR-DESDE-GITHUB.bat",
     "iniciar.bat",
     "detener.bat",
-    "reiniciar.bat"
+    "reiniciar.bat",
+    "scripts\backup-hcop.ps1",
+    "scripts\restore-hcop.ps1",
+    "scripts\hcop-data-common.ps1"
   )
   $missing = @()
   foreach ($path in $required) {
@@ -1361,6 +1483,12 @@ try {
       }
       "Repair" {
         Repair-Stable $resolvedRoot
+      }
+      "Backup" {
+        Backup-Stable $resolvedRoot
+      }
+      "Restore" {
+        Restore-Stable $resolvedRoot $BackupDirectory $ConfirmRestore.IsPresent
       }
       "Stop" {
         Stop-Stable $resolvedRoot

@@ -178,10 +178,16 @@ La instalación crea accesos separados:
   la convierte en estable;
 - **Reparar HCOP JP**: repara WSL/Docker, intenta la versión estable, recupera
   la anterior si es necesario y descarga nuevamente sólo como último recurso;
+- **Respaldar HCOP JP**: crea una copia verificada de PostgreSQL y de los
+  archivos clínicos, sin incluir ni mostrar `.env`;
+- **Restaurar HCOP JP**: solicita la carpeta del backup y la palabra explícita
+  `RESTAURAR`, crea primero un backup de seguridad y recién entonces reemplaza
+  los datos;
 - **Detener HCOP JP**: apaga los contenedores sin borrar datos.
 
 El inicio diario no depende de Internet. Para actualizar sí se necesita acceso a
-GitHub y a los registros de contenedores.
+GitHub y a los registros de contenedores. Backup y restauración usan la versión
+estable que ya está instalada y tampoco descargan código.
 
 ## Versiones, recuperación y datos
 
@@ -191,6 +197,8 @@ El instalador conserva:
 - `previous.txt`: versión anterior disponible para recuperación;
 - `versions\...`: código de ambas versiones;
 - `.env`: configuración y secretos del equipo;
+- `backups\...`: copias verificadas creadas por **Respaldar HCOP JP** y copias
+  de seguridad previas a una restauración;
 - `logs\...`: registro completo de cada instalación, inicio o reparación.
 
 `current.txt` no cambia si la versión candidata falla. El instalador vuelve a

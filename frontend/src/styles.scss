@@ -1,5 +1,5 @@
-/* El CSS histórico se carga desde index.html para preservar las métricas visuales.
-   Aquí sólo se definen garantías propias del host Angular. */
+/* Garantías propias del host Angular. El contrato visual histórico se incorpora
+   al bundle global, después de este archivo, conservando el orden de cascada. */
 app-root { display: block; height: 100%; }
 
 ::highlight(hcop-agent-study) { background-color: #dce6f2; color: #344f73; }

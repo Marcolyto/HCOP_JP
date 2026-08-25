@@ -204,6 +204,72 @@ try {
   }
 }
 
+$managedInstallerPath = Join-Path $projectRoot "scripts\instalar-desde-github.ps1"
+$managedTokens = $null
+$managedParseErrors = $null
+$managedAst = [Management.Automation.Language.Parser]::ParseFile(
+  $managedInstallerPath,
+  [ref]$managedTokens,
+  [ref]$managedParseErrors)
+if ($managedParseErrors.Count -gt 0) {
+  throw "El instalador administrado contiene errores de sintaxis: $($managedParseErrors.Message -join '; ')"
+}
+
+foreach ($name in @("Write-DataLauncherFile")) {
+  $definition = $managedAst.Find({
+    param($node)
+    $node -is [Management.Automation.Language.FunctionDefinitionAst] -and
+      $node.Name -eq $name
+  }, $true)
+  if ($null -eq $definition) {
+    throw "No se encontró la función administrada requerida $name."
+  }
+  Invoke-Expression $definition.Extent.Text
+}
+
+$writeLaunchersDefinition = $managedAst.Find({
+  param($node)
+  $node -is [Management.Automation.Language.FunctionDefinitionAst] -and
+    $node.Name -eq "Write-Launchers"
+}, $true)
+if ($null -eq $writeLaunchersDefinition -or
+    $writeLaunchersDefinition.Extent.Text -notmatch 'Respaldar HCOP JP\.bat' -or
+    $writeLaunchersDefinition.Extent.Text -notmatch 'Restaurar HCOP JP\.bat') {
+  throw "La instalación administrada no crea los accesos de backup y restauración."
+}
+
+$dataLauncherTestRoot = Join-Path `
+  ([IO.Path]::GetTempPath()) `
+  ("hcop-data-launcher-test-" + [guid]::NewGuid().ToString("N"))
+try {
+  New-Item -ItemType Directory -Path $dataLauncherTestRoot -Force | Out-Null
+  $backupLauncherPath = Join-Path $dataLauncherTestRoot "Respaldar HCOP JP.bat"
+  $restoreLauncherPath = Join-Path $dataLauncherTestRoot "Restaurar HCOP JP.bat"
+  Write-DataLauncherFile $backupLauncherPath "Backup" "Backup completado."
+  Write-DataLauncherFile $restoreLauncherPath "Restore" "Restauración completada."
+  $backupLauncher = [IO.File]::ReadAllText($backupLauncherPath)
+  $restoreLauncher = [IO.File]::ReadAllText($restoreLauncherPath)
+  if ($backupLauncher -notmatch '-Mode Backup' -or
+      $restoreLauncher -notmatch '-Mode Restore' -or
+      $backupLauncher -notmatch '-InstallDir "%~dp0"' -or
+      $restoreLauncher -notmatch '-InstallDir "%~dp0"') {
+    throw "Los accesos de datos no delegan en el instalador y la carpeta instalados."
+  }
+  $launcherText = "$backupLauncher`n$restoreLauncher"
+  if ($launcherText -match '(?i)HCOP_(?:DB_PASSWORD|QR_SECRET|ENCRYPTION_SECRET)|\.env') {
+    throw "Un acceso de backup o restauración expone secretos o referencia .env."
+  }
+} finally {
+  if (Test-Path -LiteralPath $dataLauncherTestRoot) {
+    Remove-Item -LiteralPath $dataLauncherTestRoot -Recurse -Force
+  }
+}
+
+$managedValidation = & $managedInstallerPath -Mode ValidateOnly | ConvertFrom-Json
+if ($managedValidation.ok -ne $true) {
+  throw "La validación estática del instalador administrado no fue satisfactoria."
+}
+
 $validation = & $launcherPath -Mode ValidateOnly | ConvertFrom-Json
 if ($validation.ok -ne $true) {
   throw "La validación estática del lanzador no fue satisfactoria."
@@ -241,4 +307,7 @@ if ([int]$migrationValidation.defaultPort -ne 5181 -or
   staticValidation = $validation.ok
   migrationStaticValidation = $migrationValidation.ok
   migrationIsolation = $true
+  managedInstallerValidation = $managedValidation.ok
+  managedBackupRestoreLaunchers = $true
+  dataLaunchersDoNotExposeEnvironment = $true
 } | ConvertTo-Json -Depth 5

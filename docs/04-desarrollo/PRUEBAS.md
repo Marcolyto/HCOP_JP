@@ -113,6 +113,24 @@ y comprueban que el diálogo y los valores editables permanezcan disponibles
 para reintentar. Motivo de consulta agrega además un `VERSION_CONFLICT` real
 con una segunda sesión.
 
+Los circuitos esenciales de interfaz tienen un recorrido Playwright más corto,
+independiente de la prueba de conflictos:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-core-browser-e2e.ps1
+```
+
+Este lanzador usa `127.0.0.1:5183`, una base y un almacenamiento descartables,
+Chrome instalado en Windows (Chromium administrado por Playwright en CI) y
+secretos aleatorios. Habilita únicamente
+la ficha demostrativa sintética para comprobar el inicio de sesión por pantalla,
+la apertura y persistencia de la historia al navegar, las pestañas de
+Configuración y la matriz compacta de Hospital de día. El contrato visible fija
+el intervalo predeterminado de 10 minutos como **3 columnas × 2 filas por hora**,
+seis sillones, 48 casilleros por sillón, horarios, controles de zoom, fecha y
+atributos accesibles. Al terminar elimina contenedores, redes, volúmenes e imagen
+de prueba. GitHub Actions ejecuta este recorrido antes de publicar una imagen.
+
 El recorrido dedicado de **Antecedentes de enfermedad actual** aplica el mismo
 arnés a primera carga, modificación con motivo, error transitorio, conflicto
 concurrente, persistencia canónica y recuperación. El corte 036 cerró con los
@@ -153,6 +171,30 @@ En la aceptación final del 30/07/2026, la suite Java terminó con **101/101
 pruebas aprobadas**. El E2E utilizó una aplicación de cuatro drogas, interrumpió
 Carboplatino al 50 %, reanudó la administración y finalizó en `completed`
 conservando dosis parcial, interrupción y reacción.
+
+## Instalador, backup y restauración
+
+La prueba estática de Windows valida tanto el ejecutor Docker directo como la
+instalación administrada:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-github-launcher.ps1
+```
+
+Además de puerto, secretos y canales aislados, genera en una carpeta temporal
+los accesos **Respaldar HCOP JP** y **Restaurar HCOP JP**. Exige que deleguen en
+la versión instalada, que no incorporen contraseñas ni referencias a `.env` y
+que el instalador incluya los tres scripts necesarios para operar los datos.
+
+La recuperación real se comprueba en un proyecto Docker descartable:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-backup-restore.ps1
+```
+
+Ese ensayo recupera un dato PostgreSQL y un archivo de storage, comprueba que
+desaparezca el estado posterior al backup y elimina solamente sus recursos
+efímeros.
 
 ## Documentación y OpenAPI
 

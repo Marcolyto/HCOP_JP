@@ -6,6 +6,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Optional;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 import tools.jackson.databind.ObjectMapper;
@@ -15,11 +16,17 @@ public class AuthInterceptor implements HandlerInterceptor {
   private final AuthService auth;
   private final ObjectMapper mapper;
   private final String cookieName;
+  private final boolean jwtMode;
 
-  public AuthInterceptor(AuthService auth, ObjectMapper mapper, ar.com.hexium.hcop.config.HcopProperties properties) {
+  public AuthInterceptor(
+      AuthService auth,
+      ObjectMapper mapper,
+      ar.com.hexium.hcop.config.HcopProperties properties,
+      @Value("${hcop.auth.mode:cookie}") String authMode) {
     this.auth = auth;
     this.mapper = mapper;
     this.cookieName = properties.sessionCookieName();
+    this.jwtMode = "jwt".equalsIgnoreCase(authMode);
   }
 
   @Override
@@ -81,8 +88,12 @@ public class AuthInterceptor implements HandlerInterceptor {
   }
 
   private boolean isPublic(String path) {
-    return path.equals("/api/auth/login")
-        || path.equals("/api/runtime/status")
+    if (path.equals("/api/auth/login") || path.equals("/api/auth/refresh")) return true;
+    // Modo JWT (F2.5): sin JwtAuthenticationFilter todavía (F2.6), este interceptor no sabe
+    // autenticar un Bearer JWT — logout no puede exigir sesión ya resuelta acá. En modo cookie
+    // el comportamiento no cambia: logout sigue exigiendo la cookie/Bearer opaco válido.
+    if (jwtMode && path.equals("/api/auth/logout")) return true;
+    return path.equals("/api/runtime/status")
         || path.equals("/api/clinical/status")
         || path.equals("/api/lira/status");
   }

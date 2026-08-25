@@ -25,7 +25,7 @@ class AuthInterceptorTest {
 
   AuthInterceptorTest() {
     when(properties.sessionCookieName()).thenReturn("HCOP_SESSION");
-    interceptor = new AuthInterceptor(auth, mapper, properties);
+    interceptor = new AuthInterceptor(auth, mapper, properties, "cookie");
   }
 
   @Test
@@ -227,6 +227,29 @@ class AuthInterceptorTest {
 
     assertThat(allowed).isFalse();
     assertThat(response.getStatus()).isEqualTo(401);
+  }
+
+  @Test
+  void enModoCookieLogoutSigueExigiendoSesionValida() throws Exception {
+    AuthInterceptor cookieInterceptor = new AuthInterceptor(auth, mapper, properties, "cookie");
+    MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/logout");
+    MockHttpServletResponse response = new MockHttpServletResponse();
+
+    boolean allowed = cookieInterceptor.preHandle(request, response, new Object());
+
+    assertThat(allowed).isFalse();
+    assertThat(response.getStatus()).isEqualTo(401);
+  }
+
+  @Test
+  void enModoJwtLogoutEsPublicoPorqueNoHayFiltroJwtTodavia() throws Exception {
+    AuthInterceptor jwtInterceptor = new AuthInterceptor(auth, mapper, properties, "jwt");
+    MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/logout");
+    MockHttpServletResponse response = new MockHttpServletResponse();
+
+    boolean allowed = jwtInterceptor.preHandle(request, response, new Object());
+
+    assertThat(allowed).isTrue();
   }
 
   private MockHttpServletRequest agentRequest() {

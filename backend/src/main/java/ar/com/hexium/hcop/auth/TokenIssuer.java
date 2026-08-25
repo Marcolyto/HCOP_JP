@@ -49,8 +49,8 @@ public class TokenIssuer {
   public Optional<AccessTokenClaims> parse(String token) {
     if (token == null || token.isBlank()) return Optional.empty();
     try {
-      Claims claims = Jwts.parser().verifyWith((javax.crypto.SecretKey) key).build()
-          .parseSignedClaims(token).getPayload();
+      Claims claims = parseClaims(token);
+      if (claims.get("typ") != null) return Optional.empty(); // es un refresh token, no access
       return Optional.of(new AccessTokenClaims(
           Long.parseLong(claims.getSubject()),
           claims.get("sid", String.class),
@@ -62,10 +62,55 @@ public class TokenIssuer {
     }
   }
 
+  /**
+   * Refresh token: JWT minimal (sin roles/permissions — se re-leen de la DB en cada refresh,
+   * hallazgo del plan) que solo prueba posesión de {@code jti}/{@code sid}. La fila de
+   * {@code local_refresh_tokens} es el ledger de revocación real; el JWT solo evita que alguien
+   * con acceso de lectura a esa tabla pueda fabricar un refresh token válido.
+   */
+  public IssuedToken issueRefreshToken(long userId, UUID sid, UUID jti, Duration ttl) {
+    Instant now = Instant.now();
+    Instant expiresAt = now.plus(ttl);
+    String token = Jwts.builder()
+        .issuer(issuer)
+        .subject(Long.toString(userId))
+        .id(jti.toString())
+        .issuedAt(Date.from(now))
+        .expiration(Date.from(expiresAt))
+        .claim("sid", sid.toString())
+        .claim("typ", "refresh")
+        .signWith(key)
+        .compact();
+    return new IssuedToken(token, expiresAt);
+  }
+
+  public Optional<RefreshTokenClaims> parseRefreshToken(String token) {
+    if (token == null || token.isBlank()) return Optional.empty();
+    try {
+      Claims claims = parseClaims(token);
+      if (!"refresh".equals(claims.get("typ", String.class))) return Optional.empty();
+      return Optional.of(new RefreshTokenClaims(
+          Long.parseLong(claims.getSubject()),
+          UUID.fromString(claims.get("sid", String.class)),
+          UUID.fromString(claims.getId()),
+          claims.getExpiration().toInstant()));
+    } catch (JwtException | IllegalArgumentException | NullPointerException exception) {
+      return Optional.empty();
+    }
+  }
+
+  private Claims parseClaims(String token) {
+    return Jwts.parser().verifyWith((javax.crypto.SecretKey) key).build()
+        .parseSignedClaims(token).getPayload();
+  }
+
   public record IssuedToken(String token, Instant expiresAt) {
   }
 
   public record AccessTokenClaims(
       long userId, String sid, List<String> roles, List<String> permissions, Instant expiresAt) {
+  }
+
+  public record RefreshTokenClaims(long userId, UUID sid, UUID jti, Instant expiresAt) {
   }
 }

@@ -1,5 +1,6 @@
 package ar.com.hexium.hcop.auth;
 
+import ar.com.hexium.hcop.auth.AuthService.JwtLoginResult;
 import ar.com.hexium.hcop.auth.AuthService.LoginResult;
 import ar.com.hexium.hcop.config.HcopProperties;
 import jakarta.servlet.http.Cookie;
@@ -9,8 +10,10 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,11 +28,17 @@ public class AuthController {
   private final AuthService auth;
   private final AuthContext context;
   private final HcopProperties properties;
+  private final boolean jwtMode;
 
-  public AuthController(AuthService auth, AuthContext context, HcopProperties properties) {
+  public AuthController(
+      AuthService auth,
+      AuthContext context,
+      HcopProperties properties,
+      @Value("${hcop.auth.mode:cookie}") String authMode) {
     this.auth = auth;
     this.context = context;
     this.properties = properties;
+    this.jwtMode = "jwt".equalsIgnoreCase(authMode);
   }
 
   @GetMapping("/me")
@@ -50,6 +59,11 @@ public class AuthController {
       @Valid @RequestBody LoginRequest body,
       HttpServletRequest request,
       HttpServletResponse response) {
+    if (jwtMode) {
+      JwtLoginResult result = auth.loginJwt(
+          body.identifier(), body.password(), clientAddress(request), request.getHeader("User-Agent"));
+      return jwtResponse(result);
+    }
     LoginResult result = auth.login(
         body.identifier(),
         body.password(),
@@ -66,8 +80,23 @@ public class AuthController {
     return response(result.principal());
   }
 
+  /** No expuesto al navegador — lo consume el BFF server-to-server (modo JWT). */
+  @PostMapping("/refresh")
+  Map<String, Object> refresh(@Valid @RequestBody RefreshRequest body, HttpServletRequest request) {
+    JwtLoginResult result = auth.refresh(
+        body.refreshToken(), clientAddress(request), request.getHeader("User-Agent"));
+    return jwtResponse(result);
+  }
+
   @PostMapping("/logout")
-  Map<String, Object> logout(HttpServletRequest request, HttpServletResponse response) {
+  Map<String, Object> logout(
+      @RequestBody(required = false) LogoutRequest body,
+      HttpServletRequest request,
+      HttpServletResponse response) {
+    if (jwtMode) {
+      auth.logoutJwt(body == null ? "" : body.refreshToken());
+      return Map.of("ok", true, "authenticated", false);
+    }
     auth.logout(context.sessionId(request));
     expireCookie(request, response);
     return Map.of("ok", true, "authenticated", false);
@@ -116,6 +145,20 @@ public class AuthController {
     return result;
   }
 
+  /** {@code session} anida el mismo objeto que {@link #response}: cero shaping en el BFF, cero
+   * divergencia del contrato (desvío consciente del doc base — ver docs de decisiones F2). */
+  private Map<String, Object> jwtResponse(JwtLoginResult result) {
+    Instant now = Instant.now();
+    Map<String, Object> body = new LinkedHashMap<>();
+    body.put("ok", true);
+    body.put("accessToken", result.access().token());
+    body.put("refreshToken", result.refresh().token());
+    body.put("expiresIn", Duration.between(now, result.access().expiresAt()).toSeconds());
+    body.put("refreshExpiresIn", Duration.between(now, result.refresh().expiresAt()).toSeconds());
+    body.put("session", response(result.principal()));
+    return body;
+  }
+
   private void expireCookie(HttpServletRequest request, HttpServletResponse response) {
     ResponseCookie cookie = ResponseCookie.from(properties.sessionCookieName(), "")
         .httpOnly(true)
@@ -149,5 +192,11 @@ public class AuthController {
   }
 
   public record ActivePatientRequest(Long patientId) {
+  }
+
+  public record RefreshRequest(@NotBlank String refreshToken) {
+  }
+
+  public record LogoutRequest(String refreshToken) {
   }
 }

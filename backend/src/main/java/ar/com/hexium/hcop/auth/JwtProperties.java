@@ -1,6 +1,7 @@
 package ar.com.hexium.hcop.auth;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -12,10 +13,12 @@ import org.springframework.stereotype.Component;
 public class JwtProperties {
   private final byte[] secret;
   private final String issuer;
+  private final Duration accessTokenTtl;
 
   public JwtProperties(
       @Value("${HCOP_JWT_SECRET:}") String secret,
-      @Value("${HCOP_JWT_ISSUER:hcop-jp}") String issuer) {
+      @Value("${HCOP_JWT_ISSUER:hcop-jp}") String issuer,
+      @Value("${HCOP_JWT_ACCESS_MINUTES:15}") long accessTokenTtlMinutes) {
     byte[] bytes = secret == null ? new byte[0] : secret.getBytes(StandardCharsets.UTF_8);
     if (bytes.length < 32) {
       throw new IllegalStateException(
@@ -23,6 +26,7 @@ public class JwtProperties {
     }
     this.secret = bytes;
     this.issuer = issuer;
+    this.accessTokenTtl = Duration.ofMinutes(accessTokenTtlMinutes);
   }
 
   public byte[] secret() {
@@ -31,5 +35,10 @@ public class JwtProperties {
 
   public String issuer() {
     return issuer;
+  }
+
+  /** Vida corta a propósito — la sesión real la sostiene el refresh token (F2.5). */
+  public Duration accessTokenTtl() {
+    return accessTokenTtl;
   }
 }

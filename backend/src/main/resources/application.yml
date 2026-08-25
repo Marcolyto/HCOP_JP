@@ -70,6 +70,11 @@ hcop:
   public-base-url: ${HCOP_PUBLIC_BASE_URL:http://127.0.0.1:5180}
   session-cookie-name: HCOP_SESSION
   session-duration-minutes: ${HCOP_SESSION_MINUTES:43200}
+  # F2 (modo dual): "cookie" (hoy, default) o "jwt" (login/refresh/logout devuelven JWT, sin
+  # Set-Cookie). Permite probar el modo JWT contra el backend solo, sin el BFF — no leído por
+  # HcopProperties (record aparte, ver AuthController).
+  auth:
+    mode: ${HCOP_AUTH_MODE:cookie}
   max-study-bytes: 262144000
   max-image-bytes: 15728640
   qr-secret: ${HCOP_QR_SECRET:hcop-jp-local-qr-change-me}

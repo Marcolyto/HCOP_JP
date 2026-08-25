@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,10 @@ public class AuthService {
   private final PasswordService passwords;
   private final HcopProperties properties;
   private final Clock clock;
+  private final TokenIssuer tokens;
+  private final JwtProperties jwtProperties;
+  private final SessionStateRepository sessions;
+  private final RefreshTokenRepository refreshTokens;
   private final SecureRandom random = new SecureRandom();
   private final String bootstrapUsername;
   private final String bootstrapPassword;
@@ -34,6 +39,10 @@ public class AuthService {
       PasswordService passwords,
       HcopProperties properties,
       Clock clock,
+      TokenIssuer tokens,
+      JwtProperties jwtProperties,
+      SessionStateRepository sessions,
+      RefreshTokenRepository refreshTokens,
       @Value("${HCOP_BOOTSTRAP_USERNAME:${HCOP_BOOTSTRAP_USER:marcolyto}}") String bootstrapUsername,
       @Value("${HCOP_BOOTSTRAP_PASSWORD:}") String bootstrapPassword,
       @Value("${HCOP_BOOTSTRAP_EMAIL:local@hcop.invalid}") String bootstrapEmail,
@@ -42,6 +51,10 @@ public class AuthService {
     this.passwords = passwords;
     this.properties = properties;
     this.clock = clock;
+    this.tokens = tokens;
+    this.jwtProperties = jwtProperties;
+    this.sessions = sessions;
+    this.refreshTokens = refreshTokens;
     this.bootstrapUsername = bootstrapUsername;
     if (bootstrapPassword == null || bootstrapPassword.length() < 10) {
       throw new IllegalStateException(
@@ -140,6 +153,66 @@ public class AuthService {
     repository.setActivePatient(sessionId, patientId, clock.instant());
   }
 
+  /** Modo dual (F2.5): igual verificación de credenciales que {@link #login}, pero sin tocar
+   * {@code local_sessions} — la sesión vive en {@code local_session_state} (sid) y el par de
+   * JWT es lo único que el cliente recibe (nada de {@code Set-Cookie}). */
+  @Transactional
+  public JwtLoginResult loginJwt(String identifier, String password, String clientAddress, String userAgent) {
+    Instant now = clock.instant();
+    AuthRepository.UserCredential credential = repository.findCredential(identifier)
+        .filter(AuthRepository.UserCredential::enabled)
+        .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Usuario o contraseña incorrectos."));
+    if (!passwords.matches(password, credential.passwordHash())) {
+      throw new ApiException(HttpStatus.UNAUTHORIZED, "Usuario o contraseña incorrectos.");
+    }
+    repository.markLogin(credential.id(), now);
+    UUID sid = sessions.create(credential.id());
+    SessionPrincipal principal = repository.findPrincipalByUserId(credential.id(), null).orElseThrow();
+    return issueTokens(principal, sid, clientAddress, userAgent);
+  }
+
+  /** Rotación: el {@code jti} viejo se revoca, el {@code sid} se preserva. Roles/permisos se
+   * releen de la base en cada refresh (nunca más viejos que el intervalo de refresh). */
+  @Transactional
+  public JwtLoginResult refresh(String refreshToken, String clientAddress, String userAgent) {
+    TokenIssuer.RefreshTokenClaims claims = tokens.parseRefreshToken(refreshToken)
+        .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Refresh token inválido."));
+    Instant now = clock.instant();
+    RefreshTokenRepository.RefreshToken stored = refreshTokens.find(claims.jti())
+        .filter(token -> token.isUsable(now))
+        .filter(token -> token.sid().equals(claims.sid()))
+        .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Refresh token inválido."));
+    if (sessions.isRevoked(stored.sid())) {
+      throw new ApiException(HttpStatus.UNAUTHORIZED, "La sesión fue revocada.");
+    }
+    refreshTokens.revoke(stored.jti());
+    SessionStateRepository.SessionState state = sessions.find(stored.sid())
+        .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Refresh token inválido."));
+    SessionPrincipal principal = repository.findPrincipalByUserId(stored.userId(), state.activePatientId())
+        .filter(SessionPrincipal::active)
+        .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Usuario deshabilitado."));
+    return issueTokens(principal, stored.sid(), clientAddress, userAgent);
+  }
+
+  @Transactional
+  public void logoutJwt(String refreshToken) {
+    if (refreshToken == null || refreshToken.isBlank()) return;
+    tokens.parseRefreshToken(refreshToken).ifPresent(claims -> {
+      sessions.revoke(claims.sid(), clock.instant());
+      refreshTokens.revokeAllForSession(claims.sid());
+    });
+  }
+
+  private JwtLoginResult issueTokens(
+      SessionPrincipal principal, UUID sid, String clientAddress, String userAgent) {
+    TokenIssuer.IssuedToken access = tokens.issueAccessToken(principal, sid.toString(), jwtProperties.accessTokenTtl());
+    Duration refreshTtl = Duration.ofMinutes(repository.sessionDurationMinutes());
+    UUID jti = UUID.randomUUID();
+    TokenIssuer.IssuedToken refresh = tokens.issueRefreshToken(principal.userId(), sid, jti, refreshTtl);
+    refreshTokens.insert(jti, sid, principal.userId(), refresh.expiresAt(), clientAddress, userAgent);
+    return new JwtLoginResult(access, refresh, principal);
+  }
+
   public String sha256(String value) {
     try {
       return HexFormat.of().formatHex(
@@ -150,5 +223,9 @@ public class AuthService {
   }
 
   public record LoginResult(String token, Instant expiresAt, SessionPrincipal principal) {
+  }
+
+  public record JwtLoginResult(
+      TokenIssuer.IssuedToken access, TokenIssuer.IssuedToken refresh, SessionPrincipal principal) {
   }
 }

@@ -45,6 +45,41 @@ public class AuthRepository {
          WHERE s.token_hash = ? AND s.expires_at > ?
          ORDER BY r.id, p.permission_key
         """, this::userRow, tokenHash, Timestamp.from(now));
+    return principalFromRows(rows);
+  }
+
+  /**
+   * F2.5 (modo JWT): no hay {@code local_sessions.token_hash} que consultar — el access token ya
+   * demostró autenticidad por firma. Se relee el usuario por id (roles/permisos frescos, nunca
+   * más viejos que el último refresh) con el {@code activePatientId} de {@code local_session_state}
+   * inyectado (ahí vive, no en esta tabla, en modo JWT).
+   */
+  Optional<SessionPrincipal> findPrincipalByUserId(long userId, Long activePatientId) {
+    List<UserRow> rows = jdbc.query("""
+        SELECT u.id, u.username, u.email, u.display_name, u.specialty, u.license_number,
+               u.enabled, r.id AS role_id, r.role_key, r.display_name AS role_name,
+               p.permission_key
+          FROM local_users u
+          LEFT JOIN local_user_roles ur ON ur.user_id = u.id
+          LEFT JOIN local_roles r ON r.id = ur.role_id AND r.enabled = true
+          LEFT JOIN local_role_permissions rp ON rp.role_id = r.id
+          LEFT JOIN local_permissions p ON p.id = rp.permission_id
+         WHERE u.id = ?
+         ORDER BY r.id, p.permission_key
+        """, this::userRowWithoutSession, userId);
+    return principalFromRows(rows).map(principal -> new SessionPrincipal(
+        principal.userId(), principal.username(), principal.email(), principal.displayName(),
+        principal.specialty(), principal.licenseNumber(), principal.active(), activePatientId,
+        principal.roles(), principal.permissions()));
+  }
+
+  int sessionDurationMinutes() {
+    Integer minutes = jdbc.queryForObject(
+        "SELECT session_duration_minutes FROM local_security_settings WHERE id = 1", Integer.class);
+    return minutes == null ? 43_200 : minutes;
+  }
+
+  private Optional<SessionPrincipal> principalFromRows(List<UserRow> rows) {
     if (rows.isEmpty()) return Optional.empty();
     UserRow first = rows.getFirst();
     List<RoleView> roles = new ArrayList<>();
@@ -162,6 +197,22 @@ public class AuthRepository {
         result.getString("license_number"),
         result.getBoolean("enabled"),
         nullableLong(result, "active_patient_id"),
+        result.getString("role_id"),
+        result.getString("role_key"),
+        result.getString("role_name"),
+        result.getString("permission_key"));
+  }
+
+  private UserRow userRowWithoutSession(ResultSet result, int rowNumber) throws SQLException {
+    return new UserRow(
+        result.getLong("id"),
+        result.getString("username"),
+        result.getString("email"),
+        result.getString("display_name"),
+        result.getString("specialty"),
+        result.getString("license_number"),
+        result.getBoolean("enabled"),
+        null,
         result.getString("role_id"),
         result.getString("role_key"),
         result.getString("role_name"),

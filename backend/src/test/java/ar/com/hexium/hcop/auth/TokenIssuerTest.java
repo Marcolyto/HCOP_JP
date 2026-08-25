@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.Duration;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -12,7 +13,7 @@ import org.junit.jupiter.api.Test;
  * correctamente conviviendo con Jackson 3 (tools.jackson) en el classpath del proyecto.
  */
 class TokenIssuerTest {
-  private final JwtProperties properties = new JwtProperties("s".repeat(32), "hcop-test");
+  private final JwtProperties properties = new JwtProperties("s".repeat(32), "hcop-test", 15);
   private final TokenIssuer issuer = new TokenIssuer(properties);
 
   private final SessionPrincipal principal = new SessionPrincipal(
@@ -44,7 +45,7 @@ class TokenIssuerTest {
 
   @Test
   void rejectsTokenSignedWithAnotherSecret() {
-    TokenIssuer other = new TokenIssuer(new JwtProperties("t".repeat(32), "hcop-test"));
+    TokenIssuer other = new TokenIssuer(new JwtProperties("t".repeat(32), "hcop-test", 15));
     TokenIssuer.IssuedToken issued = other.issueAccessToken(principal, "sid-123", Duration.ofMinutes(15));
 
     assertThat(issuer.parse(issued.token())).isEmpty();
@@ -62,6 +63,30 @@ class TokenIssuerTest {
   void rejectsBlankToken() {
     assertThat(issuer.parse("")).isEmpty();
     assertThat(issuer.parse(null)).isEmpty();
+  }
+
+  @Test
+  void issuesRefreshTokenAndParsesItsOwnClaims() {
+    UUID sid = UUID.randomUUID();
+    UUID jti = UUID.randomUUID();
+
+    TokenIssuer.IssuedToken issued = issuer.issueRefreshToken(7L, sid, jti, Duration.ofDays(30));
+    TokenIssuer.RefreshTokenClaims claims = issuer.parseRefreshToken(issued.token()).orElseThrow();
+
+    assertThat(claims.userId()).isEqualTo(7L);
+    assertThat(claims.sid()).isEqualTo(sid);
+    assertThat(claims.jti()).isEqualTo(jti);
+    assertThat(claims.expiresAt()).isAfter(java.time.Instant.now());
+  }
+
+  @Test
+  void refreshAndAccessTokensAreNotInterchangeable() {
+    UUID sid = UUID.randomUUID();
+    TokenIssuer.IssuedToken access = issuer.issueAccessToken(principal, sid.toString(), Duration.ofMinutes(15));
+    TokenIssuer.IssuedToken refresh = issuer.issueRefreshToken(7L, sid, UUID.randomUUID(), Duration.ofDays(30));
+
+    assertThat(issuer.parseRefreshToken(access.token())).isEmpty();
+    assertThat(issuer.parse(refresh.token())).isEmpty();
   }
 
   private void await() {

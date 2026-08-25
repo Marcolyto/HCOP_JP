@@ -127,11 +127,49 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
 
 ## F2 — Token Handler JWT real
 
-- [ ] F2.1 — TokenIssuerTest (validar jjwt/Jackson 3 ANTES de seguir)
-- [ ] F2.2 — JwtProperties + TokenIssuer + deps + SecurityConfiguration en permitAll
-- [ ] F2.3 — V013 migración (local_refresh_tokens, local_session_state) + repos
-- [ ] F2.4 — AuthContext.sessionId (9 call-sites) + media/patient a sid
-- [ ] F2.5 — login/refresh/logout modo dual (flag hcop.auth.mode)
+- [x] F2.1 — TokenIssuerTest (validar jjwt/Jackson 3 ANTES de seguir). jjwt 0.13.0 no existe
+  (Central tiene hasta 0.12.6); jjwt-gson en vez de jjwt-jackson (evita Jackson 2 transitivo
+  conviviendo con Jackson 3/tools.jackson). 5/5 verde — commit `d310518`.
+- [x] F2.2 — JwtProperties (fail-fast <32 bytes) + SecurityConfiguration en permitAll (sin esto
+  Boot auto-configura form login por defecto) + `spring-boot-starter-security` +
+  `UserDetailsServiceAutoConfiguration` excluida (paquete Boot 4.1:
+  `org.springframework.boot.security.autoconfigure`, no `...autoconfigure.security.servlet`).
+  `HCOP_JWT_SECRET` propagado a todo compose/CI/scripts/.env.example. Verificado en Docker real
+  — commit `94a9ee7`.
+- [x] F2.3 — V013__jwt_auth.sql (aditiva): `local_session_state` (sid PK, revoked) +
+  `local_refresh_tokens` (jti PK → sid, rotación por fila) + `clinical_files.upload_session_id`
+  nullable. `SessionStateRepository`/`RefreshTokenRepository` (JDBC directo, sin unit test —
+  mismo régimen que `AuthRepository`: el Dockerfile corre `mvn test` sin socket de Docker
+  disponible, Testcontainers rompe el build de imagen, se descartó). Verificado: build de imagen
+  limpio, V013 aplica en Postgres real — commit `19dd606`.
+- [x] F2.4 — `AuthContext.token`→`AuthContext.sessionId` (9 call-sites: AuthController×3,
+  PatientController×2, PatientWorkspaceController, ClinicalFileController×2,
+  StudyTemplateController). Cambio mecánico: mismo valor hoy (`sha256(token)` ==
+  `local_sessions.token_hash`), calculado una vez en `AuthInterceptor` en vez de en cada
+  consumidor — prepara el seam para que F2.6 solo tenga que tocar `AuthInterceptor`/el filtro
+  JWT. `AuthService.logout/changePassword/setActivePatient` reciben el hash ya calculado (sin
+  doble sha256). Verificado en Docker real: login→active-patient→me→logout→me(401) idéntico.
+  316 tests verdes.
+- [x] F2.5 — login/refresh/logout modo dual (`hcop.auth.mode: cookie|jwt`, default cookie, env
+  `HCOP_AUTH_MODE`). Modo JWT: login crea `local_session_state` (sid) sin tocar `local_sessions`,
+  emite access token (HS512, TTL 15 min, `HCOP_JWT_ACCESS_MINUTES`) + refresh token (también JWT
+  firmado — evita guardar un secreto crudo comparable, la fila de `local_refresh_tokens` es el
+  ledger de revocación) con TTL leído de `local_security_settings.session_duration_minutes`
+  (re-cableado real: antes esa columna era editable desde Configuración pero no la consultaba
+  nadie). `POST /api/auth/refresh` (nuevo, público, no expuesto al navegador) rota el `jti`
+  preservando el `sid`, releyendo roles/permisos frescos de la DB. Login/refresh devuelven
+  `{ok,accessToken,refreshToken,expiresIn,refreshExpiresIn,session:{...idéntico a hoy...}}`, sin
+  `Set-Cookie`. **Bug encontrado y corregido en la verificación real** (no en unit tests):
+  `/api/auth/logout` no estaba en `isPublic()` de `AuthInterceptor` — en modo JWT el cliente no
+  tiene cookie/Bearer opaco que el interceptor entienda todavía (el filtro JWT es F2.6), así que
+  logout devolvía 401 antes de llegar al controller y nunca revocaba nada; el refresh posterior
+  seguía funcionando (bug silencioso). Fix: `isPublic("/api/auth/logout")` solo cuando
+  `hcop.auth.mode=jwt` — modo cookie sin cambio (logout sigue exigiendo cookie/Bearer válido,
+  comportamiento preexistente). Verificado en Docker real (contenedor aparte con
+  `HCOP_AUTH_MODE=jwt`, red `hcop_jp_egress`+`hcop_jp_internal` porque `hcop_jp_internal` es
+  `internal: true` y no publica puertos sola): login→refresh→reuso del refresh viejo (401,
+  rotación real)→logout→refresh tras logout (401). Modo cookie re-verificado sin regresión
+  (login/logout con y sin cookie, smoke-test.ps1 verde). 320 tests verdes.
 - [ ] F2.6 — JwtAuthenticationFilter + SecurityFilterChain (commit aislado, riesgoso)
 - [ ] F2.7 — Revocación inmediata + revocar en AdminService/changePassword
 - [ ] F2.8 — Eliminar modo cookie + V014 DROP local_sessions + regenerar ENDPOINTS.md

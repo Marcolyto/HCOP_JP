@@ -98,6 +98,9 @@ jobs:
       - name: Verificar catálogo OpenAPI documentado
         shell: pwsh
         run: ./scripts/generate-api-docs.ps1 -Check
+      - name: Verificar snapshot OpenAPI (bloqueante en F3 — diff de contrato real)
+        shell: pwsh
+        run: ./scripts/generate-openapi-snapshot.ps1 -Check
       - name: Verificar documentación y enlaces
         shell: pwsh
         run: ./scripts/verify-documentation.ps1

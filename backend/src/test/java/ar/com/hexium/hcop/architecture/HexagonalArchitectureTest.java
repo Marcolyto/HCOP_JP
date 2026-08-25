@@ -43,7 +43,7 @@ class HexagonalArchitectureTest {
    */
   private static final String[] TRACKED_LEGACY_MODULES = {
       "admin", "catalog", "diagnosis", "infusion", "integration", "media",
-      "patient", "qr", "system", "treatment", "workflow"
+      "patient", "qr", "treatment", "workflow"
   };
 
   /**

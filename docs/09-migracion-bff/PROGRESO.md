@@ -328,9 +328,24 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
   sale de `TRACKED_LEGACY_MODULES` en `HexagonalArchitectureTest`. Verificado en Docker real:
   rebuild, snapshot OpenAPI sin diff, `GET /api/clinical/tools/calculators` funcionando igual.
   348 tests verdes.
-- [ ] F3.1 (2/3) — `system` (81 LOC, `StatusController` — elimina la fuga JDBC-en-controller,
-  hoy hace `new JdbcTemplate(dataSource)` a mano en el controller, el antipatrón explícito del
-  plan). Sin tests hoy → escribirlos acá.
+- [x] F3.1 (2/3) — `system` migrado. 7 piezas: `domain/DatabaseHealth` · `application/port/in/SystemStatusUseCase`
+  (`ClinicalStatusView`/`RuntimeStatusView` anidados) · `application/port/out/DatabaseHealthStore`
+  (persistencia, sufijo `Store` por R9) + `ApplicationVersionPort` (no persistencia, sufijo `Port`)
+  · `application/service/SystemStatusApplicationService` (`final`, sin `@Service`) ·
+  `infrastructure/persistence/PostgresDatabaseHealthStore` (`@Repository`, `JdbcTemplate`
+  inyectado — elimina el antipatrón `new JdbcTemplate(dataSource)` del controller viejo) ·
+  `infrastructure/configuration/BuildPropertiesVersionAdapter` (`@Component`) +
+  `SystemModuleConfiguration` (variante B, `@Configuration`+`@Bean`, read-only) ·
+  `infrastructure/web/StatusController` (nombre y métodos intactos: `clinical`/`liraCompatibility`/
+  `runtime`/`stop`, mismos 4 endpoints y mismo shape de respuesta). `liraCompatibility` y `stop` no
+  tienen lógica propia (siguen 100% estáticos en el controller, sin pasar por el use case) — solo
+  `clinical`/`runtime` usan el puerto (DB health + versión + timestamp). 6 tests nuevos (0 antes):
+  `SystemStatusApplicationServiceTest`, `PostgresDatabaseHealthStoreTest`,
+  `BuildPropertiesVersionAdapterTest`, `StatusControllerTest`. `system` sale de
+  `TRACKED_LEGACY_MODULES`. `mvn -f backend/pom.xml verify` verde — 360 tests (incluye ArchUnit y
+  `OpenApiDocumentationKeysTest`). Verificado en Docker real: `docker compose up --build --wait`
+  con 5 servicios healthy, `scripts/generate-openapi-snapshot.ps1 -Check` diff vacío,
+  `scripts/smoke-test.ps1` verde.
 - [ ] F3.1 (3/3) — `admin` (557 LOC, `AdminController`/`AdminService`/`AdminRepository` — el
   primer `Postgres*Store` real, con `@Transactional` de verdad). Sin tests hoy → escribirlos acá.
   Ya tiene `AdminServiceRevocationTest` (F2.7) cubriendo la parte de revocación JWT — no debería
@@ -361,7 +376,7 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
 5. Al terminar un módulo: sacarlo de `TRACKED_LEGACY_MODULES` en
    `backend/src/test/java/ar/com/hexium/hcop/architecture/HexagonalArchitectureTest.java` (esa
    lista ES el tracker ejecutable) y marcarlo `[x]` acá con el hash del commit.
-6. Próximo paso concreto: **F3.1 (2/3) — `system`**.
+6. Próximo paso concreto: **F3.1 (3/3) — `admin`**.
 
 ## Decisiones ya tomadas (no volver a preguntar)
 - Layout: backend/ bff/ frontend/ en raíz · Auth: JWT completo · Alcance: hexagonal completo

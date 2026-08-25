@@ -1,49 +1,36 @@
-package ar.com.hexium.hcop.system;
+package ar.com.hexium.hcop.system.infrastructure.web;
 
 import ar.com.hexium.hcop.auth.AuthContext;
+import ar.com.hexium.hcop.system.application.port.in.SystemStatusUseCase;
 import jakarta.servlet.http.HttpServletRequest;
-import java.time.Clock;
-import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import javax.sql.DataSource;
-import org.springframework.boot.info.BuildProperties;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class StatusController {
-  private final JdbcTemplate jdbc;
+  private final SystemStatusUseCase status;
   private final AuthContext auth;
-  private final Clock clock;
-  private final String version;
 
-  public StatusController(
-      DataSource dataSource,
-      AuthContext auth,
-      Clock clock,
-      org.springframework.beans.factory.ObjectProvider<BuildProperties> buildProperties) {
-    this.jdbc = new JdbcTemplate(dataSource);
+  public StatusController(SystemStatusUseCase status, AuthContext auth) {
+    this.status = status;
     this.auth = auth;
-    this.clock = clock;
-    BuildProperties build = buildProperties.getIfAvailable();
-    this.version = build == null ? "1.0.0-dev" : build.getVersion();
   }
 
   @GetMapping("/api/clinical/status")
   Map<String, Object> clinical(HttpServletRequest request) {
-    Integer database = jdbc.queryForObject("select 1", Integer.class);
+    SystemStatusUseCase.ClinicalStatusView view = status.clinicalStatus();
     Map<String, Object> result = new LinkedHashMap<>();
-    result.put("ok", database != null && database == 1);
+    result.put("ok", view.databaseUp());
     result.put("service", "hcop-jp");
     result.put("engine", "java-postgresql");
-    result.put("version", version);
+    result.put("version", view.version());
     result.put("database", "postgresql");
     result.put("unified", true);
     result.put("localOnly", true);
-    result.put("timestamp", Instant.now(clock).toString());
+    result.put("timestamp", view.timestamp().toString());
     return result;
   }
 
@@ -60,14 +47,15 @@ public class StatusController {
 
   @GetMapping("/api/runtime/status")
   Map<String, Object> runtime() {
+    SystemStatusUseCase.RuntimeStatusView view = status.runtimeStatus();
     return Map.of(
         "ok", true,
         "running", true,
         "service", "hcop-jp",
         "engine", "java-postgresql",
-        "version", version,
+        "version", view.version(),
         "managedBy", "docker-compose",
-        "timestamp", Instant.now(clock).toString());
+        "timestamp", view.timestamp().toString());
   }
 
   @PostMapping("/api/runtime/stop")

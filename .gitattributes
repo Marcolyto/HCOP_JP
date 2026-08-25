@@ -15,6 +15,9 @@
 *.bat text eol=crlf
 *.ps1 text eol=crlf
 
+*.conf text eol=lf
+Dockerfile text eol=lf
+
 *.png binary
 *.jpg binary
 *.jpeg binary

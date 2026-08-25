@@ -47,6 +47,39 @@ services:
       start_period: 30s
     networks: [conflict_e2e_internal, conflict_e2e_egress]
 
+  redis:
+    image: ${HCOP_REDIS_IMAGE:-redis:7-alpine}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    networks: [conflict_e2e_internal]
+
+  bff:
+    build:
+      context: ./bff
+      dockerfile: Dockerfile
+    image: ${HCOP_E2E_BFF_IMAGE:-hcop-jp-e2e-bff:local}
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      BACKEND_URL: http://backend:5180
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      HCOP_BFF_PORT: 8080
+      HCOP_BIND_ADDRESS: 0.0.0.0
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /actuator/health HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '\"status\":\"UP\"' <&3"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    networks: [conflict_e2e_internal, conflict_e2e_egress]
+
   frontend:
     build:
       context: ./frontend
@@ -55,7 +88,7 @@ services:
     # scripts/test-core-browser-e2e.ps1 usa esa variable para docker image rm en el cleanup.
     image: ${HCOP_E2E_APP_IMAGE:-hcop-jp-conflict-e2e:local}
     depends_on:
-      backend:
+      bff:
         condition: service_healthy
     ports:
       - "127.0.0.1:${HCOP_E2E_PORT:-5182}:8080"

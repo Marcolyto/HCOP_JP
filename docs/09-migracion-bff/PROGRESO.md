@@ -91,7 +91,39 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
   backend F0 real): endpoint protegido sin sesión corta en el BFF con el 401 nuevo (nunca llega
   al backend), `X-Correlation-Id` presente en toda respuesta, login + endpoint protegido con
   sesión 200, `Cache-Control: no-store` por default confirmado, `/actuator/health` sigue UP.
-- [ ] F1.5 — Compose con redis+bff, verificación F1
+- [x] F1.5 — Compose con redis+bff, verificación F1.
+  `compose.yaml`: `redis` (efímero a propósito — sin `--appendonly`, sin volumen; perder sesiones
+  BFF en un restart de Redis solo obliga a re-login, no pierde datos clínicos) + `bff` (build
+  `./bff`, `BACKEND_URL=http://backend:5180`, `REDIS_HOST=redis`, sin `ports`) + `frontend` pasa a
+  depender de `bff` en vez de `backend`. `compose.dev.yaml`: puerto debug del bff en 5184.
+  `frontend/nginx.conf`: upstream `api_upstream` de `backend:5180` → `bff:8080` (un solo cambio
+  cubre `/api/`, `/actuator/health`, `/v3/api-docs`, `/swagger-ui*`, `/webjars/` — mismos
+  `location` de F0.4).
+  **Hallazgo real F1.5** (no en el plan): `compose.e2e.yaml` no tenía `bff`/`redis` — como el
+  upstream de nginx queda compilado en la imagen del frontend (no es configurable por entorno),
+  el stack E2E rompía en el arranque (`nginx: emerg host not found in upstream "bff:8080"`). Se
+  agregaron ambos servicios ahí también, mismo patrón que `compose.yaml`. `.github/workflows/
+  verify.yml`: job `bff` nuevo (`mvn verify` sobre `bff/pom.xml`, nunca corría en CI) + agregado a
+  los `needs` del job `publish`. `.env.example`: `HCOP_REDIS_IMAGE` (mismo patrón que
+  `HCOP_POSTGRES_IMAGE`).
+  **Deliberadamente fuera de alcance de F1.5** (no bloqueante, antes de mergear a main): la
+  matriz de publish de `verify.yml` y `compose.github.yaml` siguen sin imagen de `bff` — una
+  instalación desde GHCR (`instalar-desde-github.ps1`, `EJECUTAR-DOCKER-DESDE-GITHUB.ps1`) hoy no
+  tendría bff. Es trabajo de infra puro (agregar el 4to servicio a la distribución GHCR), no
+  cambia nada del BFF en sí — se puede hacer en un commit aparte antes de mergear.
+  **Verificación end-to-end real** (5 servicios healthy: database, redis, backend, bff,
+  frontend): `nginx-routing-test.ps1` OK · `smoke-test.ps1` OK · los 3 contract-tests OK (con
+  streaming/multipart pasando por el BFF) · `test-core-browser-e2e.ps1` 3/3 passed (ahora vía
+  BFF real) · `test-clinical-conflict-e2e.ps1` mismos 7/7 failed que en F0.5 (bug de app
+  preexistente confirmado, sin relación a la migración, sin regresión nueva) · recrear el
+  contenedor de Redis desloguea limpio (`authenticated:false`) sin romper la app, un simple
+  `restart` (sin recrear) preserva la sesión porque Redis persiste su RDB por default dentro del
+  mismo contenedor — comportamiento esperado y documentado.
+
+## F1 — CERRADA. BFF como Token Handler de la sesión opaca actual, proxy completo (auth +
+  genérico + docs), filtros de sesión/seguridad/logging/cache, health real, y los 5 servicios
+  corriendo juntos y verificados. Commits: `f89aea6` (F1.1) · `084bb63`+`df1ae68` (F1.2) ·
+  `ec4f1f0` (F1.3) · `b716cf3` (F1.4) · el de F1.5 (este). Siguiente: F2 — Token Handler JWT real.
 
 ## F2 — Token Handler JWT real
 

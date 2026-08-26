@@ -974,6 +974,24 @@ Ejemplos reales ya migrados y verificados, del más simple al más rico en patro
   generado end-to-end, **pendiente de una corrida real de `EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Mode
   Start` (canal Stable) antes de considerar esta ruta 100% verificada**, a diferencia del resto de
   F3 que sí se verificó en Docker real.
+  **Verificación posterior, Docker real (mismo día)**: `EJECUTAR-DOCKER-DESDE-GITHUB.ps1` en sí no
+  corre en este Mac (`Find-Docker`/`Find-GitHubCli` buscan `docker.exe` en rutas de Windows —
+  Windows-only por diseño, igual que los `.bat`; no se tocó). Se verificó en cambio la topología
+  real que ese mismo compose generado produce: `docker compose up --wait` con el YAML exacto del
+  canal Stable + imágenes `backend`/`bff`/`frontend` construidas localmente y tagueadas como las de
+  GHCR (`ghcr.io/marcolyto/hcop_jp-*:latest` — el paquete real es privado, sin credenciales en esta
+  sesión, así que no se probó el pull real, solo la topología). **5 servicios healthy**
+  (database→redis→backend→bff→frontend), `/actuator/health` UP, `/api/clinical/status` ok,
+  `/`→302→`/app/` con `<app-root>` real. Confirma que el fix de `compose.github.yaml` resuelve el
+  bug real (antes: `nginx: emerg host not found in upstream "bff"`, frontend sin bff en el compose).
+  **Hallazgo de la prueba (no tocado, documentado)**: el compose que genera el launcher usa nombres
+  fijos de volumen/red (`hcop_jp_postgres`, `hcop_jp_internal`, etc.) — si se prueba desde la misma
+  máquina que ya tiene el `docker compose` del repo corrido alguna vez, comparte volumen con esos
+  datos reales (intencional: así un usuario final conserva su base entre actualizaciones, pero es
+  una trampa al probar en la máquina de desarrollo). Se aisló con nombres temporales para la
+  prueba, sin tocar el volumen real (`hcop_jp_postgres`, confirmado con `docker volume inspect`
+  antes y después). Pendiente real: el pull genuino desde GHCR con la imagen `bff` recién existirá
+  después de mergear a `main` y que corra el job `publish` con la matriz nueva.
 
 ## Decisiones ya tomadas (no volver a preguntar)
 - Layout: backend/ bff/ frontend/ en raíz · Auth: JWT completo · Alcance: hexagonal completo

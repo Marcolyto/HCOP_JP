@@ -29,7 +29,8 @@ Cada operación informa:
 - módulo y controlador MVC responsable;
 - parámetros y cuerpos inferidos de Java;
 - respuestas normales y errores esperables;
-- seguridad por cookie y permiso efectivo mediante `x-hcop-permission`;
+- seguridad Bearer JWT (`bearerAuth`) y permiso efectivo mediante
+  `x-hcop-permission`;
 - si la operación es pública o autenticada mediante
   `x-hcop-authentication`.
 
@@ -41,8 +42,13 @@ Cada operación informa:
 4. Abra una operación.
 5. Pulse **Try it out** y luego **Execute**.
 
-La cookie `HCOP_SESSION` es HttpOnly: Swagger no la lee ni la muestra; el
-navegador la envía por ser el mismo origen.
+El backend exige `Authorization: Bearer <accessToken>`, no cookies. El
+`POST /api/auth/login` que responde el BFF (vía el mismo origen público,
+puerto 5180) nunca expone ese token al navegador a propósito — el BFF lo
+guarda en Redis y opera con una cookie de sesión opaca (`BFF_SESSION`) en su
+lugar. Para usar el botón **Authorize** de Swagger con un Bearer real,
+autentíquese directo contra el backend (server-to-server, no vía el
+navegador) y pegue el `accessToken` de esa respuesta.
 
 Para comenzar sin Swagger:
 

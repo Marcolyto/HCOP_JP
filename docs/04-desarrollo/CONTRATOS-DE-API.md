@@ -17,10 +17,15 @@ HCOP JP. `HCOP_PUBLIC_BASE_URL` tiene que contener la dirección pública correc
 
 ## Sesión
 
-`POST /api/auth/login` crea `HCOP_SESSION`, una cookie HttpOnly,
-SameSite=Strict. No existe token en `localStorage`. La sesión se valida en el
-servidor y puede revocarse al cambiar contraseña, desactivar usuario o cerrar
-sesión.
+`POST /api/auth/login` responde al navegador con `Set-Cookie: BFF_SESSION`
+(HttpOnly, SameSite=Strict) — la emite el BFF, no el backend. El BFF guarda
+el access/refresh token JWT real en Redis y nunca los reenvía al navegador;
+en cada request agrega `Authorization: Bearer <accessToken>` antes de
+proxear hacia el backend. No existe token en `localStorage`. La sesión se
+valida en el servidor (backend valida el JWT; BFF resuelve la cookie) y
+puede revocarse al cambiar contraseña, desactivar usuario, reasignar roles o
+cerrar sesión — la revocación es inmediata, no espera el TTL del access
+token.
 
 Las rutas públicas están marcadas `x-hcop-permission: public`. Las restantes
 exigen sesión y, cuando corresponde, un permiso granular como

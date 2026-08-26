@@ -1,18 +1,32 @@
 .env
+
+# Java (backend/, bff/)
 target/
 /target-*/
-docs/media/**/.frames/
+
+# Node/Angular (frontend/)
+/frontend/node_modules/
+/frontend/dist/
+/frontend/.angular/
+/frontend/test-results/
+/frontend/playwright-report/
+/frontend/src/generated/legacy-visual-contract/
+
+# Runtime local (datos, no versionados)
 runtime/storage/
 runtime/postgres-data/
 runtime/logs/
 runtime/*.log
 /runtime/qa-*/
 /runtime/e2e-artifacts/
-/frontend/test-results/
-/frontend/playwright-report/
-/frontend/src/generated/legacy-visual-contract/
+docs/media/**/.frames/
 /migration/
+
+# SO / editor
+.DS_Store
+Thumbs.db
 *.pid
+*.swp
 .idea/
 .vscode/
 *.iml

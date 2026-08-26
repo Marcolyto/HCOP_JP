@@ -6,7 +6,7 @@ Esta guía resume qué debe ver y hacer cada rol durante una aplicación
 oncológica. Todos trabajan sobre el mismo identificador:
 
 La capacitación visual está en el
-[video detallado del circuito](../../src/main/resources/static/help/media/circuito-hospital-dia-paso-a-paso.mp4)
+[video detallado del circuito](../../frontend/public/help/media/circuito-hospital-dia-paso-a-paso.mp4)
 y en su [índice de capítulos y alternativas](VIDEO-CIRCUITO-HOSPITAL-DIA-PASO-A-PASO.md).
 El video remarca los controles con recuadros y subtítulos azul intenso; para
 Agenda muestra en particular la lista de espera, el arrastre a un sillón y las

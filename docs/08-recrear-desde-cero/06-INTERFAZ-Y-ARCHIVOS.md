@@ -1,20 +1,28 @@
 # 06 · Integrar interfaz y archivos
 
-## Una sola aplicación
+## Un servicio propio, un mismo origen público
 
-Coloque la interfaz en:
+Angular vive en `frontend/`, es un servicio Docker propio (`frontend/
+Dockerfile` multi-stage: build Angular → runtime nginx), no un recurso
+empaquetado dentro del `.jar` de Java:
 
 ```text
-src/main/resources/static/
-  index.html
-  app.js
-  styles.css
-  assets/
-  docs/
+frontend/
+  src/app/
+    features/<dominio>/   ← un directorio por área clínica
+  public/
+    assets/
+    help/
+  nginx.conf               ← único lugar que sabe que el backend real se
+                              llama "bff" en la red Docker
 ```
 
-Java sirve UI y API desde el mismo origen. Esto simplifica sesión, despliegue,
-versionado y evita que HCOP y Hospital de Día parezcan sistemas pegados.
+nginx expone un único puerto público (5180) y enruta `/api/`,
+`/actuator/health`, `/v3/api-docs`, `/swagger-ui*` y `/webjars/` hacia el
+BFF. Esto conserva "mismo origen" desde el navegador (sin CORS, sesión
+simple) sin que Angular y Java compartan proceso — evita que HCOP y
+Hospital de Día parezcan sistemas pegados, y de paso permite escalar,
+buildear y desplegar el frontend sin recompilar Java.
 
 ## Estado de la interfaz
 
@@ -119,18 +127,12 @@ La grilla es una representación de intervalos, no la regla de integridad.
 
 ## Separación de responsabilidades
 
-Use funciones/módulos claros:
-
-- cliente HTTP común;
-- estado por módulo;
-- render puro cuando sea posible;
-- eventos;
-- formato/localización;
-- validación visual;
-- componentes accesibles.
-
-Evite un único archivo creciente sin límites. Si se conserva JavaScript sin
-framework por compatibilidad, establezca regiones/módulos y pruebas de contratos.
+Use la estructura de features de Angular: un módulo/feature por dominio
+clínico, servicios inyectables para el cliente HTTP y el estado, componentes
+enfocados en presentación. Evite un único componente creciente sin límites
+— la migración real de este proyecto pasó por exactamente ese problema
+(una SPA sin framework, un `app.js` de miles de líneas) antes de moverse a
+Angular nativo por feature.
 
 ## Hito de aceptación
 

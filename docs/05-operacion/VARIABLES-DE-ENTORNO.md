@@ -11,7 +11,7 @@ el archivo `.env`; el JAR también acepta estas variables directamente.
 | `HCOP_PORT` | `5180` | Puerto HTTP publicado por la aplicación. | Sí |
 | `HCOP_BIND_ADDRESS` | `0.0.0.0` | Interfaces de red en las que escucha Java. | Sí |
 | `HCOP_PUBLIC_BASE_URL` | `http://127.0.0.1:5180` | URL absoluta usada al construir enlaces/QR. | Sí |
-| `HCOP_SESSION_MINUTES` | `43200` | Duración máxima de sesión en minutos. | Sí |
+| `HCOP_JWT_ACCESS_MINUTES` | `15` | TTL del access token JWT. | Sí |
 | `HCOP_RUNTIME_ROOT` | `./runtime` | Raíz de datos externos al JAR. | Sí |
 | `HCOP_CATALOG_ROOT` | `${HCOP_RUNTIME_ROOT}/catalogs` | Catálogos de referencia incluidos con la versión. | No; se reconstruyen desde la imagen. |
 | `HCOP_STORAGE_ROOT` | `${HCOP_RUNTIME_ROOT}/storage` | Archivos clínicos privados y guías PDF agregadas desde Configuración. | Sí |
@@ -57,13 +57,37 @@ DNI/HC, ausencia del actor de auditoría o una concurrencia no resoluble generan
 warning y omisión, nunca una caída del servicio. Un recurso empaquetado inválido
 es un defecto de release que debe detectarse antes de publicar la imagen.
 
+## BFF y Redis
+
+El `bff` no lee `.env` de la raíz por variables propias de negocio (usa las
+mismas `HCOP_*` de arriba donde aplica, p. ej. `HCOP_BIND_ADDRESS`), pero sí
+necesita saber dónde están el backend y Redis — en `compose.yaml` ya vienen
+resueltos por nombre de servicio Docker, no hace falta tocarlos para una
+instalación estándar:
+
+| Variable | Predeterminado en compose | Uso |
+|---|---|---|
+| `BACKEND_URL` | `http://backend:5180` | A dónde proxea el BFF. |
+| `REDIS_HOST` | `redis` | Host de Redis (caché de sesión, efímero). |
+| `REDIS_PORT` | `6379` | Puerto de Redis. |
+| `HCOP_BFF_PORT` | `8080` | Puerto interno del BFF (no se publica al host). |
+| `HCOP_REDIS_IMAGE` | `redis:7-alpine` | Imagen de Redis (mismo patrón que `HCOP_POSTGRES_IMAGE`). |
+| `HCOP_BFF_IMAGE` | `ghcr.io/marcolyto/hcop_jp-bff:latest` | Imagen publicada del BFF (sólo en `compose.github.yaml`). |
+
+Perder Redis (recrear el contenedor) desloguea a todos los usuarios
+(`authenticated:false`) sin romper la aplicación ni perder datos clínicos —
+sólo obliga a un re-login. Un `docker compose restart redis` (sin recrear)
+preserva la sesión porque Redis persiste su RDB dentro del mismo contenedor
+por default.
+
 ## Secretos
 
 | Variable | Predeterminado de prueba | Uso |
 |---|---|---|
 | `HCOP_QR_SECRET` | obligatorio | Firma HMAC de códigos QR. |
 | `HCOP_ENCRYPTION_SECRET` | obligatorio | Cifrado de secretos como la API key del LLM. |
-| `HCOP_JWT_SECRET` | obligatorio, ≥32 bytes | Firma HS256 de los JWT de sesión (F2, `TokenIssuer`). |
+| `HCOP_JWT_SECRET` | obligatorio, ≥32 bytes | Firma HS512 de los JWT de sesión (`TokenIssuer`). |
+| `HCOP_JWT_ISSUER` | `hcop-jp` | Claim `iss` del JWT. |
 
 En producción use cadenas aleatorias diferentes para cada una, largas y
 respaldadas en un gestor seguro. Si se pierde `HCOP_QR_SECRET`, los QR

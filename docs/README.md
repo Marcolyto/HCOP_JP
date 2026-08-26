@@ -42,7 +42,7 @@ Con el sistema iniciado también existe una versión navegable en
 - [Circuito de Hospital de día en 7 pasos](01-uso/CIRCUITO-HOSPITAL-DE-DIA-7-PASOS.md)
 - [Guía operativa por roles](01-uso/GUIA-POR-ROLES-HOSPITAL-DE-DIA.md)
 - [Video detallado, capítulos, alternativas y diagrama](01-uso/VIDEO-CIRCUITO-HOSPITAL-DIA-PASO-A-PASO.md)
-- [MP4 detallado con subtítulos azul intenso](../src/main/resources/static/help/media/circuito-hospital-dia-paso-a-paso.mp4)
+- [MP4 detallado con subtítulos azul intenso](../frontend/public/help/media/circuito-hospital-dia-paso-a-paso.mp4)
 - [Video resumen de 70 segundos](media/demo-flujo-7-pasos/flujo-oncologico-7-pasos.mp4)
 
 ## 02 · Arquitectura
@@ -57,7 +57,7 @@ Con el sistema iniciado también existe una versión navegable en
 ## 03 · Base de datos
 
 - [Modelo de datos](03-base-de-datos/MODELO-DE-DATOS.md)
-- [Diccionario de las 34 tablas](03-base-de-datos/DICCIONARIO-DE-DATOS.md)
+- [Diccionario de las 35 tablas](03-base-de-datos/DICCIONARIO-DE-DATOS.md)
 - [Origen y recuperación de campos](03-base-de-datos/CAMPOS-Y-RELACIONES.md)
 
 ## 04 · Desarrollo
@@ -99,7 +99,13 @@ Con el sistema iniciado también existe una versión navegable en
 - [Resultado final: 100 PASS, 0 FAIL, 0 NO_DATA y 0 MANUAL](08-auditoria/resultados/hospital-dia-100-casos-20260730-100711.md)
 - [Cómo ejecutar el arnés QA](08-auditoria/README.md)
 
-## 09 · Historial de migración Angular y arquitectura hexagonal
+## 09a · Historial de migración BFF y hexagonal (backend)
+
+- [Progreso y estado — tracker por fase](09-migracion-bff/PROGRESO.md)
+- [Decisiones F2 — Token Handler JWT](09-migracion-bff/DECISIONES-F2.md)
+- [Decisiones F3 — backend hexagonal](09-migracion-bff/DECISIONES-F3.md)
+
+## 09b · Historial de migración Angular y arquitectura hexagonal
 
 - [Programa de migración](09-migracion-angular-hexagonal/README.md)
 - [Línea base verificada](09-migracion-angular-hexagonal/BASELINE-2026-07-30.md)

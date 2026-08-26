@@ -6,23 +6,26 @@ Swagger y pruebas.
 
 ## Fase 0 · Plataforma
 
-- Spring Boot, configuración y manejo de errores;
-- PostgreSQL/Flyway;
-- Actuator;
-- Swagger;
-- Docker;
+- scaffolding de `backend`, `bff` y `frontend` como tres proyectos
+  independientes (ver [01](01-INICIALIZAR-PROYECTO.md));
+- Spring Boot, configuración y manejo de errores en `backend`/`bff`;
+- PostgreSQL/Flyway en `backend`;
+- Actuator en `backend`/`bff`;
+- Swagger en `backend`;
+- Docker (5 servicios: database/redis/backend/bff/frontend);
 - CI mínimo.
 
-Salida: aplicación vacía que compila, migra y responde health.
+Salida: los tres servicios compilan, `backend` migra y responde health a
+través de `frontend`→`bff`→`backend`.
 
 ## Fase 1 · Identidad y acceso
 
 - usuarios;
 - BCrypt;
-- sesiones;
-- cookie;
+- sesiones JWT (`backend`) + Token Handler (`bff` + Redis, ver
+  [04](04-SEGURIDAD-Y-AUDITORIA.md));
 - roles/permisos;
-- login/logout/cambio de contraseña;
+- login/logout/cambio de contraseña/refresh;
 - usuario inicial.
 
 Salida: ninguna API clínica funciona sin sesión y permiso.

@@ -1,7 +1,7 @@
 ﻿param(
   [string]$BaseUrl = "http://127.0.0.1:5180",
   [string]$MarkdownPath = "docs/02-arquitectura/ENDPOINTS.md",
-  [string]$HtmlPath = "src/main/resources/static/docs/api-endpoints.html",
+  [string]$HtmlPath = "frontend/public/docs/api-endpoints.html",
   [switch]$Check
 )
 

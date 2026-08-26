@@ -6,12 +6,17 @@ arquitectura, contratos y garantías, aunque parta de un directorio vacío.
 
 ## Resultado esperado
 
-Al terminar debe existir un único sistema web con:
+Al terminar debe existir un sistema de tres servicios (`backend`/`bff`/
+`frontend`, ver [01](01-INICIALIZAR-PROYECTO.md)) con:
 
-- Java 21 y Spring Boot 4.1;
-- MVC modular;
+- Java 21 y Spring Boot 4.1 en `backend` y `bff`;
+- arquitectura hexagonal modular en `backend` (`domain`/`application`/
+  `infrastructure`, ArchUnit en verde);
 - PostgreSQL 18 con migraciones Flyway;
-- interfaz HTML/CSS/JavaScript servida por Java;
+- Angular servido por nginx en `frontend`, sin acceso directo del navegador
+  al `backend`;
+- `bff` como Token Handler: sesión opaca hacia el navegador, JWT hacia el
+  backend, Redis como caché de sesión;
 - login obligatorio, roles y permisos;
 - historia clínica versionada;
 - tratamiento, ciclos, farmacia, sillones, QR y workflows;
@@ -27,7 +32,7 @@ actualización.
 
 1. [Principios, alcance y decisiones](00-PRINCIPIOS-Y-ALCANCE.md)
 2. [Inicializar el proyecto](01-INICIALIZAR-PROYECTO.md)
-3. [Construir la arquitectura MVC](02-ARQUITECTURA-MVC.md)
+3. [Construir la arquitectura hexagonal](02-ARQUITECTURA-HEXAGONAL.md)
 4. [Diseñar PostgreSQL y Flyway](03-POSTGRESQL-Y-FLYWAY.md)
 5. [Implementar seguridad y auditoría](04-SEGURIDAD-Y-AUDITORIA.md)
 6. [Diseñar API y Swagger](05-API-Y-SWAGGER.md)
@@ -45,12 +50,12 @@ Para registrar decisiones nuevas use la
 
 | Tema | Fuente |
 |---|---|
-| Dependencias y versiones | [pom.xml](../../pom.xml) |
-| Esquema PostgreSQL | `src/main/resources/db/migration` |
-| Contrato HTTP | `/v3/api-docs/hcop-jp-completa` |
+| Dependencias y versiones | [backend/pom.xml](../../backend/pom.xml) y [bff/pom.xml](../../bff/pom.xml) |
+| Esquema PostgreSQL | `backend/src/main/resources/db/migration` |
+| Contrato HTTP | `/v3/api-docs` (vía `bff`, puerto 5180) |
 | Endpoints legibles | [ENDPOINTS.md](../02-arquitectura/ENDPOINTS.md) |
 | Datos y relaciones | [DICCIONARIO-DE-DATOS.md](../03-base-de-datos/DICCIONARIO-DE-DATOS.md) |
-| Empaquetado | [Dockerfile](../../Dockerfile) y [compose.yaml](../../compose.yaml) |
+| Empaquetado | `backend/Dockerfile`, `bff/Dockerfile`, `frontend/Dockerfile` y [compose.yaml](../../compose.yaml) |
 | Aceptación integral | `scripts/integration-test.ps1` |
 
 ## Regla de avance

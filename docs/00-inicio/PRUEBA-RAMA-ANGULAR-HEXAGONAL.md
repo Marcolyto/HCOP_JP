@@ -1,5 +1,12 @@
 # Probar la rama Angular nativa
 
+> **Histórico:** la migración a Angular nativo ya terminó y es la versión
+> estable en `main` — no hace falta este canal aislado para probarla. Se
+> conserva porque el canal `Migration` (imagen `angular-full-parity-v2`)
+> sigue funcionando en `EJECUTAR-DOCKER-DESDE-GITHUB.ps1` para quien
+> necesite ese punto exacto de la migración. Para instalar la versión
+> estable use [Instalar desde GitHub](INSTALACION-DESDE-GITHUB.md).
+
 Esta guía inicia el canal migratorio directamente desde GitHub, sin clonar el
 repositorio y sin reemplazar la instalación estable.
 

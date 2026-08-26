@@ -8,7 +8,7 @@ control que se está explicando, muestra el movimiento del puntero y describe qu
 ocurre en cada alternativa operativa.
 
 - [Ver el video detallado dentro del sistema](http://localhost:5180/help/media/circuito-hospital-dia-paso-a-paso.mp4)
-- [Abrir el MP4 desde el repositorio](../../src/main/resources/static/help/media/circuito-hospital-dia-paso-a-paso.mp4)
+- [Abrir el MP4 desde el repositorio](../../frontend/public/help/media/circuito-hospital-dia-paso-a-paso.mp4)
 - [Descargar los subtítulos editables](../media/demo-flujo-7-pasos/circuito-hospital-dia-paso-a-paso.srt)
 - [Ver el resumen de 70 segundos](../media/demo-flujo-7-pasos/flujo-oncologico-7-pasos.mp4)
 

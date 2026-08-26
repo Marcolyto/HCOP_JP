@@ -7,7 +7,7 @@ cierre, con una pantalla sencilla para cada actor y controles que evitan avanzar
 cuando falta una condición de seguridad.
 
 Para verlo en la interfaz, use el
-[video detallado paso a paso](../../src/main/resources/static/help/media/circuito-hospital-dia-paso-a-paso.mp4).
+[video detallado paso a paso](../../frontend/public/help/media/circuito-hospital-dia-paso-a-paso.mp4).
 La [guía de capítulos del video](VIDEO-CIRCUITO-HOSPITAL-DIA-PASO-A-PASO.md)
 explica sus recuadros, subtítulos azul intenso y todas las alternativas
 mostradas. El

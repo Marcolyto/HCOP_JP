@@ -3,7 +3,8 @@
 ## Compilación
 
 ```powershell
-mvn verify
+mvn -f backend\pom.xml verify
+mvn -f bff\pom.xml verify
 ```
 
 ## Prueba integral
@@ -50,7 +51,7 @@ warning/no-op.
 
 `BootstrapConfigurationTest` fija el orden de arranque: administrador, catálogos
 y recién después paciente demostrativo. `DatabaseMigrationResourceTest`
-comprueba que el artefacto incluya las 12 migraciones y que
+comprueba que el artefacto incluya las 14 migraciones y que
 `V012__patient_seed_identity.sql` contenga el índice único parcial sobre
 `identity_json.seedKey`.
 
@@ -91,7 +92,7 @@ que actor, fecha, motivo y versiones provienen del servidor, que un cliente no
 puede reescribir la cadena confirmada y que el valor legacy no textual se
 conserva. El corte 037 incorpora la misma cobertura para
 `ClinicalPersonalHistoryAuthority`. La validación focalizada final ejecutó 66
-pruebas Java/Swagger sin fallos ni omisiones. El contrato MVC verifica que
+pruebas Java/Swagger sin fallos ni omisiones. La prueba de contrato HTTP verifica que
 `PUT /api/hc` devuelva el estado canónico con la nueva revisión y sin el
 comando transitorio.
 

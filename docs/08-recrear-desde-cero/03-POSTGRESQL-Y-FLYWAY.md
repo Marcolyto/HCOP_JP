@@ -24,19 +24,20 @@ navegador deben existir en la base:
 7. archivos y settings.
 
 El modelo actual completo está en el
-[diccionario de las 34 tablas](../03-base-de-datos/DICCIONARIO-DE-DATOS.md).
+[diccionario de las 35 tablas](../03-base-de-datos/DICCIONARIO-DE-DATOS.md).
 
 ## Migraciones Flyway
 
-Ubicación:
+Ubicación (dentro de `backend/`, único servicio con base de datos):
 
 ```text
-src/main/resources/db/migration/
+backend/src/main/resources/db/migration/
 V001__core_schema.sql
 V002__rbac_seed.sql
 V003__scheduler_overlap_guard.sql
 ...
-V012__patient_seed_identity.sql
+V013__jwt_auth.sql
+V014__drop_local_sessions.sql
 ```
 
 Reglas:
@@ -49,12 +50,14 @@ Reglas:
 - probar desde una base vacía y desde la versión anterior;
 - `clean` permanece deshabilitado.
 
-La instalación actual contiene 12 migraciones, de `V001` a `V012`. La última
-agrega un índice único parcial sobre `patients.identity_json ->> 'seedKey'`.
-El documento demostrativo no se inserta mediante SQL: Java lee el único recurso
-de paciente demostrativo versionado,
-`src/main/resources/bootstrap/patients/test-savatierra-v3.json`, después de
-crear el administrador y los catálogos. La combinación de búsqueda por
+La instalación actual contiene 14 migraciones, de `V001` a `V014`. `V013`
+agrega la sesión JWT (`local_session_state`, `local_refresh_tokens`) y `V014`
+elimina `local_sessions` (aditiva-terminal: el modo cookie fue retirado del
+código antes de esta migración, no al revés — nunca borre una tabla que el
+código todavía lee). El documento demostrativo no se inserta mediante SQL:
+Java lee el único recurso de paciente demostrativo versionado,
+`backend/src/main/resources/bootstrap/patients/test-savatierra-v3.json`,
+después de crear el administrador y los catálogos. La combinación de búsqueda por
 `seedKey`, `ON CONFLICT DO NOTHING`, índice único e inserción condicional de la
 hoja debe producir una sola ficha incluso con reinicios o arranques
 concurrentes.
@@ -83,7 +86,7 @@ Para recrear esta capacidad:
 - ante un conflicto optimista concurrente, relea y acepte la escritura ganadora
   cuando ya satisface el contrato; si no puede resolverlo, registre warning y
   finalice como no-op;
-- no escriba `local_sessions.active_patient_id` durante el bootstrap;
+- no escriba `local_session_state.active_patient_id` durante el bootstrap;
 - pruebe desactivación, repetición, concurrencia, colisiones y recurso inválido;
 - considere un recurso empaquetado inválido un defecto de release y haga que la
   validación previa a publicación rechace el artefacto, sin convertir una

@@ -25,20 +25,51 @@ Proteja contra:
 - cambio de contraseña revoca otras sesiones;
 - usuario inicial sólo para bootstrap y con cambio obligatorio en producción.
 
-## Sesiones
+## Sesiones — Token Handler (BFF)
 
-La cookie:
+El navegador nunca ve un JWT. El patrón es **Token Handler**, repartido en
+dos servicios:
 
-- se llama `HCOP_SESSION`;
-- es HttpOnly;
-- usa SameSite=Strict;
-- usa Secure detrás de HTTPS;
-- contiene un token aleatorio de alta entropía;
-- en base se guarda únicamente su hash;
-- tiene vencimiento y última actividad;
-- se revoca al cerrar sesión o desactivar usuario.
+**`bff` (lo único que habla el navegador):**
 
-Paciente activo pertenece a la sesión, no a una variable global.
+- expone una cookie `BFF_SESSION`: HttpOnly, SameSite=Strict, Secure detrás
+  de HTTPS, token opaco de alta entropía;
+- guarda en Redis `{accessToken, accessExpiresAt, refreshToken,
+  refreshExpiresAt}` del backend — nunca los reenvía al navegador (verifique
+  esto con un test explícito: el body de la respuesta de login se rearma a
+  partir del `session`, no de los tokens crudos);
+- en cada request agrega `Authorization: Bearer <accessToken>` antes de
+  proxear hacia `backend`;
+- refresco transparente: si el access token tiene poca vida restante, llama
+  `POST /api/auth/refresh` del backend de forma síncrona antes de proxear —
+  con lock (`SETNX`) para que N requests concurrentes sólo disparen un
+  refresh;
+- si el refresh falla (401 — sesión revocada), borra la sesión de Redis: la
+  request sigue sin sesión y responde `401` sin llegar al backend.
+
+**`backend` (nunca lo toca el navegador):**
+
+- valida el JWT firmado con `JwtAuthenticationFilter` (HS512, TTL corto —
+  15 min es razonable), sin cookies propias;
+- el access token lleva el principal completo (roles con id/key/name) para
+  no releer la base en cada request, salvo el paciente activo, que sí se
+  resuelve con una lectura por PK a `local_session_state` (cambia más
+  seguido que el resto del principal);
+- revocación inmediata: `local_session_state.revoked` — deshabilitar un
+  usuario, cambiarle la contraseña o reasignarle roles marca la fila y el
+  siguiente request con ese access token (aunque siga dentro de su TTL)
+  responde `401` sin esperar el vencimiento;
+- `POST /api/auth/refresh` es público pero nunca se expone al navegador —
+  sólo lo llama el BFF, server-to-server.
+
+Paciente activo pertenece a la sesión (`local_session_state.sid`), no a una
+variable global.
+
+Por qué dos servicios y no uno: si el backend hablara directo con el
+navegador necesitaría CORS, manejo de cookies y quedaría expuesto a XSS
+robando el token. Separando el Token Handler, el backend sólo confía en un
+Bearer corto y el BFF es la única superficie que necesita hablar HTTP con
+un cliente no confiable.
 
 ## Roles y permisos
 
@@ -56,16 +87,21 @@ interfaz, pero no autoriza.
 
 Pruebe siempre:
 
-- sin cookie → `401`;
-- cookie válida sin permiso → `403`;
-- usuario deshabilitado → sesión rechazada;
-- permiso concedido → caso normal.
+- sin `Authorization: Bearer` (backend) / sin cookie `BFF_SESSION` (BFF) →
+  `401`;
+- token/cookie válido sin permiso → `403`;
+- usuario deshabilitado → `local_session_state.revoked`, request siguiente
+  con el access token vigente → `401` sin esperar el TTL;
+- permiso concedido → caso normal;
+- token tamperado (firma alterada) → `401`.
 
 ## CSRF y mismo origen
 
-SameSite=Strict reduce CSRF, pero para exposición con dominios o integraciones
-evalúe token CSRF explícito. Mantenga UI y API en el mismo origen. No habilite
-CORS global con `*`.
+`SameSite=Strict` en la cookie del BFF reduce CSRF. El backend no acepta
+cookies en absoluto (sólo Bearer), así que no tiene superficie CSRF propia.
+Mantenga nginx→BFF→backend en un único punto de entrada público (mismo
+origen desde el navegador) y no habilite CORS global con `*` en ningún
+servicio.
 
 ## Archivos
 

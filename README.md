@@ -144,7 +144,7 @@ Empiece por el [índice de documentación](docs/README.md).
 - [Video detallado del circuito, paso a paso](src/main/resources/static/help/media/circuito-hospital-dia-paso-a-paso.mp4)
 - [Guía de capítulos, alternativas y diagrama del video](docs/01-uso/VIDEO-CIRCUITO-HOSPITAL-DIA-PASO-A-PASO.md)
 - [Video resumen de 70 segundos](docs/media/demo-flujo-7-pasos/flujo-oncologico-7-pasos.mp4)
-- [Arquitectura MVC](docs/02-arquitectura/MVC.md)
+- [Arquitectura hexagonal](docs/02-arquitectura/HEXAGONAL.md)
 - [Swagger y API](docs/02-arquitectura/SWAGGER-OPENAPI.md)
 - [Todos los endpoints](docs/02-arquitectura/ENDPOINTS.md)
 - [Modelo de datos](docs/03-base-de-datos/MODELO-DE-DATOS.md)

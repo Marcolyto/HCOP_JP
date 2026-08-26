@@ -18,7 +18,7 @@
   </header>
   <main class="doc-main" style="max-width:1500px;margin:0 auto;min-height:calc(100vh - 64px)">
     <section class="doc-hero">
-      <span class="doc-kicker">OpenAPI 1.0.0 · 113 operaciones</span>
+      <span class="doc-kicker">OpenAPI 1.0.0 · 114 operaciones</span>
       <h1>Todos los endpoints, permisos y controladores</h1>
       <p>Referencia generada desde el servidor Java. Swagger permite ejecutar las rutas con la misma cookie de sesión del sistema; nunca evita permisos ni validaciones clínicas.</p>
       <div class="doc-meta"><span class="doc-tag">Spring MVC</span><span class="doc-tag">Cookie HttpOnly</span><span class="doc-tag">RBAC</span><span class="doc-tag">OpenAPI 3</span></div>
@@ -40,14 +40,14 @@
               </tr>              <tr data-filter-item>
                 <td><code>POST</code></td>
                 <td class="path"><code>/api/auth/login</code></td>
-                <td><strong>Iniciar sesi&#243;n</strong><small>Valida usuario y contrase&#241;a y crea una cookie HttpOnly SameSite=Strict.</small></td>
+                <td><strong>Iniciar sesi&#243;n</strong><small>Valida usuario y contrase&#241;a y devuelve un access token JWT de corta duraci&#243;n y un refresh token — nunca una cookie; quien los guarda es el BFF.</small></td>
                 <td>Autenticaci&#243;n</td>
                 <td><code>public</code></td>
                 <td><code>AuthController</code></td>
               </tr>              <tr data-filter-item>
                 <td><code>POST</code></td>
                 <td class="path"><code>/api/auth/logout</code></td>
-                <td><strong>Cerrar sesi&#243;n</strong><small>Revoca la sesi&#243;n actual y elimina su cookie.</small></td>
+                <td><strong>Cerrar sesi&#243;n</strong><small>Revoca la sesi&#243;n (access y refresh token) a partir del refresh token enviado.</small></td>
                 <td>Autenticaci&#243;n</td>
                 <td><code>authenticated</code></td>
                 <td><code>AuthController</code></td>
@@ -64,6 +64,13 @@
                 <td><strong>Cambiar contrase&#241;a</strong><small>Cambia la contrase&#241;a y revoca las otras sesiones del usuario.</small></td>
                 <td>Autenticaci&#243;n</td>
                 <td><code>authenticated</code></td>
+                <td><code>AuthController</code></td>
+              </tr>              <tr data-filter-item>
+                <td><code>POST</code></td>
+                <td class="path"><code>/api/auth/refresh</code></td>
+                <td><strong>Renovar access token</strong><small>Rota el refresh token y emite un access token nuevo; no est&#225; pensado para el navegador — lo llama el BFF server-to-server.</small></td>
+                <td>Autenticaci&#243;n</td>
+                <td><code>public</code></td>
                 <td><code>AuthController</code></td>
               </tr>              <tr data-filter-item>
                 <td><code>GET</code></td>
@@ -236,126 +243,98 @@
               </tr>              <tr data-filter-item>
                 <td><code>GET</code></td>
                 <td class="path"><code>/api/clinical/application-workflows</code></td>
-                <td><strong>Listar una cola operativa por aplicaci&#243;n</strong><small>Devuelve una fila por ciclo y d&#237;a real con medicaci&#243;n. `pharmacy` permite filtrar
-`patient_to_bring`; `triage`, `preparation` y `administration` usan por defecto la
-fecha de hoy y se ordenan por hora del turno y sill&#243;n.
-</small></td>
+                <td><strong>Listar una cola operativa por aplicaci&#243;n</strong><small></small></td>
                 <td>Hospital de D&#237;a</td>
                 <td><code>section.day-hospital.view</code></td>
                 <td><code>InfusionApplicationWorkflowController</code></td>
               </tr>              <tr data-filter-item>
                 <td><code>GET</code></td>
                 <td class="path"><code>/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}</code></td>
-                <td><strong>Abrir el circuito completo de una aplicaci&#243;n</strong><small>Incluye identidad, turno, drogas, duraci&#243;n, estados, trazas y revisi&#243;n optimista.</small></td>
+                <td><strong>Abrir el circuito completo de una aplicaci&#243;n</strong><small></small></td>
                 <td>Hospital de D&#237;a</td>
                 <td><code>section.day-hospital.view</code></td>
                 <td><code>InfusionApplicationWorkflowController</code></td>
               </tr>              <tr data-filter-item>
                 <td><code>POST</code></td>
                 <td class="path"><code>/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/administration/complete</code></td>
-                <td><strong>Cerrar la aplicaci&#243;n con datos reales</strong><small>Registra hora final, dosis efectivamente administrada, reacci&#243;n y observaci&#243;n.
-La aplicaci&#243;n completada queda inmutable y sale de las colas operativas.
-</small></td>
+                <td><strong>Cerrar la aplicaci&#243;n con datos reales</strong><small></small></td>
                 <td>Hospital de D&#237;a</td>
                 <td><code>application.administration.manage</code></td>
                 <td><code>InfusionApplicationWorkflowController</code></td>
               </tr>              <tr data-filter-item>
                 <td><code>POST</code></td>
                 <td class="path"><code>/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/administration/interrupt</code></td>
-                <td><strong>Interrumpir una administraci&#243;n en curso</strong><small>Detiene inmediatamente la aplicaci&#243;n y registra hora, dosis parcial, motivo,
-medidas adoptadas, condici&#243;n del paciente y destino cl&#237;nico. La interrupci&#243;n
-queda pendiente de una resoluci&#243;n expl&#237;cita y genera una evoluci&#243;n inmutable.
-</small></td>
+                <td><strong>Interrumpir una administraci&#243;n en curso</strong><small></small></td>
                 <td>Hospital de D&#237;a</td>
                 <td><code>application.administration.manage</code></td>
                 <td><code>InfusionApplicationWorkflowController</code></td>
               </tr>              <tr data-filter-item>
                 <td><code>POST</code></td>
                 <td class="path"><code>/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/administration/resolve</code></td>
-                <td><strong>Resolver una administraci&#243;n interrumpida</strong><small>Permite reanudar bajo una decisi&#243;n documentada o cerrar la aplicaci&#243;n sin
-completarla. Ambas decisiones preservan la trazabilidad y generan una evoluci&#243;n.
-</small></td>
+                <td><strong>Resolver una administraci&#243;n interrumpida</strong><small></small></td>
                 <td>Hospital de D&#237;a</td>
                 <td><code>application.administration.manage</code></td>
                 <td><code>InfusionApplicationWorkflowController</code></td>
               </tr>              <tr data-filter-item>
                 <td><code>POST</code></td>
                 <td class="path"><code>/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/administration/start</code></td>
-                <td><strong>Iniciar administraci&#243;n con doble control</strong><small>Exige PASS, preparaci&#243;n liberada, paciente y etiqueta confirmados, y un segundo
-profesional habilitado distinto del usuario activo.
-</small></td>
+                <td><strong>Iniciar administraci&#243;n con doble control</strong><small></small></td>
                 <td>Hospital de D&#237;a</td>
                 <td><code>application.administration.manage</code></td>
                 <td><code>InfusionApplicationWorkflowController</code></td>
               </tr>              <tr data-filter-item>
                 <td><code>POST</code></td>
                 <td class="path"><code>/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/clinical-authorization</code></td>
-                <td><strong>Registrar triaje y emitir PASS o FAIL</strong><small>PASS habilita preparaci&#243;n. FAIL exige causa, libera una reserva blanda, retira el turno
-activo y mantiene la aplicaci&#243;n disponible para reprogramaci&#243;n.
-</small></td>
+                <td><strong>Registrar triaje y emitir PASS o FAIL</strong><small></small></td>
                 <td>Hospital de D&#237;a</td>
                 <td><code>application.triage.manage</code></td>
                 <td><code>InfusionApplicationWorkflowController</code></td>
               </tr>              <tr data-filter-item>
                 <td><code>POST</code></td>
                 <td class="path"><code>/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/pharmacy-validation</code></td>
-                <td><strong>Validar la orden en Farmacia</strong><small>Aprueba o rechaza dosis, v&#237;a, intervalo y premedicaci&#243;n y fija la procedencia/custodia.
-No crea disponibilidad ficticia ni reserva stock.
-</small></td>
+                <td><strong>Validar la orden en Farmacia</strong><small></small></td>
                 <td>Hospital de D&#237;a</td>
                 <td><code>application.pharmacy.manage</code></td>
                 <td><code>InfusionApplicationWorkflowController</code></td>
               </tr>              <tr data-filter-item>
+                <td><code>GET</code></td>
+                <td class="path"><code>/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/preparation-label</code></td>
+                <td><strong>Imprimir etiqueta trazable de la mezcla</strong><small></small></td>
+                <td>Hospital de D&#237;a</td>
+                <td><code>application.preparation.manage</code></td>
+                <td><code>InfusionApplicationWorkflowController</code></td>
+              </tr>              <tr data-filter-item>
                 <td><code>POST</code></td>
                 <td class="path"><code>/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/preparation/complete</code></td>
-                <td><strong>Registrar mezcla, lotes, etiqueta y TTL</strong><small>Guarda trazabilidad por droga. Para stock del centro debe vincular todas las reservas
-activas y consume las cantidades correspondientes sin perder el historial.
-</small></td>
+                <td><strong>Registrar mezcla, lotes, etiqueta y TTL</strong><small></small></td>
                 <td>Hospital de D&#237;a</td>
                 <td><code>application.preparation.manage</code></td>
                 <td><code>InfusionApplicationWorkflowController</code></td>
               </tr>              <tr data-filter-item>
                 <td><code>POST</code></td>
                 <td class="path"><code>/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/preparation/release</code></td>
-                <td><strong>Liberar mezcla hacia la sala</strong><small>Rechaza autom&#225;ticamente preparaciones cuyo TTL ya venci&#243;.</small></td>
+                <td><strong>Liberar mezcla hacia la sala</strong><small></small></td>
                 <td>Hospital de D&#237;a</td>
                 <td><code>application.preparation.manage</code></td>
                 <td><code>InfusionApplicationWorkflowController</code></td>
               </tr>              <tr data-filter-item>
                 <td><code>POST</code></td>
                 <td class="path"><code>/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/preparation/restart</code></td>
-                <td><strong>Descartar y repetir una preparaci&#243;n</strong><small>Permite descartar una mezcla preparada o liberada por vencimiento, error, rotura o
-contaminaci&#243;n, siempre con un motivo documentado y antes de iniciar la administraci&#243;n.
-Conserva los lotes anteriores como descartados y devuelve la aplicaci&#243;n a Farmacia para
-obtener o reservar nuevamente la medicaci&#243;n y realizar un nuevo control cl&#237;nico.
-</small></td>
+                <td><strong>Descartar y repetir una preparaci&#243;n</strong><small></small></td>
                 <td>Hospital de D&#237;a</td>
                 <td><code>application.preparation.manage</code></td>
                 <td><code>InfusionApplicationWorkflowController</code></td>
               </tr>              <tr data-filter-item>
                 <td><code>POST</code></td>
                 <td class="path"><code>/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/preparation/start</code></td>
-                <td><strong>Iniciar preparaci&#243;n est&#233;ril</strong><small>Exige PASS cl&#237;nico y medicaci&#243;n asegurada para esa aplicaci&#243;n.</small></td>
-                <td>Hospital de D&#237;a</td>
-                <td><code>application.preparation.manage</code></td>
-                <td><code>InfusionApplicationWorkflowController</code></td>
-              </tr>              <tr data-filter-item>
-                <td><code>GET</code></td>
-                <td class="path"><code>/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/preparation-label</code></td>
-                <td><strong>Imprimir etiqueta trazable de la mezcla</strong><small>Incluye dos identificadores del paciente, esquema/ciclo/d&#237;a, droga y dosis,
-lote, vencimiento, diluyente, volumen, concentraci&#243;n, preparador, verificador
-declarado, TTL y enlace al QR de identificaci&#243;n.
-</small></td>
+                <td><strong>Iniciar preparaci&#243;n est&#233;ril</strong><small></small></td>
                 <td>Hospital de D&#237;a</td>
                 <td><code>application.preparation.manage</code></td>
                 <td><code>InfusionApplicationWorkflowController</code></td>
               </tr>              <tr data-filter-item>
                 <td><code>POST</code></td>
                 <td class="path"><code>/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/stock-reservation</code></td>
-                <td><strong>Reservar o liberar stock por componente</strong><small>La reserva blanda s&#243;lo admite `center_stock`. Puede respaldarse con un lote cuantificado
-del inventario (evita sobre-reserva de forma at&#243;mica) o mediante verificaci&#243;n manual
-expl&#237;cita y documentada cuando a&#250;n no existe inventario electr&#243;nico.
-</small></td>
+                <td><strong>Reservar o liberar stock por componente</strong><small></small></td>
                 <td>Hospital de D&#237;a</td>
                 <td><code>application.pharmacy.manage</code></td>
                 <td><code>InfusionApplicationWorkflowController</code></td>
@@ -410,20 +389,6 @@ expl&#237;cita y documentada cuando a&#250;n no existe inventario electr&#243;ni
                 <td><code>InfusionController</code></td>
               </tr>              <tr data-filter-item>
                 <td><code>POST</code></td>
-                <td class="path"><code>/api/clinical/treatments/{patientId}/{treatmentId}/resume</code></td>
-                <td><strong>Reanudar tratamiento</strong><small>Reanuda desde un ciclo v&#225;lido y exige nueva prescripci&#243;n cuando corresponde.</small></td>
-                <td>Flujos cl&#237;nicos</td>
-                <td><code>workflow.resume</code></td>
-                <td><code>TreatmentWorkflowController</code></td>
-              </tr>              <tr data-filter-item>
-                <td><code>POST</code></td>
-                <td class="path"><code>/api/clinical/treatments/{patientId}/{treatmentId}/suspend</code></td>
-                <td><strong>Suspender tratamiento</strong><small>Suspende transitoria o definitivamente y documenta el motivo.</small></td>
-                <td>Flujos cl&#237;nicos</td>
-                <td><code>workflow.suspend</code></td>
-                <td><code>TreatmentWorkflowController</code></td>
-              </tr>              <tr data-filter-item>
-                <td><code>POST</code></td>
                 <td class="path"><code>/api/clinical/treatment-workflow-requests</code></td>
                 <td><strong>Crear solicitud cl&#237;nica</strong><small>Solicita prescripci&#243;n o continuidad a un usuario autorizado.</small></td>
                 <td>Flujos cl&#237;nicos</td>
@@ -449,6 +414,20 @@ expl&#237;cita y documentada cuando a&#250;n no existe inventario electr&#243;ni
                 <td><strong>Consultar solicitudes</strong><small>Lista las solicitudes asignadas al usuario activo.</small></td>
                 <td>Flujos cl&#237;nicos</td>
                 <td><code>authenticated</code></td>
+                <td><code>TreatmentWorkflowController</code></td>
+              </tr>              <tr data-filter-item>
+                <td><code>POST</code></td>
+                <td class="path"><code>/api/clinical/treatments/{patientId}/{treatmentId}/resume</code></td>
+                <td><strong>Reanudar tratamiento</strong><small>Reanuda desde un ciclo v&#225;lido y exige nueva prescripci&#243;n cuando corresponde.</small></td>
+                <td>Flujos cl&#237;nicos</td>
+                <td><code>workflow.resume</code></td>
+                <td><code>TreatmentWorkflowController</code></td>
+              </tr>              <tr data-filter-item>
+                <td><code>POST</code></td>
+                <td class="path"><code>/api/clinical/treatments/{patientId}/{treatmentId}/suspend</code></td>
+                <td><strong>Suspender tratamiento</strong><small>Suspende transitoria o definitivamente y documenta el motivo.</small></td>
+                <td>Flujos cl&#237;nicos</td>
+                <td><code>workflow.suspend</code></td>
                 <td><code>TreatmentWorkflowController</code></td>
               </tr>              <tr data-filter-item>
                 <td><code>GET</code></td>

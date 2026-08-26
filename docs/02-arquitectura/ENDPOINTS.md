@@ -6,7 +6,7 @@
 - Swagger UI: `GET /swagger-ui.html`
 - Versión declarada: `1.0.0`
 - Operaciones documentadas: **114**
-- Autenticación: cookie HttpOnly `HCOP_SESSION`; las operaciones públicas se identifican expresamente.
+- Autenticación: Bearer JWT (`Authorization: Bearer <accessToken>`); las operaciones públicas se identifican expresamente.
 
 Los permisos se validan en el servidor. `authenticated` significa que la ruta exige una sesión activa pero no aplica un permiso granular adicional en el controlador.
 
@@ -25,7 +25,7 @@ Asocia o limpia el paciente activo únicamente para la sesión actual.
 
 ### `POST /api/auth/login` - Iniciar sesión
 
-Valida usuario y contraseña y crea una cookie HttpOnly SameSite=Strict.
+Valida usuario y contraseña y devuelve un access token JWT de corta duración y un refresh token — nunca una cookie; quien los guarda es el BFF.
 
 - **Controlador MVC:** `AuthController`
 - **Operación Java/OpenAPI:** `login`
@@ -36,7 +36,7 @@ Valida usuario y contraseña y crea una cookie HttpOnly SameSite=Strict.
 
 ### `POST /api/auth/logout` - Cerrar sesión
 
-Revoca la sesión actual y elimina su cookie.
+Revoca la sesión (access y refresh token) a partir del refresh token enviado.
 
 - **Controlador MVC:** `AuthController`
 - **Operación Java/OpenAPI:** `logout`
@@ -67,16 +67,16 @@ Cambia la contraseña y revoca las otras sesiones del usuario.
 - **Cuerpo:** `application/json`
 - **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `500` Error interno sin exposición de detalles sensibles.
 
-### `POST /api/auth/refresh` - refresh
+### `POST /api/auth/refresh` - Renovar access token
 
-Operación MVC del módulo Auth.
+Rota el refresh token y emite un access token nuevo; no está pensado para el navegador — lo llama el BFF server-to-server.
 
 - **Controlador MVC:** `AuthController`
 - **Operación Java/OpenAPI:** `refresh`
-- **Acceso requerido:** `authenticated`
+- **Acceso requerido:** `public`
 - **Parámetros:** Ninguno.
 - **Cuerpo:** `application/json`
-- **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `500` Error interno sin exposición de detalles sensibles.
+- **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Refresh token inválido, vencido o de una sesión revocada.; `500` Error interno sin exposición de detalles sensibles.
 
 ## Pacientes e historia
 
@@ -350,20 +350,18 @@ Entrega el archivo de consentimiento guardado; un estado firmado sin archivo se 
 
 ### `GET /api/clinical/application-workflows` - Listar una cola operativa por aplicación
 
-Devuelve una fila por ciclo y día real con medicación. `pharmacy` permite filtrar
-`patient_to_bring`; `triage`, `preparation` y `administration` usan por defecto la
-fecha de hoy y se ordenan por hora del turno y sillón.
+
 
 - **Controlador MVC:** `InfusionApplicationWorkflowController`
 - **Operación Java/OpenAPI:** `list_10`
 - **Acceso requerido:** `section.day-hospital.view`
-- **Parámetros:** `queue` (query, opcional): pharmacy, triage, preparation o administration.; `date` (query, opcional): Fecha ISO. En triaje/preparación/administración omitirla equivale a hoy.; `q` (query, opcional): Busca por paciente, DNI, esquema, diagnóstico o droga.; `medicationSource` (query, opcional): Fuente/custodia; use patient_to_bring para quienes deben traer medicación.
+- **Parámetros:** `queue` (query, opcional): Sin descripción adicional.; `date` (query, opcional): Fecha operativa en formato ISO 8601 (AAAA-MM-DD).; `q` (query, opcional): Texto de búsqueda; admite coincidencia parcial.; `medicationSource` (query, opcional): Sin descripción adicional.
 - **Cuerpo:** Sin cuerpo.
 - **Respuestas:** `200` Solicitud procesada correctamente.; `400` Parámetros o cuerpo de solicitud inválidos.; `401` Sesión ausente, vencida o revocada.; `403` El usuario no posee el permiso requerido.; `404` Paciente, tratamiento, archivo o recurso inexistente.; `500` Error interno sin exposición de detalles sensibles.
 
 ### `GET /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}` - Abrir el circuito completo de una aplicación
 
-Incluye identidad, turno, drogas, duración, estados, trazas y revisión optimista.
+
 
 - **Controlador MVC:** `InfusionApplicationWorkflowController`
 - **Operación Java/OpenAPI:** `get_2`
@@ -374,8 +372,7 @@ Incluye identidad, turno, drogas, duración, estados, trazas y revisión optimis
 
 ### `POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/administration/complete` - Cerrar la aplicación con datos reales
 
-Registra hora final, dosis efectivamente administrada, reacción y observación.
-La aplicación completada queda inmutable y sale de las colas operativas.
+
 
 - **Controlador MVC:** `InfusionApplicationWorkflowController`
 - **Operación Java/OpenAPI:** `administrationComplete`
@@ -386,9 +383,7 @@ La aplicación completada queda inmutable y sale de las colas operativas.
 
 ### `POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/administration/interrupt` - Interrumpir una administración en curso
 
-Detiene inmediatamente la aplicación y registra hora, dosis parcial, motivo,
-medidas adoptadas, condición del paciente y destino clínico. La interrupción
-queda pendiente de una resolución explícita y genera una evolución inmutable.
+
 
 - **Controlador MVC:** `InfusionApplicationWorkflowController`
 - **Operación Java/OpenAPI:** `administrationInterrupt`
@@ -399,8 +394,7 @@ queda pendiente de una resolución explícita y genera una evolución inmutable.
 
 ### `POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/administration/resolve` - Resolver una administración interrumpida
 
-Permite reanudar bajo una decisión documentada o cerrar la aplicación sin
-completarla. Ambas decisiones preservan la trazabilidad y generan una evolución.
+
 
 - **Controlador MVC:** `InfusionApplicationWorkflowController`
 - **Operación Java/OpenAPI:** `administrationResolve`
@@ -411,8 +405,7 @@ completarla. Ambas decisiones preservan la trazabilidad y generan una evolución
 
 ### `POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/administration/start` - Iniciar administración con doble control
 
-Exige PASS, preparación liberada, paciente y etiqueta confirmados, y un segundo
-profesional habilitado distinto del usuario activo.
+
 
 - **Controlador MVC:** `InfusionApplicationWorkflowController`
 - **Operación Java/OpenAPI:** `administrationStart`
@@ -423,8 +416,7 @@ profesional habilitado distinto del usuario activo.
 
 ### `POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/clinical-authorization` - Registrar triaje y emitir PASS o FAIL
 
-PASS habilita preparación. FAIL exige causa, libera una reserva blanda, retira el turno
-activo y mantiene la aplicación disponible para reprogramación.
+
 
 - **Controlador MVC:** `InfusionApplicationWorkflowController`
 - **Operación Java/OpenAPI:** `clinicalAuthorization`
@@ -435,8 +427,7 @@ activo y mantiene la aplicación disponible para reprogramación.
 
 ### `POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/pharmacy-validation` - Validar la orden en Farmacia
 
-Aprueba o rechaza dosis, vía, intervalo y premedicación y fija la procedencia/custodia.
-No crea disponibilidad ficticia ni reserva stock.
+
 
 - **Controlador MVC:** `InfusionApplicationWorkflowController`
 - **Operación Java/OpenAPI:** `pharmacyValidation`
@@ -447,9 +438,7 @@ No crea disponibilidad ficticia ni reserva stock.
 
 ### `GET /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/preparation-label` - Imprimir etiqueta trazable de la mezcla
 
-Incluye dos identificadores del paciente, esquema/ciclo/día, droga y dosis,
-lote, vencimiento, diluyente, volumen, concentración, preparador, verificador
-declarado, TTL y enlace al QR de identificación.
+
 
 - **Controlador MVC:** `InfusionApplicationWorkflowController`
 - **Operación Java/OpenAPI:** `preparationLabel`
@@ -460,8 +449,7 @@ declarado, TTL y enlace al QR de identificación.
 
 ### `POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/preparation/complete` - Registrar mezcla, lotes, etiqueta y TTL
 
-Guarda trazabilidad por droga. Para stock del centro debe vincular todas las reservas
-activas y consume las cantidades correspondientes sin perder el historial.
+
 
 - **Controlador MVC:** `InfusionApplicationWorkflowController`
 - **Operación Java/OpenAPI:** `preparationComplete`
@@ -472,7 +460,7 @@ activas y consume las cantidades correspondientes sin perder el historial.
 
 ### `POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/preparation/release` - Liberar mezcla hacia la sala
 
-Rechaza automáticamente preparaciones cuyo TTL ya venció.
+
 
 - **Controlador MVC:** `InfusionApplicationWorkflowController`
 - **Operación Java/OpenAPI:** `preparationRelease`
@@ -483,10 +471,7 @@ Rechaza automáticamente preparaciones cuyo TTL ya venció.
 
 ### `POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/preparation/restart` - Descartar y repetir una preparación
 
-Permite descartar una mezcla preparada o liberada por vencimiento, error, rotura o
-contaminación, siempre con un motivo documentado y antes de iniciar la administración.
-Conserva los lotes anteriores como descartados y devuelve la aplicación a Farmacia para
-obtener o reservar nuevamente la medicación y realizar un nuevo control clínico.
+
 
 - **Controlador MVC:** `InfusionApplicationWorkflowController`
 - **Operación Java/OpenAPI:** `preparationRestart`
@@ -497,7 +482,7 @@ obtener o reservar nuevamente la medicación y realizar un nuevo control clínic
 
 ### `POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/preparation/start` - Iniciar preparación estéril
 
-Exige PASS clínico y medicación asegurada para esa aplicación.
+
 
 - **Controlador MVC:** `InfusionApplicationWorkflowController`
 - **Operación Java/OpenAPI:** `preparationStart`
@@ -508,9 +493,7 @@ Exige PASS clínico y medicación asegurada para esa aplicación.
 
 ### `POST /api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/stock-reservation` - Reservar o liberar stock por componente
 
-La reserva blanda sólo admite `center_stock`. Puede respaldarse con un lote cuantificado
-del inventario (evita sobre-reserva de forma atómica) o mediante verificación manual
-explícita y documentada cuando aún no existe inventario electrónico.
+
 
 - **Controlador MVC:** `InfusionApplicationWorkflowController`
 - **Operación Java/OpenAPI:** `stockReservation`

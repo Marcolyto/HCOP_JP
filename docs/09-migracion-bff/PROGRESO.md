@@ -873,6 +873,24 @@ migrar en otro orden.
   7/7 failed (mismo `toBeVisible` en el divisor Historia/Estudios, bug preexistente de F0.5,
   confirmado sin relación).
 
+- [x] **Checklist completo del plan** ("Verificación end-to-end, aplica a todas las fases") —
+  `mvn -f bff/pom.xml verify` OK · `npm ci && npm test && npm run build` (frontend) OK ·
+  `scripts/verify-documentation.ps1` — 2 hallazgos, ninguno de F3.4: `README.md` (raíz, no
+  `docs/README.md`) apuntaba a `MVC.md` (corregido, se me había pasado); el resto (mp4 de ayuda,
+  `pom.xml`/`Dockerfile` en `docs/08-recrear-desde-cero/`) son links rotos **desde F0** — esos
+  paths se movieron a `backend/`/`frontend/` en el split de servicios y nadie actualizó los docs;
+  confirmado con `find` que los targets no existen donde el link los busca. Fuera de alcance de
+  F3, no se tocó. `scripts/generate-api-docs.ps1 -Check`: diff esperado (mismo texto de API que
+  el snapshot) + regeneró contenido de auth (cookie→JWT) que estaba desactualizado **desde F2.8**
+  (el guardián real de F3 es `openapi-snapshot.json`, no este script — documentado ya en F3.0.4:
+  "`generate-api-docs.ps1 -Check` no alcanza") — nadie lo había vuelto a correr desde entonces.
+  **Hallazgo aparte, real**: el parámetro `-HtmlPath` del script trae un default
+  pre-F0 (`src/main/resources/static/docs/api-endpoints.html`, ruta que dejó de existir en el
+  split de servicios) — corrido con el path real (`frontend/public/docs/api-endpoints.html`, donde
+  vive hoy `http://localhost:5180/docs/`) y regenerado ahí; se limpió el archivo espurio que había
+  quedado en la ruta vieja. `scripts/test-backup-restore.ps1 -BackendImage hcop-jp-backend:local`
+  OK — backup/restauración real verificados, PostgreSQL y storage coinciden.
+
 ## F3 — CERRADA Y VERIFICADA. Los ~14 módulos clínicos son hexagonales (`domain`/`application`/
   `infrastructure`, R1-R9 + R4a/R4b en verde, **R4 genérico también en verde, sin `@ArchIgnore`**),
   `platform` (fusión `common`+`config`) es la única infraestructura transversal permanentemente

@@ -848,22 +848,45 @@ migrar en otro orden.
   Docker en este commit (cambia el contrato del spec vía el texto de `description`, no la forma de
   ningún endpoint/schema — mismo criterio de F3.3, salvo la deuda de snapshot ya anotada).
 
-## F3 — CERRADA. Los ~14 módulos clínicos son hexagonales (`domain`/`application`/`infrastructure`,
-  R1-R9 + R4a/R4b en verde, **R4 genérico también en verde, sin `@ArchIgnore`**), `platform`
-  (fusión `common`+`config`) es la única infraestructura transversal permanentemente exenta junto
-  a `auth`, y `ApiException` quedó acotado a los casos que la arquitectura realmente permite
-  (borde `infrastructure.web` para precondiciones de forma HTTP, más `auth`/`platform`). Commits:
-  ver F3.0-F3.3 arriba + (F3.4, este). **Pendiente antes de mergear a `main`** (deuda acumulada,
-  no bloqueante para seguir trabajando en la rama): verificación Docker real de F3.3 + F3.4 juntas
-  (`docker compose up --build --wait`, `scripts/generate-openapi-snapshot.ps1 -Check` — ahora con
-  diff esperado por el texto nuevo de la API, regenerar —, `smoke-test.ps1`, los 3 contract-tests,
-  `integration-test.ps1`, `test-core-browser-e2e.ps1` 3/3, `test-clinical-conflict-e2e.ps1` 7/7
-  failed esperado). Siguiente fase: fuera del alcance de este plan (`fuzzy-waddling-galaxy.md`
-  termina en F3) — a definir con el usuario.
+- [x] **Verificación Docker real de F3.3+F3.4** (deuda saldada, a pedido explícito del usuario en
+  esta sesión). `docker compose up --build --wait`:
+  **1er intento falló** — `hcop-jp-backend-1` unhealthy, `ConflictingBeanDefinitionException`:
+  `qr.infrastructure.patient.PatientEvolutionAdapter` y
+  `workflow.infrastructure.patient.PatientEvolutionAdapter` (mismo simple name, ambos `@Component`
+  sin nombre explícito) colisionan en el nombre de bean por defecto de Spring. **Bug real
+  preexistente desde F3.3** (2/6 workflow y 3/6 qr crearon cada uno su propio adapter sin saber del
+  otro) — ningún test lo detectó porque ninguno levanta el `ApplicationContext` completo; solo lo
+  encuentra un arranque real. Fix: `@Component("qrPatientEvolutionAdapter")`/
+  `@Component("workflowPatientEvolutionAdapter")` (nombres explícitos, sin tocar el tipo — cada uno
+  se inyecta por su propio puerto de módulo, así que no afecta el autowiring). Confirmado que no
+  hay más colisiones de simple name entre clases `@Component`/`@Service`/`@Repository` en el árbol.
+  **2do intento: 5 servicios healthy.**
+  `generate-openapi-snapshot.ps1 -Check`: diff esperado por el texto nuevo de la API (F3.4) —
+  regenerado. **Hallazgo adicional en el diff**: `InfusionApplicationWorkflowController` perdió las
+  descripciones largas de sus 14 operaciones — no es una regresión de F3.4 (sus `@Operation` solo
+  tienen `summary` desde que se escribió en F3.3 3/6, `PROGRESO.md` ya advertía que ningún commit
+  de F3.3 se había verificado contra Docker); el snapshot committeado estaba desactualizado desde
+  entonces y recién ahora se corrigió. `nginx-routing-test.ps1` OK · `smoke-test.ps1` OK · los 3
+  contract-tests OK · `integration-test.ps1` OK (ejercita el flujo completo de aplicación —
+  interrupción/resolución con evolución real — justo el módulo `infusion` convertido a
+  `InfusionFailure` en F3.4) · `test-core-browser-e2e.ps1` 3/3 passed · `test-clinical-conflict-e2e.ps1`
+  7/7 failed (mismo `toBeVisible` en el divisor Historia/Estudios, bug preexistente de F0.5,
+  confirmado sin relación).
+
+## F3 — CERRADA Y VERIFICADA. Los ~14 módulos clínicos son hexagonales (`domain`/`application`/
+  `infrastructure`, R1-R9 + R4a/R4b en verde, **R4 genérico también en verde, sin `@ArchIgnore`**),
+  `platform` (fusión `common`+`config`) es la única infraestructura transversal permanentemente
+  exenta junto a `auth`, y `ApiException` quedó acotado a los casos que la arquitectura realmente
+  permite (borde `infrastructure.web` para precondiciones de forma HTTP, más `auth`/`platform`).
+  Commits: ver F3.0-F3.3 arriba + F3.4 + (verificación Docker, este — incluye el fix de colisión de
+  beans). Stack real de 5 servicios verificado end-to-end: routing, smoke, los 3 contract-tests,
+  flujo clínico integral, browser e2e 3/3, y el bug preexistente de F0.5 confirmado sin relación.
+  **Sin deuda pendiente para mergear a `main`.** Siguiente fase: fuera del alcance de este plan
+  (`fuzzy-waddling-galaxy.md` termina en F3) — a definir con el usuario.
 
 ### Siguientes etapas (no arrancadas)
 
-(ninguna — F3 completo; ver "Pendiente antes de mergear a main" arriba)
+(ninguna — F3 completo y verificado en Docker real)
 
 ### Cómo continuar en una sesión nueva (F3 completo, pendiente solo la deuda de Docker)
 

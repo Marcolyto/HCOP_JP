@@ -13,7 +13,10 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
 
 /** Único lugar del módulo que conoce el formato de evolución de la historia clínica. */
-@Component
+/** Nombre de bean explícito: {@code qr.infrastructure.patient.PatientEvolutionAdapter} tiene el
+ * mismo simple name — sin esto Spring falla el arranque con
+ * {@code ConflictingBeanDefinitionException} (bug real, encontrado en Docker, F3.4). */
+@Component("workflowPatientEvolutionAdapter")
 public class PatientEvolutionAdapter implements PatientEvolutionPort {
   private final PatientDocumentUseCase documents;
   private final ObjectMapper mapper;

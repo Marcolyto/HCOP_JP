@@ -990,7 +990,7 @@
     "contact": {
       "name": "HCOP JP"
     },
-    "description": "API del sistema integrado de Historia Clínica Oncológica y Hospital de Día.\n\nLa aplicación sigue MVC: los controladores reciben y validan HTTP, los servicios\nconcentran reglas clínicas y transacciones, y los repositorios son la única capa\nque accede a PostgreSQL. Los actos clínicos relevantes generan auditoría y\nevoluciones inmutables.\n",
+    "description": "API del sistema integrado de Historia Clínica Oncológica y Hospital de Día.\n\nLa aplicación sigue arquitectura hexagonal: cada módulo clínico expone su dominio\npuro, sus casos de uso (puertos de entrada) y sus adaptadores (web, persistencia)\nen capas separadas — los controladores solo traducen HTTP, los casos de uso\nconcentran reglas clínicas, y los adaptadores de persistencia son la única capa\nque accede a PostgreSQL. Los actos clínicos relevantes generan auditoría y\nevoluciones inmutables.\n",
     "license": {
       "name": "Uso interno clínico"
     },
@@ -2737,11 +2737,9 @@
     },
     "/api/clinical/application-workflows": {
       "get": {
-        "description": "Devuelve una fila por ciclo y día real con medicación. `pharmacy` permite filtrar\n`patient_to_bring`; `triage`, `preparation` y `administration` usan por defecto la\nfecha de hoy y se ordenan por hora del turno y sillón.\n",
         "operationId": "list_10",
         "parameters": [
           {
-            "description": "pharmacy, triage, preparation o administration.",
             "in": "query",
             "name": "queue",
             "required": false,
@@ -2751,7 +2749,7 @@
             }
           },
           {
-            "description": "Fecha ISO. En triaje/preparación/administración omitirla equivale a hoy.",
+            "description": "Fecha operativa en formato ISO 8601 (AAAA-MM-DD).",
             "in": "query",
             "name": "date",
             "required": false,
@@ -2761,7 +2759,7 @@
             }
           },
           {
-            "description": "Busca por paciente, DNI, esquema, diagnóstico o droga.",
+            "description": "Texto de búsqueda; admite coincidencia parcial.",
             "in": "query",
             "name": "q",
             "required": false,
@@ -2771,7 +2769,6 @@
             }
           },
           {
-            "description": "Fuente/custodia; use patient_to_bring para quienes deben traer medicación.",
             "in": "query",
             "name": "medicationSource",
             "required": false,
@@ -2856,7 +2853,6 @@
     },
     "/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}": {
       "get": {
-        "description": "Incluye identidad, turno, drogas, duración, estados, trazas y revisión optimista.",
         "operationId": "get_2",
         "parameters": [
           {
@@ -2974,7 +2970,6 @@
     },
     "/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/administration/complete": {
       "post": {
-        "description": "Registra hora final, dosis efectivamente administrada, reacción y observación.\nLa aplicación completada queda inmutable y sale de las colas operativas.\n",
         "operationId": "administrationComplete",
         "parameters": [
           {
@@ -3113,7 +3108,6 @@
     },
     "/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/administration/interrupt": {
       "post": {
-        "description": "Detiene inmediatamente la aplicación y registra hora, dosis parcial, motivo,\nmedidas adoptadas, condición del paciente y destino clínico. La interrupción\nqueda pendiente de una resolución explícita y genera una evolución inmutable.\n",
         "operationId": "administrationInterrupt",
         "parameters": [
           {
@@ -3252,7 +3246,6 @@
     },
     "/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/administration/resolve": {
       "post": {
-        "description": "Permite reanudar bajo una decisión documentada o cerrar la aplicación sin\ncompletarla. Ambas decisiones preservan la trazabilidad y generan una evolución.\n",
         "operationId": "administrationResolve",
         "parameters": [
           {
@@ -3391,7 +3384,6 @@
     },
     "/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/administration/start": {
       "post": {
-        "description": "Exige PASS, preparación liberada, paciente y etiqueta confirmados, y un segundo\nprofesional habilitado distinto del usuario activo.\n",
         "operationId": "administrationStart",
         "parameters": [
           {
@@ -3530,7 +3522,6 @@
     },
     "/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/clinical-authorization": {
       "post": {
-        "description": "PASS habilita preparación. FAIL exige causa, libera una reserva blanda, retira el turno\nactivo y mantiene la aplicación disponible para reprogramación.\n",
         "operationId": "clinicalAuthorization",
         "parameters": [
           {
@@ -3669,7 +3660,6 @@
     },
     "/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/pharmacy-validation": {
       "post": {
-        "description": "Aprueba o rechaza dosis, vía, intervalo y premedicación y fija la procedencia/custodia.\nNo crea disponibilidad ficticia ni reserva stock.\n",
         "operationId": "pharmacyValidation",
         "parameters": [
           {
@@ -3808,7 +3798,6 @@
     },
     "/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/preparation-label": {
       "get": {
-        "description": "Incluye dos identificadores del paciente, esquema/ciclo/día, droga y dosis,\nlote, vencimiento, diluyente, volumen, concentración, preparador, verificador\ndeclarado, TTL y enlace al QR de identificación.\n",
         "operationId": "preparationLabel",
         "parameters": [
           {
@@ -3925,7 +3914,6 @@
     },
     "/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/preparation/complete": {
       "post": {
-        "description": "Guarda trazabilidad por droga. Para stock del centro debe vincular todas las reservas\nactivas y consume las cantidades correspondientes sin perder el historial.\n",
         "operationId": "preparationComplete",
         "parameters": [
           {
@@ -4064,7 +4052,6 @@
     },
     "/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/preparation/release": {
       "post": {
-        "description": "Rechaza automáticamente preparaciones cuyo TTL ya venció.",
         "operationId": "preparationRelease",
         "parameters": [
           {
@@ -4203,7 +4190,6 @@
     },
     "/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/preparation/restart": {
       "post": {
-        "description": "Permite descartar una mezcla preparada o liberada por vencimiento, error, rotura o\ncontaminación, siempre con un motivo documentado y antes de iniciar la administración.\nConserva los lotes anteriores como descartados y devuelve la aplicación a Farmacia para\nobtener o reservar nuevamente la medicación y realizar un nuevo control clínico.\n",
         "operationId": "preparationRestart",
         "parameters": [
           {
@@ -4342,7 +4328,6 @@
     },
     "/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/preparation/start": {
       "post": {
-        "description": "Exige PASS clínico y medicación asegurada para esa aplicación.",
         "operationId": "preparationStart",
         "parameters": [
           {
@@ -4481,7 +4466,6 @@
     },
     "/api/clinical/application-workflows/{patientId}/{treatmentId}/{cycleNumber}/{applicationDay}/stock-reservation": {
       "post": {
-        "description": "La reserva blanda sólo admite `center_stock`. Puede respaldarse con un lote cuantificado\ndel inventario (evita sobre-reserva de forma atómica) o mediante verificación manual\nexplícita y documentada cuando aún no existe inventario electrónico.\n",
         "operationId": "stockReservation",
         "parameters": [
           {

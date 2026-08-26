@@ -215,3 +215,30 @@ antes de mergear cubre ambas.
 `docs/02-arquitectura/MVC.md` → `HEXAGONAL.md` (reescrito, no solo renombrado — describía la
 arquitectura MVC pre-F0, sin BFF ni capas). Referencias actualizadas en `docs/README.md` y
 `docs/04-desarrollo/ESTRUCTURA-DEL-REPOSITORIO.md`.
+
+### Verificación Docker real (misma sesión, a pedido explícito del usuario) — 2 hallazgos más
+
+**Bug real, preexistente desde F3.3, solo visible con el `ApplicationContext` completo**:
+`qr.infrastructure.patient.PatientEvolutionAdapter` (F3.3 3/6) y
+`workflow.infrastructure.patient.PatientEvolutionAdapter` (F3.3 2/6) tienen el mismo simple name —
+Spring nombra los beans `@Component` por el simple name decapitalizado por defecto, así que ambos
+colisionan: `ConflictingBeanDefinitionException` al arrancar, `hcop-jp-backend-1` unhealthy. Ningún
+test unitario lo detecta (ninguno de los ~450 levanta el contexto Spring completo — `@WebMvcTest`/
+mocks puros). Fix: `@Component("qrPatientEvolutionAdapter")`/
+`@Component("workflowPatientEvolutionAdapter")` — nombres explícitos, no cambia el tipo inyectado
+(cada módulo tiene su propia interfaz de puerto `PatientEvolutionPort`, distinta por paquete, así
+que el autowiring por tipo sigue resolviendo sin ambigüedad). Verificado: `find ... -name "*.java" |
+xargs -n1 basename | sort | uniq -d` no deja ninguna otra colisión de simple name entre clases
+anotadas como bean de Spring.
+
+**Drift de documentación OpenAPI, preexistente desde F3.3, nunca detectado**: al regenerar
+`openapi-snapshot.json` (esperado por el texto nuevo de la API de F3.4), el diff mostró que las 14
+operaciones de `InfusionApplicationWorkflowController` (F3.3 6/6 PR3) perdieron sus descripciones
+largas — sus `@Operation` solo declaran `summary`, nunca tuvieron `description`. El snapshot
+committeado en git venía de una versión anterior (antes de esa migración, o de un ajuste posterior
+al `@Operation`) y nadie lo había regenerado desde entonces — exactamente la deuda que `PROGRESO.md`
+ya advertía ("ningún commit de F3.3 se verificó contra Docker ni contra
+`generate-openapi-snapshot.ps1 -Check`"). No es una regresión de F3.4 ni de ningún código tocado en
+esta sesión — es contenido de documentación (Swagger), sin impacto funcional; se regeneró el
+snapshot para que refleje la realidad, no se restauraron las descripciones perdidas (eso es mejorar
+documentación, tarea aparte, no parte de "verificar").

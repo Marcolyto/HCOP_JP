@@ -18,6 +18,7 @@ import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.InventoryLot;
 import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.Key;
 import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.Reservation;
 import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.WorkflowEvent;
+import ar.com.hexium.hcop.infusion.application.port.in.TreatmentApplicationLogisticsUseCase;
 import ar.com.hexium.hcop.patient.application.port.in.PatientDocumentUseCase;
 import ar.com.hexium.hcop.patient.domain.EvolutionAppend;
 import ar.com.hexium.hcop.treatment.domain.DayHospitalApplicationPolicy;
@@ -49,14 +50,14 @@ public class ApplicationWorkflowService {
       Set.of("applications", "pharmacy", "triage", "preparation", "administration");
 
   private final ApplicationWorkflowRepository workflows;
-  private final TreatmentApplicationLogisticsService logistics;
+  private final TreatmentApplicationLogisticsUseCase logistics;
   private final PatientDocumentUseCase documents;
   private final ObjectMapper mapper;
   private final Clock clock;
 
   public ApplicationWorkflowService(
       ApplicationWorkflowRepository workflows,
-      TreatmentApplicationLogisticsService logistics,
+      TreatmentApplicationLogisticsUseCase logistics,
       PatientDocumentUseCase documents,
       ObjectMapper mapper,
       Clock clock) {

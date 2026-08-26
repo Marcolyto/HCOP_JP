@@ -1,4 +1,5 @@
 package ar.com.hexium.hcop.infusion;
+import ar.com.hexium.hcop.infusion.application.port.in.TreatmentApplicationLogisticsUseCase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -17,7 +18,7 @@ class ApplicationWorkflowServiceQueueTest {
   @Test
   void applicationsUsesItsOwnScheduledApplicationQueue() {
     var workflows = mock(ApplicationWorkflowRepository.class);
-    var logistics = mock(TreatmentApplicationLogisticsService.class);
+    var logistics = mock(TreatmentApplicationLogisticsUseCase.class);
     when(workflows.list("applications", LocalDate.of(2026, 8, 5), "ruarte", ""))
         .thenReturn(List.of());
     var service = new ApplicationWorkflowService(

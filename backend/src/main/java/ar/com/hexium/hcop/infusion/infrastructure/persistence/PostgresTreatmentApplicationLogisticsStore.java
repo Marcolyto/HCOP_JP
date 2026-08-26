@@ -1,8 +1,9 @@
-package ar.com.hexium.hcop.infusion;
+package ar.com.hexium.hcop.infusion.infrastructure.persistence;
 
 import ar.com.hexium.hcop.catalog.application.port.in.TreatmentCatalogUseCase;
 import ar.com.hexium.hcop.catalog.domain.TreatmentScheme;
-import ar.com.hexium.hcop.infusion.TreatmentApplicationPlanner.ApplicationPlan;
+import ar.com.hexium.hcop.infusion.application.port.out.TreatmentApplicationLogisticsStore;
+import ar.com.hexium.hcop.infusion.infrastructure.persistence.TreatmentApplicationPlanner.ApplicationPlan;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -11,13 +12,12 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.stereotype.Repository;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-@Service
-public class TreatmentApplicationLogisticsService {
+@Repository
+public class PostgresTreatmentApplicationLogisticsStore implements TreatmentApplicationLogisticsStore {
   private final JdbcTemplate jdbc;
   private final ObjectMapper mapper;
   private final TreatmentApplicationPlanner planner;
@@ -25,7 +25,7 @@ public class TreatmentApplicationLogisticsService {
   private final Clock clock;
   private final AtomicBoolean synchronizedExistingTreatments = new AtomicBoolean(false);
 
-  public TreatmentApplicationLogisticsService(
+  public PostgresTreatmentApplicationLogisticsStore(
       JdbcTemplate jdbc,
       ObjectMapper mapper,
       TreatmentApplicationPlanner planner,
@@ -38,7 +38,7 @@ public class TreatmentApplicationLogisticsService {
     this.clock = clock;
   }
 
-  @Transactional
+  @Override
   public void synchronizeExistingTreatments() {
     if (synchronizedExistingTreatments.get()) return;
     synchronized (synchronizedExistingTreatments) {
@@ -54,7 +54,7 @@ public class TreatmentApplicationLogisticsService {
     }
   }
 
-  @Transactional
+  @Override
   public void synchronizeTreatment(String treatmentId) {
     List<Snapshot> snapshots = jdbc.query("""
         SELECT t.id, t.patient_id, t.scheme_id, t.first_cycle_date, t.initial_cycle, t.cycle_days,

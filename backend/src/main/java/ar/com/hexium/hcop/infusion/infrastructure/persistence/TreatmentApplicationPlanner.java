@@ -1,4 +1,4 @@
-package ar.com.hexium.hcop.infusion;
+package ar.com.hexium.hcop.infusion.infrastructure.persistence;
 
 import ar.com.hexium.hcop.treatment.infrastructure.legacy.DayHospitalProtocolRules;
 import java.time.LocalDate;

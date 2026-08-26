@@ -11,6 +11,7 @@ import ar.com.hexium.hcop.infusion.InfusionRepository.Patch;
 import ar.com.hexium.hcop.infusion.InfusionRepository.ScheduleSettings;
 import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.Key;
 import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.ScheduleGate;
+import ar.com.hexium.hcop.infusion.application.port.in.TreatmentApplicationLogisticsUseCase;
 import ar.com.hexium.hcop.patient.application.port.in.PatientUseCase;
 import ar.com.hexium.hcop.treatment.domain.DayHospitalApplicationPolicy;
 import ar.com.hexium.hcop.treatment.application.port.out.TreatmentStore;
@@ -41,7 +42,7 @@ public class InfusionService {
   private static final Set<String> ADMINISTRATION = Set.of(
       "not_started", "in_progress", "completed", "withheld", "cancelled");
   private final InfusionRepository infusions;
-  private final TreatmentApplicationLogisticsService applicationLogistics;
+  private final TreatmentApplicationLogisticsUseCase applicationLogistics;
   private final ApplicationWorkflowRepository applicationWorkflows;
   private final TreatmentStore treatments;
   private final PatientUseCase patients;
@@ -50,7 +51,7 @@ public class InfusionService {
 
   public InfusionService(
       InfusionRepository infusions,
-      TreatmentApplicationLogisticsService applicationLogistics,
+      TreatmentApplicationLogisticsUseCase applicationLogistics,
       ApplicationWorkflowRepository applicationWorkflows,
       TreatmentStore treatments,
       PatientUseCase patients,

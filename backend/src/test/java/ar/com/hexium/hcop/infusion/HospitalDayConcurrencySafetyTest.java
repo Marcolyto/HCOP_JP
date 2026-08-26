@@ -1,4 +1,5 @@
 package ar.com.hexium.hcop.infusion;
+import ar.com.hexium.hcop.infusion.application.port.in.TreatmentApplicationLogisticsUseCase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -246,8 +247,8 @@ class HospitalDayConcurrencySafetyTest {
 
   private static final class SchedulingFixture {
     private final InfusionRepository infusions = mock(InfusionRepository.class);
-    private final TreatmentApplicationLogisticsService logistics =
-        mock(TreatmentApplicationLogisticsService.class);
+    private final TreatmentApplicationLogisticsUseCase logistics =
+        mock(TreatmentApplicationLogisticsUseCase.class);
     private final ApplicationWorkflowRepository workflows =
         mock(ApplicationWorkflowRepository.class);
     private final TreatmentStore treatments = mock(TreatmentStore.class);

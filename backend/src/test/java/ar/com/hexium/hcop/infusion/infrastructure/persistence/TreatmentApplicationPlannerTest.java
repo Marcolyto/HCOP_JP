@@ -1,4 +1,4 @@
-package ar.com.hexium.hcop.infusion;
+package ar.com.hexium.hcop.infusion.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

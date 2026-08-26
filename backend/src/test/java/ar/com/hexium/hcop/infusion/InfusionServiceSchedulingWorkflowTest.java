@@ -1,4 +1,5 @@
 package ar.com.hexium.hcop.infusion;
+import ar.com.hexium.hcop.infusion.application.port.in.TreatmentApplicationLogisticsUseCase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -38,8 +39,8 @@ import tools.jackson.databind.json.JsonMapper;
 class InfusionServiceSchedulingWorkflowTest {
   private static final Instant NOW = Instant.parse("2026-07-29T15:00:00Z");
   private final InfusionRepository infusions = mock(InfusionRepository.class);
-  private final TreatmentApplicationLogisticsService logistics =
-      mock(TreatmentApplicationLogisticsService.class);
+  private final TreatmentApplicationLogisticsUseCase logistics =
+      mock(TreatmentApplicationLogisticsUseCase.class);
   private final ApplicationWorkflowRepository workflows =
       mock(ApplicationWorkflowRepository.class);
   private final TreatmentStore treatments = mock(TreatmentStore.class);

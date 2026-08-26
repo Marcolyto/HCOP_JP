@@ -346,11 +346,49 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
   `OpenApiDocumentationKeysTest`). Verificado en Docker real: `docker compose up --build --wait`
   con 5 servicios healthy, `scripts/generate-openapi-snapshot.ps1 -Check` diff vacío,
   `scripts/smoke-test.ps1` verde.
-- [ ] F3.1 (3/3) — `admin` (557 LOC, `AdminController`/`AdminService`/`AdminRepository` — el
-  primer `Postgres*Store` real, con `@Transactional` de verdad). Sin tests hoy → escribirlos acá.
-  Ya tiene `AdminServiceRevocationTest` (F2.7) cubriendo la parte de revocación JWT — no debería
-  romperse, pero va a necesitar actualizarse cuando `AdminService` se parta en
-  `AdminApplicationService`.
+- [x] F3.1 (3/3) — `admin` migrado, el primer `Postgres*Store` real con `@Transactional` de
+  verdad. 7 piezas: `domain/{AdminUser,AdminRole,Permission,SecuritySettings}` (`AdminUser` con
+  `RoleSummary` anidado) · `application/port/in/AdminManagementUseCase` (comandos anidados como
+  records, `roleIds`/`permissions` en crudo como `List<String>` — el parseo/validación es del
+  service, no del mapper) · `application/port/out/AdminStore` (+`NewUser`/`ExistingUser`/`NewRole`/
+  `ExistingRole` anidados) + `UsernameOrEmailConflictException`/`RoleKeyConflictException` (mismo
+  patrón que `ConfigurationKeyConflictException`: el store traduce `DataIntegrityViolationException`
+  en el borde, el service nunca ve Spring) · `application/service/AdminApplicationService` (`final`,
+  sin `@Service`; la revocación inmediata de sesiones JWT de F2.7 vive acá por ser regla de negocio,
+  usa `auth.PasswordService`/`SessionStateRepository`/`RefreshTokenRepository` directo — módulo
+  permanentemente exento, mismo criterio que `AuthContext`) + `AdminFailure` (`INVALID`/`NOT_FOUND`/
+  `CONFLICT`) · `infrastructure/persistence/PostgresAdminStore` (`@Repository`, `JdbcTemplate`
+  inyectado, SQL sin cambios salvo el fix de abajo) · `infrastructure/configuration/
+  TransactionalAdminManagement` (variante A, `@Service`+`@Transactional` por método, delegando) ·
+  `infrastructure/web/AdminController` (nombre y métodos intactos, mismos 8 endpoints) +
+  `AdminJsonMapper` + `AdminFailureAdvice`.
+  **Bug real encontrado y corregido en la verificación end-to-end** (preexistente en
+  `AdminRepository` desde siempre — nunca antes ejercitado con un request real: `admin` tenía 0
+  tests): `usernameOrEmailExists(username, email, excludedId)` con `excludedId = null` (el caso de
+  `createUser`) rompía en Postgres real con `could not determine data type of parameter $3` — el
+  placeholder de `? IS NULL` no queda atado a ningún tipo de columna cuando el valor es null y por
+  eso Postgres no puede inferirlo (a diferencia de `updateUser`, donde el mismo placeholder
+  reaparece en `id <> ?` con un valor no nulo). `POST /api/admin/users` devolvía 500 siempre. Fix:
+  cast explícito `?::bigint IS NULL`. Encontrado con un curl real contra el stack Docker (crear
+  usuario), no por los tests unitarios (que mockean `JdbcTemplate`, no pueden detectar esto).
+  `PostgresAdminStore` sigue sin test unitario propio (mismo régimen que `SessionStateRepository`/
+  `RefreshTokenRepository` de F2.3: Testcontainers rompe el build de imagen, la única red real es
+  Docker end-to-end). 26 tests nuevos: `AdminApplicationServiceTest` (reemplaza y amplía
+  `AdminServiceRevocationTest` de F2.7 — misma cobertura de revocación + validaciones + conflictos),
+  `AdminJsonMapperTest`, `AdminControllerTest`. `admin` sale de `TRACKED_LEGACY_MODULES`.
+  Verificado en Docker real (con el fix aplicado): `mvn -f backend/pom.xml verify` verde (386
+  tests) · `docker compose up --build --wait` 5 servicios healthy · `generate-openapi-snapshot.ps1
+  -Check` diff vacío · `smoke-test.ps1` verde · flujo real completo por curl (login real):
+  `GET /api/admin/users`, `/roles`, `/security-settings`, `/api/clinical/users` (200) ·
+  `POST /api/admin/roles` (201) · `POST /api/admin/users` (201, con el fix) · usuario/correo
+  duplicado (409) · rol inválido (400) · `PUT .../security-settings` con duración inválida (400) y
+  válida (200, revisión incrementada) · `PUT /api/admin/users/{id}` (200, reasignación de roles) ·
+  `PUT /api/admin/roles/{id}` (200) · `PUT /api/admin/users/99999` inexistente (404).
+
+## F3.1 — CERRADA. `tools`/`system`/`admin` migrados, patrón hexagonal calibrado (7 piezas,
+  variantes A y B de wiring, traducción de excepciones en el borde, revocación JWT como regla de
+  negocio del módulo dueño). Commits: `1c5fb90` (1/3 tools) · `366c80c` (2/3 system) · (3/3 admin,
+  este). Siguiente: F3.2 — catalog, integration, media.
 
 ### Siguientes etapas (no arrancadas)
 
@@ -376,7 +414,8 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
 5. Al terminar un módulo: sacarlo de `TRACKED_LEGACY_MODULES` en
    `backend/src/test/java/ar/com/hexium/hcop/architecture/HexagonalArchitectureTest.java` (esa
    lista ES el tracker ejecutable) y marcarlo `[x]` acá con el hash del commit.
-6. Próximo paso concreto: **F3.1 (3/3) — `admin`**.
+6. Próximo paso concreto: **F3.2 — `catalog`** (primer módulo de la etapa, read-only sobre
+   `runtime/catalogs` vía adapters de filesystem).
 
 ## Decisiones ya tomadas (no volver a preguntar)
 - Layout: backend/ bff/ frontend/ en raíz · Auth: JWT completo · Alcance: hexagonal completo

@@ -559,9 +559,37 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
   canónico documentado. Commit: (este). Siguiente: F3.3 — patient, diagnosis,
   workflow, treatment, infusion (3 PRs), qr.
 
+### F3.3 — patient, diagnosis, workflow, treatment, infusion (3 PRs), qr
+
+**Orden real distinto al literal del plan**: se migra de menor a mayor LOC (mismo criterio de
+calibración que F3.1) — `diagnosis` (126) → `workflow` (644) → `qr` (400) → `treatment` (2165) →
+`patient` (2623) → `infusion` (5813, 3 PRs) — en vez del orden textual de la tabla del plan
+("patient, diagnosis, workflow, treatment, infusion, qr"). Los puertos cruzados de F3.3.0 ya
+aíslan a `patient`/`treatment`/`infusion` entre sí, así que no hay bloqueo estructural real por
+migrar en otro orden.
+
+- [x] F3.3 (1/6) — `diagnosis` migrado (126 LOC, 1 archivo → 7 piezas). `domain/DiagnosisRecord`
+  (`source: Object`, mismo patrón que `TreatmentScheme.definition()` — `null` cuando el registro
+  se sintetiza del diagnóstico oncológico "actual") · `application/port/in/DiagnosisUseCase`
+  (`list`/`link`) · `application/port/out/PatientDiagnosisPort` (cruza a `patient`, dirección
+  permitida por el orden canónico de F3.3.0 — no rompe ningún ciclo, solo aísla el conocimiento
+  del árbol JSON de la historia) · `application/service/DiagnosisFailure` (`CONFLICT`/
+  `UNPROCESSABLE` — el 404 de paciente/historia inexistente sigue viajando como `ApiException`
+  sin traducir desde el adapter, mismo criterio que `PatientServiceLookupAdapter` de `media`) ·
+  `DiagnosisApplicationService` (`final`, sin `@Service`) ·
+  `infrastructure/patient/PatientDiagnosisAdapter` (absorbe el parseo JSON completo: filtro de
+  archivados, fallback a diagnóstico oncológico, id sintético) ·
+  `infrastructure/configuration/DiagnosisModuleConfiguration` (variante B, read-only) ·
+  `infrastructure/web/{DiagnosisController,DiagnosisFailureAdvice}` (mismos 2 endpoints/paths/
+  shapes, incl. el campo `source` presente solo cuando el registro no es sintético). **`diagnosis`
+  tenía 0 tests** (señalado en la tabla del plan) — 11 tests nuevos:
+  `DiagnosisApplicationServiceTest` (5), `PatientDiagnosisAdapterTest` (4, incl. id sintético y
+  fallback), `DiagnosisControllerPermissionTest` (2). `diagnosis` sale de
+  `TRACKED_LEGACY_MODULES`. `mvn -f backend/pom.xml verify` verde: 401 tests (390 + 11), 1 skip
+  (R4 genérico). Sin cambio de contrato HTTP — no requirió Docker (mismo criterio que F3.3.0).
+
 ### Siguientes etapas (no arrancadas)
 
-- [ ] F3.3 — patient, diagnosis, workflow, treatment, infusion (3 PRs), qr
 - [ ] F3.4 — common→sharedkernel/platform, config→platform (NO hexagonal), eliminar ApiException
 
 ### Cómo continuar F3 en una sesión nueva

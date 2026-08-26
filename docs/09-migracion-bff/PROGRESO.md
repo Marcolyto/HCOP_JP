@@ -747,18 +747,146 @@ migrar en otro orden.
   verify` verde: 550 tests (448 + 102, incluye los tests viejos del módulo — `patient` es el más
   grande migrado hasta ahora en cantidad de tests propios). Sin cambio de contrato HTTP — no
   requirió Docker.
+- [x] F3.3 (6/6, PR 1/3 logistics) — `TreatmentApplicationLogisticsService`/`TreatmentApplicationPlanner`
+  hexagonales. `application/port/in/TreatmentApplicationLogisticsUseCase` ·
+  `application/port/out/TreatmentApplicationLogisticsStore` ·
+  `TreatmentApplicationLogisticsApplicationService` (sin lógica propia, mismo patrón que
+  `tools.CalculatorCatalogApplicationService`) · `infrastructure/persistence/
+  {TreatmentApplicationPlanner(movido verbatim — resultó 100% Jackson, sin fragmento puro que
+  separar, a diferencia de `DayHospitalApplicationPolicy`),PostgresTreatmentApplicationLogisticsStore}` ·
+  `infrastructure/configuration/TransactionalTreatmentApplicationLogisticsManagement` (variante A).
+  Blast radius: `infusion/infrastructure/treatment/TreatmentApplicationSyncAdapter` (F3.3.0, tipo
+  del constructor), `InfusionService`/`ApplicationWorkflowService` (siguen legacy, import
+  mecánico), 3 tests. `infusion` sigue en `TRACKED_LEGACY_MODULES` (faltan PR2/PR3). `mvn verify`
+  verde: 558 tests (550 + 8), 1 skip. Commit `882be3a`.
+- [x] F3.3 (6/6, PR 2/3 infusions core) — `InfusionRepository` → puerto/adapter.
+  `domain/{Medication,MedicationView,NewInfusion,Patch,Infusion,Candidate,Logistics,
+  ScheduleSettings}` (`sourceRef`/`applicationDrugs` a `Object` opaco) ·
+  `application/port/out/InfusionStore` · `infrastructure/persistence/PostgresInfusionStore` (SQL
+  sin cambios). **Desvío real justificado**: `InfusionService`/`InfusionController` NO se
+  movieron de paquete en este PR — `ApplicationWorkflowRepository`/`Key`/`ScheduleGate`/
+  `ApplicationWorkflowPolicy` eran package-private (sin `public`), moverlos hubiera roto la
+  compilación; quedaron legacy hasta PR3. Blast radius: `InfusionService.java` (tipo de campo + 7
+  casts `(JsonNode)`), `qr/infrastructure/infusion/QrInfusionAdapter`,
+  `infusion/infrastructure/treatment/InfusionForTreatmentAdapter`,
+  `treatment/application/port/out/InfusionAppointmentPort` (javadoc), 2 tests. `mvn verify` verde:
+  558 tests (sin nuevos, movimiento verbatim), 1 skip. Commit `e9ec4ab`.
+- [x] F3.3 (6/6, PR 3/3 application-workflow) — el resto de `infusion/` (8 archivos: los 6 que
+  quedaban + `InfusionService`/`InfusionController` pendientes del PR2), ~4825 LOC — **cierra
+  `infusion` y F3.3 completo**.
+  `application/port/in/{ApplicationWorkflowUseCase,InfusionUseCase}` (comandos planos, sin
+  `JsonNode`/`@Schema`) · `application/port/out/{ApplicationWorkflowStore,InfusionOperationsStore}` ·
+  `{ApplicationWorkflowApplicationService,InfusionApplicationService}` (**passthrough deliberado**
+  — dado el tamaño y entrelazamiento real de SQL+JSON+reglas de negocio en el mismo método, casi
+  1900 LOC en un solo store, no se separó `application` con lógica propia; toda la orquestación
+  real, incl. las llamadas a `domain.ApplicationWorkflowPolicy`, vive en los dos `Postgres*Store`,
+  que sí pueden tocar Jackson/Spring/`ApiException` por ser infraestructura — mismo patrón que
+  `tools`/PR1-logistics, documentado en el javadoc de ambos puertos out) ·
+  `domain/ApplicationWorkflowPolicy` (reescrito: `Optional<Violation>` en vez de lanzar
+  `ApiException` — domain no conoce `HttpStatus`) ·
+  `infrastructure/persistence/{PostgresApplicationWorkflowStore(~1900 LOC, fusiona
+  Repository+Service),PostgresInfusionOperationsStore,ApplicationComponentValidator}` —
+  `PostgresInfusionOperationsStore` inyecta `PostgresApplicationWorkflowStore` **concreto** (no
+  puerto) para `lock`/`scheduleGate`/`markAppointmentScheduled`/`markAppointmentRemoved`/
+  `insertEvent` — infra-a-infra, permitido · `infrastructure/web/{ApplicationWorkflowCommands,
+  InfusionApplicationWorkflowController,InfusionController}` (mismos endpoints/paths/permisos en
+  ambos controllers, sin multi-path) · `infrastructure/configuration/
+  ApplicationWorkflowModuleConfiguration` (variante B). 7 archivos de test migrados/reescritos
+  (incl. widening `private`→package-private en 5 métodos de los `Postgres*Store` para que los
+  tests sigan pudiendo ejercitar SQL/lógica interna directo) sin cambiar aserciones de negocio.
+  `infusion` sale de `TRACKED_LEGACY_MODULES` — **queda vacío**. `mvn -f backend/pom.xml verify`
+  verde: 612 tests (558 + 54), 1 skip (R4 genérico, sin cambios, sigue fuera de alcance —
+  F3.4). Sin cambio de contrato HTTP — no requirió Docker. Commit `6e8c6aa`.
+
+## F3.3 — CERRADA. Los 6 módulos completos: `diagnosis`, `workflow`, `qr`, `treatment`, `patient`,
+  `infusion` (3 PRs). `TRACKED_LEGACY_MODULES` queda **vacío** — todo el backend clínico
+  (`ar.com.hexium.hcop.*` salvo `auth`/`common`/`config`, permanentemente exentos) es hexagonal:
+  `domain`/`application`/`infrastructure` en los ~14 módulos, R1-R9 + R4a/R4b en verde sin
+  relajar nada. Commits: `f42f60f`(diagnosis) · `c9b6df3`(workflow) · `1beb03d`(qr) ·
+  `a2ab7c9`(treatment) · `1ae84d7`(patient) · `882be3a`+`e9ec4ab`+`6e8c6aa`(infusion, 3 PRs).
+  `mvn -f backend/pom.xml verify` verde en cada commit — 612 tests finales, 1 skip (R4 genérico,
+  documentado, fuera de alcance). Ningún commit de F3.3 cambió contrato HTTP — no se corrió
+  Docker en ninguno (a diferencia de F3.1/F3.2, que sí lo verificaron en runtime real; queda
+  pendiente una verificación en Docker real de todo el stack antes de mergear a `main`, ver
+  Notas de ejecución). Siguiente: F3.4 — `common`→`sharedkernel`/`platform`,
+  `config`→`platform` (NO hexagonal), eliminar `ApiException`.
 
 ### Siguientes etapas (no arrancadas)
 
 - [ ] F3.4 — common→sharedkernel/platform, config→platform (NO hexagonal), eliminar ApiException
 
-### Cómo continuar F3 en una sesión nueva
+### Cómo continuar con F3.4 en una sesión nueva
 
-1. Releer este archivo (`PROGRESO.md`), `DECISIONES-F2.md` (para F2) y `DECISIONES-F3.md`
-   (desvíos de F3, incl. F3.3.0 — seguir agregando ahí los que surjan).
-2. El plan completo con el detalle de las 7 piezas del patrón, el orden de migración y los
-   riesgos está en `~/.claude/plans/fuzzy-waddling-galaxy.md`, sección `## F3`.
-3. Ejemplos reales ya migrados y verificados, del más simple al más rico en patrones:
+1. Releer este archivo (`PROGRESO.md`, especialmente el bloque "F3.3 — CERRADA" y las 8 entradas
+   de F3.3 arriba) y `DECISIONES-F3.md` completo (los hallazgos reales de F3.3 — en particular
+   "R4 sigue con `@ArchIgnore`" y "applicationDoesNotDependOnInfrastructure es incondicional entre
+   módulos" — van a ser relevantes para F3.4). `DECISIONES-F2.md` es solo para F2, ya no aporta a
+   F3.4.
+2. El plan completo (fila F3.4 de la tabla + "Riesgo principal de F3" con el inventario de
+   `ApiException`/status por módulo) está en `~/.claude/plans/fuzzy-waddling-galaxy.md`, sección
+   `## F3`. Texto literal de la fila F3.4: *"`common` → `sharedkernel`+`platform/web` ·
+   `config` → `platform/` | 1251 LOC | **`config` NO se hexagonaliza**: es infraestructura
+   transversal, no un feature. Eliminar `ApiException` (a esta altura el compilador delata a los
+   consumidores que queden). `docs/02-arquitectura/MVC.md` → `HEXAGONAL.md`"*.
+3. **Alcance real de F3.4 (3 tareas independientes, se pueden secuenciar o partir en commits
+   separados)**:
+   a. **Renombrar `common` → `sharedkernel` + `platform/web`**: `common` hoy tiene
+      `ApiException`, `ApiExceptionHandler`, `ApiErrorResponse`, `AuthenticationRequiredResponse`
+      (ver `backend/src/main/java/ar/com/hexium/hcop/common/`) — separar lo que es
+      "kernel compartido de dominio" (si lo hay) de lo que es "infraestructura web transversal"
+      (el `ApiExceptionHandler` global, las respuestas HTTP). Revisar primero qué hay realmente
+      en `common/` antes de asumir la forma exacta del split — el plan da el nombre destino, no
+      el contenido exacto de cada paquete.
+   b. **Renombrar `config` → `platform`**: mecánico (paquete + imports), `config` NO se
+      hexagonaliza (sigue sin `domain`/`application`/`infrastructure`) — es infraestructura
+      transversal (bootstrap, `HcopProperties`, `OpenApiConfiguration`, etc.), no un feature.
+   c. **Eliminar `ApiException`**: ahora que los ~14 módulos clínicos son hexagonales y cada uno
+      tiene su propio `*Failure` + `*FailureAdvice`, `ApiException` debería quedar sin
+      consumidores fuera de `auth`/`common`(→`platform/web`)/`config`(→`platform`) — los 3
+      módulos permanentemente exentos. Verificarlo con
+      `grep -rln "ApiException" backend/src/main/java` **antes** de tocar nada: cualquier hit
+      fuera de esos 3 paquetes es una regresión de una migración anterior (revisar cuál) o un
+      caso legítimo que el plan no anticipó. El "riesgo principal de F3" del plan avisa
+      específicamente de esto: los `new ApiException(HttpStatus.X, ...)` que no sean
+      400/404/409 necesitan un valor de enum `*Failure` que hoy podría no existir todavía —
+      revisar cada `*Failure` ya creado en F3.1-F3.3 antes de asumir que alcanza.
+4. **Los 2 ciclos ArchUnit que quedaron documentados y fuera de alcance en F3.3.0/DECISIONES-F3.md
+   son responsabilidad de F3.4**: `catalog` ↔ `config` (vía `HcopProperties.catalogRoot()`,
+   leído por los `*Store` de `catalog`) y `config` ↔ `patient` (`BootstrapConfiguration` llama a
+   `patient.DefaultDemoPatientBootstrap.seed()`, `patient.PatientDocumentService`/`PatientJsonMapper`
+   depende de `HcopProperties`). Con `config`→`platform` estos ciclos van a seguir existiendo con
+   otro nombre a menos que F3.4 los rompa explícitamente (puerto de salida desde `catalog`/`patient`
+   hacia `platform`, o extraer las propiedades que necesita cada módulo a su propia configuración) —
+   decidir el enfoque al arrancar, no está prescripto por el plan. Una vez rotos, sacar el
+   `@ArchIgnore` de `r4_slicesAreFreeOfCycles` en `HexagonalArchitectureTest.java` y confirmar
+   que pasa en verde — ese es el criterio de aceptación visible de haberlos roto.
+5. **Deuda pendiente de F3.3, no bloqueante pero hay que saldarla antes de mergear a `main`**:
+   ningún commit de F3.3 (8 commits: diagnosis/workflow/qr/treatment/patient/infusion×3) se
+   verificó contra el stack Docker real ni contra `scripts/generate-openapi-snapshot.ps1 -Check`
+   — se justificó en cada uno porque ningún path/método/permiso de controller cambió, pero es una
+   inferencia estática (revisar `@*Mapping` antes/después), no una verificación end-to-end real
+   como sí tuvieron F3.1/F3.2. Antes de mergear esta rama a `main`, correr — el usuario corre
+   Docker, no Claude, salvo que pida explícitamente lo contrario en esa sesión —:
+   `docker compose up --build --wait` (5 servicios healthy) · `scripts/generate-openapi-snapshot.ps1
+   -Check` (diff vacío, bloqueante) · `scripts/smoke-test.ps1` · los 3 contract-tests
+   (`configuration`/`protocol`/`guide`) · `scripts/integration-test.ps1` ·
+   `scripts/test-core-browser-e2e.ps1` (3/3) · `scripts/test-clinical-conflict-e2e.ps1` (7/7
+   failed esperado, bug preexistente de F0.5, sin relación). Si algo falla ahí, es señal de que
+   alguna de las inferencias estáticas de F3.3 estaba mal — investigar el commit específico.
+6. Antes de cada commit de F3.4: `mvn -f backend/pom.xml verify` (incluye `HexagonalArchitectureTest`
+   y `OpenApiDocumentationKeysTest`) tiene que quedar verde. `TRACKED_LEGACY_MODULES` ya está
+   vacío — no hay más módulos que sacar de ahí, F3.4 no toca esa lista salvo que agregue una regla
+   nueva relacionada al split de `common`/`config`.
+7. Estado del repo al cerrar esta sesión: working tree limpio, branch
+   `feature/migracion-bff-arquitectura`, último commit `6e8c6aa` (F3.3, PR 3/3 infusion — cierra
+   F3.3 completo). `mvn -f backend/pom.xml verify` verde: 612 tests, 1 skip (R4 genérico,
+   documentado). F3.0 a F3.3 completos. Siguiente paso concreto: arrancar F3.4 leyendo primero
+   `backend/src/main/java/ar/com/hexium/hcop/common/` y `.../config/` completos para dimensionar
+   el split real antes de tocar nada (punto 3 de arriba).
+
+### Referencia — patrón de los 6 módulos de F3.3 (por si hace falta releer un ejemplo)
+
+Ejemplos reales ya migrados y verificados, del más simple al más rico en patrones:
    `tools/` (variante B, read-only, el más simple) · `system/` (Postgres*Store trivial) ·
    `admin/` (primer `Postgres*Store` real con `@Transactional`, traducción de
    `DataIntegrityViolationException` en el borde) · `catalog/` (7 sub-catálogos en un módulo,
@@ -774,28 +902,14 @@ migrar en otro orden.
    orden canónico `patient` ← `treatment` ← `infusion`, puerto dueño del módulo upstream,
    adapter físicamente en el módulo downstream — ver `DECISIONES-F3.md`. `PatientLookupPort` (en
    `media/application/port/out/`) y `DrugCatalogUseCase`/`TreatmentCatalogUseCase` (en
-   `catalog/application/port/in/`) siguen disponibles para lo que falte de F3.3.
-   `media/application/port/in/ClinicalFileUseCase.findLatestByTreatment` sigue siendo el puerto
-   cruzado real `treatment`→`media`, sin cambios en F3.3.0.
-4. Antes de cada commit de módulo: correr `mvn -f backend/pom.xml verify` (incluye
-   `HexagonalArchitectureTest` y `OpenApiDocumentationKeysTest`), levantar el stack Docker real
-   y correr `scripts/generate-openapi-snapshot.ps1 -Check` — **diff vacío es criterio de
-   aceptación bloqueante**, ver F3.0.4. Los comandos Docker los corre el usuario, no Claude, salvo
-   que el usuario pida explícitamente que los corra Claude en esa sesión (así se hizo en F3.1/F3.2).
-5. Al terminar un módulo: sacarlo de `TRACKED_LEGACY_MODULES` en
-   `backend/src/test/java/ar/com/hexium/hcop/architecture/HexagonalArchitectureTest.java` (esa
-   lista ES el tracker ejecutable) y marcarlo `[x]` acá con el hash del commit.
-6. Próximo paso concreto: **F3.3 — patient** (primer módulo de la etapa grande: 2623 LOC, incl.
-   las 7 clases `Clinical*Authority` que el plan dice que ya son dominio puro con tests —
-   candidatas a mudanza casi directa a `domain/`). Ojo con `PatientController.java` — mappings
-   multi-path (`{"/api/clinical/patients","/api/lira/patients"}` y `.../import`/`.../refresh`):
-   conservar los arrays exactos. `PatientWorkspaceController` ya depende de
-   `TreatmentSummaryPort`/`InfusionSummaryPort` (F3.3.0) — al migrar `patient` a
-   `infrastructure/web`, esos puertos viajan con el controller.
-7. Estado del repo al cerrar esta sesión: working tree limpio, branch
-   `feature/migracion-bff-arquitectura`, último commit F3.3.0 (puertos cruzados
-   patient/treatment/infusion). F3.1, F3.2 y F3.3.0 completos y verificados (`mvn verify` verde,
-   390 tests; F3.3.0 no toca contrato HTTP, no requirió Docker).
+   `catalog/application/port/in/`) — patrones de puerto cruzado reusables si F3.4 necesita uno
+   nuevo entre `catalog`/`patient` y `platform` (ver punto 4 de la sección anterior).
+   `media/application/port/in/ClinicalFileUseCase.findLatestByTreatment` es el puerto cruzado
+   real `treatment`→`media`.
+   Antes de cada commit de módulo (referencia histórica, F3.0-F3.3 ya cerrados): correr
+   `mvn -f backend/pom.xml verify`, levantar Docker real y correr
+   `scripts/generate-openapi-snapshot.ps1 -Check` — diff vacío bloqueante, ver F3.0.4 y el punto 5
+   de arriba (deuda de Docker pendiente en F3.3, saldarla antes de mergear a `main`).
 
 ## Decisiones ya tomadas (no volver a preguntar)
 - Layout: backend/ bff/ frontend/ en raíz · Auth: JWT completo · Alcance: hexagonal completo

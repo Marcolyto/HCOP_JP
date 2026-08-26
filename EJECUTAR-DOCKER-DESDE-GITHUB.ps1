@@ -27,6 +27,12 @@ $script:FrontendImage = if ($Channel -eq "Migration") {
   "ghcr.io/marcolyto/hcop_jp-frontend:latest"
 }
 $script:PostgresImage = "postgres:18.4-alpine"
+# El canal "Migration" queda anclado al tag angular-full-parity-v2 (previo al split
+# backend/bff/frontend, no existe imagen bff para ese tag) — solo el canal "Stable" habla
+# con el BFF+Redis (topología real desde F1).
+$script:UsesBff = ($Channel -ne "Migration")
+$script:BffImage = "ghcr.io/marcolyto/hcop_jp-bff:latest"
+$script:RedisImage = "redis:7-alpine"
 $script:ApplicationUrl = "http://localhost:$($script:DefaultHostPort)"
 $script:ApplicationEntryUrl = $script:ApplicationUrl
 $script:PostgresVolume = "$($script:ResourcePrefix)_postgres"
@@ -180,13 +186,14 @@ services:
       - hcop_internal
       - hcop_egress
 
+__BFF_SERVICES__
   frontend:
     image: __FRONTEND_IMAGE__
     pull_policy: missing
     restart: unless-stopped
     init: true
     depends_on:
-      backend:
+      __FRONTEND_UPSTREAM__:
         condition: service_healthy
     ports:
       - "0.0.0.0:${HCOP_PORT:-__HOST_PORT__}:8080"
@@ -213,9 +220,57 @@ networks:
   hcop_egress:
     name: __RESOURCE_PREFIX___egress
 '@
+  $bffServices = if ($script:UsesBff) {
+    @'
+  redis:
+    image: __REDIS_IMAGE__
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    networks:
+      - hcop_internal
+
+  bff:
+    image: __BFF_IMAGE__
+    pull_policy: missing
+    restart: unless-stopped
+    init: true
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      BACKEND_URL: http://backend:5180
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      HCOP_BFF_PORT: 8080
+      HCOP_BIND_ADDRESS: 0.0.0.0
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /actuator/health HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '\"status\":\"UP\"' <&3"]
+      interval: 15s
+      timeout: 8s
+      retries: 8
+      start_period: 30s
+    networks:
+      - hcop_internal
+      - hcop_egress
+
+'@
+  } else {
+    ""
+  }
+  $document = $document.Replace("__BFF_SERVICES__", $bffServices)
+  $document = $document.Replace("__FRONTEND_UPSTREAM__", $(if ($script:UsesBff) { "bff" } else { "backend" }))
   $document = $document.Replace("__PROJECT_NAME__", $script:ProjectName)
   $document = $document.Replace("__DATABASE_NAME__", $script:DatabaseName)
   $document = $document.Replace("__BACKEND_IMAGE__", $script:BackendImage)
+  $document = $document.Replace("__BFF_IMAGE__", $script:BffImage)
+  $document = $document.Replace("__REDIS_IMAGE__", $script:RedisImage)
   $document = $document.Replace("__FRONTEND_IMAGE__", $script:FrontendImage)
   $document = $document.Replace("__HOST_PORT__", [string]$script:DefaultHostPort)
   $document = $document.Replace("__RESOURCE_PREFIX__", $script:ResourcePrefix)
@@ -742,8 +797,13 @@ function Pull-Images(
   Write-Step "Descargando las imágenes publicadas"
   Write-Info "La primera descarga puede tardar varios minutos. Espere hasta que Docker termine; el detalle aparecerá al completar cada intento."
   $arguments = Get-ComposeArguments $Root $ComposePath $EnvironmentPath @("pull")
+  $imageList = if ($script:UsesBff) {
+    "$($script:BackendImage), $($script:BffImage), $($script:FrontendImage), $($script:RedisImage) y $($script:PostgresImage)"
+  } else {
+    "$($script:BackendImage), $($script:FrontendImage) y $($script:PostgresImage)"
+  }
   $pull = Invoke-NativeLogged $DockerPath $arguments `
-    "Descargando $($script:BackendImage), $($script:FrontendImage) y $($script:PostgresImage)" -AllowFailure
+    "Descargando $imageList" -AllowFailure
   if ($pull.ExitCode -eq 0) {
     Write-Ok "Imágenes disponibles."
     return
@@ -781,7 +841,9 @@ function Ensure-Images(
   $backendAvailable = Test-ImageAvailable $DockerPath $script:BackendImage
   $frontendAvailable = Test-ImageAvailable $DockerPath $script:FrontendImage
   $databaseAvailable = Test-ImageAvailable $DockerPath $script:PostgresImage
-  if ($backendAvailable -and $frontendAvailable -and $databaseAvailable) {
+  $bffAvailable = -not $script:UsesBff -or (Test-ImageAvailable $DockerPath $script:BffImage)
+  $redisAvailable = -not $script:UsesBff -or (Test-ImageAvailable $DockerPath $script:RedisImage)
+  if ($backendAvailable -and $bffAvailable -and $frontendAvailable -and $databaseAvailable -and $redisAvailable) {
     Write-Ok "Se usarán las imágenes locales. El inicio diario no necesita Internet."
     return
   }
@@ -951,12 +1013,16 @@ function Invoke-ValidateOnly {
     $script:PostgresVolume,
     $script:StorageVolume,
     "/actuator/health")
+  if ($script:UsesBff) {
+    $requiredFragments += @($script:BffImage, $script:RedisImage)
+  }
   $missing = @($requiredFragments | Where-Object { -not $compose.Contains($_) })
   $result = [ordered]@{
     ok = ($errors.Count -eq 0 -and $missing.Count -eq 0)
     mode = "ValidateOnly"
     channel = $Channel
     backendImage = $script:BackendImage
+    bffImage = $(if ($script:UsesBff) { $script:BffImage } else { $null })
     frontendImage = $script:FrontendImage
     applicationEntryUrl = $script:ApplicationEntryUrl
     projectName = $script:ProjectName
@@ -1000,7 +1066,7 @@ try {
   Enter-OperationLock $root
   Write-Step "HCOP JP desde GitHub Container Registry · $Channel · $Mode"
   Write-Info "Carpeta local: $root"
-  Write-Info "Imagenes: $($script:BackendImage) · $($script:FrontendImage)"
+  Write-Info "Imagenes: $($script:BackendImage)$(if ($script:UsesBff) { " · $($script:BffImage)" }) · $($script:FrontendImage)"
 
   $docker = Assert-DockerReady
   switch ($Mode) {
@@ -1013,7 +1079,7 @@ try {
       Ensure-Compose $composePath
       Ensure-Environment $environmentPath $docker
       Start-Hcop $docker $root $composePath $environmentPath -ForcePull
-      Write-Ok "Las imagenes $($script:BackendImage) y $($script:FrontendImage) fueron actualizadas y aplicadas."
+      Write-Ok "Las imagenes $($script:BackendImage)$(if ($script:UsesBff) { ", $($script:BffImage)" }) y $($script:FrontendImage) fueron actualizadas y aplicadas."
     }
     "Stop" {
       Stop-Hcop $docker $root $composePath $environmentPath

@@ -173,6 +173,9 @@ jobs:
           - service: backend
             context: ./backend
             image: ghcr.io/marcolyto/hcop_jp-backend
+          - service: bff
+            context: ./bff
+            image: ghcr.io/marcolyto/hcop_jp-bff
           - service: frontend
             context: ./frontend
             image: ghcr.io/marcolyto/hcop_jp-frontend

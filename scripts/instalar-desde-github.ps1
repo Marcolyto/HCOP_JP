@@ -27,6 +27,7 @@ $script:RepositoryZip = "https://github.com/Marcolyto/HCOP_JP/archive/refs/heads
 $script:RepositoryArchiveApi = "https://api.github.com/repos/Marcolyto/HCOP_JP/zipball/main"
 $script:RepositoryCommitApi = "https://api.github.com/repos/Marcolyto/HCOP_JP/commits/main"
 $script:PublishedBackendImage = "ghcr.io/marcolyto/hcop_jp-backend"
+$script:PublishedBffImage = "ghcr.io/marcolyto/hcop_jp-bff"
 $script:PublishedFrontendImage = "ghcr.io/marcolyto/hcop_jp-frontend"
 $script:ProjectName = "hcop-jp"
 $script:LogPath = $null
@@ -756,6 +757,7 @@ function Try-PreparePublishedRelease([pscustomobject]$Candidate) {
   if (-not $Candidate.Commit) { return $false }
   $short = $Candidate.Commit.Substring(0, 7)
   $backendImage = "$($script:PublishedBackendImage):sha-$short"
+  $bffImage = "$($script:PublishedBffImage):sha-$short"
   $frontendImage = "$($script:PublishedFrontendImage):sha-$short"
   if ($Candidate.Access) {
     Write-Step "Autorizando la lectura del paquete Docker privado"
@@ -785,7 +787,7 @@ function Try-PreparePublishedRelease([pscustomobject]$Candidate) {
     if ($loginCode -ne 0) { return $false }
   }
   Write-Step "Buscando las imágenes publicadas de esta misma versión"
-  foreach ($image in @($backendImage, $frontendImage)) {
+  foreach ($image in @($backendImage, $bffImage, $frontendImage)) {
     $pullCode = Invoke-LoggedNative $script:DockerPath @("pull", $image) `
       -Description "Descarga de $image" `
       -AllowFailure
@@ -797,6 +799,9 @@ function Try-PreparePublishedRelease([pscustomobject]$Candidate) {
 services:
   backend:
     image: $backendImage
+    pull_policy: missing
+  bff:
+    image: $bffImage
     pull_policy: missing
   frontend:
     image: $frontendImage
@@ -811,7 +816,7 @@ services:
     $Candidate.Commit `
     "published" `
     @("compose.github.yaml", "compose.release.override.yaml") `
-    "$backendImage,$frontendImage"
+    "$backendImage,$bffImage,$frontendImage"
   return $true
 }
 

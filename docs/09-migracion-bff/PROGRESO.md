@@ -947,6 +947,34 @@ Ejemplos reales ya migrados y verificados, del más simple al más rico en patro
    `scripts/generate-openapi-snapshot.ps1 -Check` — diff vacío bloqueante, ver F3.0.4 y el punto 5
    de arriba (deuda de Docker pendiente en F3.3, saldarla antes de mergear a `main`).
 
+- [x] **Limpieza previa al merge a `main`** (a pedido del usuario, esta sesión). Revisión de
+  `legacy-reference/` y `src/` contra el árbol real: `legacy-reference/` (4.8M, sitio estático
+  pre-migración) sin ningún consumidor en código/scripts/CI — el contrato visual de Angular usa
+  su propia copia en `frontend/src/legacy-visual-contract/`, independiente — eliminado. `src/`
+  (carpeta vacía en la raíz, resto sin trackear del `git mv` de F0.1) eliminada.
+  **Hallazgo real (deuda de F1.5, nunca saldada)**: la distribución vía GHCR seguía en la
+  topología de 2 servicios (backend+frontend) — nunca se actualizó para BFF+Redis desde que F1 lo
+  introdujo. Afectaba 3 puntos: `.github/workflows/verify.yml` (matriz `publish` sin `bff`),
+  `compose.github.yaml` (frontend dependía de `backend` directo, sin `redis`/`bff` — la imagen del
+  frontend ya trae el nginx con upstream fijo a `bff:8080` desde F1.5, así que este compose
+  arrancaba con `nginx: emerg host not found in upstream "bff"`, mismo bug que F1.5 encontró en
+  `compose.e2e.yaml`) y `EJECUTAR-DOCKER-DESDE-GITHUB.ps1` (el launcher standalone para usuarios
+  sin este repo — generaba su propio compose inline, nunca tocado desde F2.2, con el mismo problema).
+  Fix: `bff` agregado a la matriz de `publish` (imagen `ghcr.io/marcolyto/hcop_jp-bff`) ·
+  `compose.github.yaml` con `redis`+`bff` (mismo patrón que `compose.yaml`/F1.5), frontend pasa a
+  depender de `bff` · `.env.example` con `HCOP_BFF_IMAGE` · `scripts/instalar-desde-github.ps1`
+  agrega `bff` a la descarga de imágenes por sha y al override de compose ·
+  `EJECUTAR-DOCKER-DESDE-GITHUB.ps1`: el canal `Stable` (default) genera `redis`+`bff` y
+  `frontend→bff`; el canal `Migration` (tag fijo `angular-full-parity-v2`, anterior al split
+  backend/bff/frontend, sin imagen `bff` publicada para ese tag) se deja intacto con la topología
+  vieja `frontend→backend` — no rompía antes de este cambio y no había forma de correr `bff` contra
+  esa imagen histórica. Verificado con `pwsh -Mode ValidateOnly` en ambos canales (`Stable` genera
+  YAML con `redis`/`bff`/`frontend→bff`, parseable con `yaml.safe_load`; `Migration` sin cambios,
+  `frontend→backend`) — sin Docker real disponible en esta sesión para levantar el compose
+  generado end-to-end, **pendiente de una corrida real de `EJECUTAR-DOCKER-DESDE-GITHUB.ps1 -Mode
+  Start` (canal Stable) antes de considerar esta ruta 100% verificada**, a diferencia del resto de
+  F3 que sí se verificó en Docker real.
+
 ## Decisiones ya tomadas (no volver a preguntar)
 - Layout: backend/ bff/ frontend/ en raíz · Auth: JWT completo · Alcance: hexagonal completo
 - Orden: Infra→BFF→JWT→hexagonal · Revocación: inmediata (columna revoked + lookup por sid)

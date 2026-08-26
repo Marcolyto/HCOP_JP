@@ -618,6 +618,36 @@ migrar en otro orden.
   (`TreatmentWorkflowApplicationServiceTest` 5, `TreatmentWorkflowControllerPermissionTest` 3).
   `workflow` sale de `TRACKED_LEGACY_MODULES`. `mvn -f backend/pom.xml verify` verde: 418 tests
   (401 + 17), 1 skip. Sin cambio de contrato HTTP — no requirió Docker.
+- [x] F3.3 (3/6) — `qr` migrado (400 LOC: `QrWorkflowController`/`Repository`/`Service` — QR
+  firmado HMAC de identificación de tratamiento, escaneo con administración idempotente).
+  `domain/{QrPatientView,QrTreatmentView,QrInfusionRef,QrScan,EvolutionDraft}` ·
+  `application/port/in/QrUseCase` (`ScanCommand`/`ScanResult`) ·
+  `application/port/out/{QrPatientPort,QrTreatmentPort,QrInfusionPort,QrScanStore,
+  PatientEvolutionPort}` (`QrInfusionPort.dayHospitalEligibility` devuelve `Optional<Boolean>` —
+  `empty()` distingue "no hay logística para ese día" de `Optional.of(false)` "solo domiciliaria",
+  los 2 mensajes de conflicto distintos del original; los 3 primeros cruzan a `patient`/
+  `treatment`/`infusion`, dirección permitida por el orden canónico de F3.3.0) ·
+  `application/service/QrFailure` (`INVALID`/`NOT_FOUND`/`CONFLICT`) + `QrApplicationService`
+  (`final`, secreto HMAC inyectado como `String` — ya no `config.HcopProperties` completo — toda
+  la lógica pura de firma/parseo/QR bitmap queda acá: `com.google.zxing` y `javax.crypto` **no
+  están en la allow-list incondicional de frameworks** de `HexagonalArchitectureTest`, así que
+  `application` sí puede importarlos sin violar R3/domainIsIndependentFromFrameworks — a
+  diferencia de `tools.jackson`) · 3 adapters en `infrastructure/{patient,treatment,infusion}`
+  (`QrInfusionAdapter` es el único lugar que navega `Logistics.applicationDrugs()` con
+  `DayHospitalApplicationPolicy.requiresDayHospital`) ·
+  `infrastructure/persistence/PostgresQrScanStore` ·
+  `infrastructure/patient/PatientEvolutionAdapter` (formato de evolución con `specialty`/
+  `highlighted` configurables por `EvolutionDraft`, a diferencia del de `workflow` que los fija) ·
+  `infrastructure/configuration/TransactionalQrManagement` (variante A, `@Transactional` solo en
+  `scan`, igual que el original) · `infrastructure/web/{QrWorkflowController,QrJsonMapper,
+  QrFailureAdvice}` (mismo nombre de controller que el legacy — evita tocar las claves
+  `QrWorkflowController.document`/`.scan` de `OpenApiConfiguration.DOCUMENTATION`/`PERMISSIONS`).
+  1 test viejo reemplazado por `QrApplicationServiceTest` (3 escenarios originales + 5 nuevos:
+  ciclo inválido, tratamiento inexistente, escaneo idempotente, hash distinto, administración con
+  evolución) + `QrWorkflowControllerPermissionTest` (2). `qr` sale de `TRACKED_LEGACY_MODULES` —
+  **los 6 módulos de menor LOC de F3.3 completos** (`treatment`/`patient`/`infusion` de 2165+2623+
+  5813 LOC siguen). `mvn -f backend/pom.xml verify` verde: 428 tests (418 + 10), 1 skip. Sin
+  cambio de contrato HTTP — no requirió Docker.
 
 ### Siguientes etapas (no arrancadas)
 

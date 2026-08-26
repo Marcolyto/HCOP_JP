@@ -587,6 +587,37 @@ migrar en otro orden.
   fallback), `DiagnosisControllerPermissionTest` (2). `diagnosis` sale de
   `TRACKED_LEGACY_MODULES`. `mvn -f backend/pom.xml verify` verde: 401 tests (390 + 11), 1 skip
   (R4 genérico). Sin cambio de contrato HTTP — no requirió Docker (mismo criterio que F3.3.0).
+- [x] F3.3 (2/6) — `workflow` migrado (644 LOC: `TreatmentWorkflowController`/`Repository`/
+  `Service` — suspensión/reanudación de tratamientos, solicitudes de prescripción/continuidad con
+  bandeja de entrada y resolución). El más rico en patrones de F3.3 hasta ahora.
+  `domain/{TreatmentWorkflowSummary,ManagementState,WorkflowRequest,EvolutionDraft}`
+  (`WorkflowRequest.context: Object` opaco, mismo patrón que `TreatmentScheme.definition()`) ·
+  `application/port/in/TreatmentWorkflowUseCase` (comandos anidados como records; `resumeDateRaw:
+  String` sin parsear — el parseo de fecha es **condicional** según `kind`/`resolution`, igual
+  que el original, así que no puede hacerse en el borde web antes de saber si aplica;
+  `PermissionChecker` — interfaz funcional propia para no importar `auth.SessionPrincipal` en
+  application, el borde pasa `principal::hasPermission`) ·
+  `application/port/out/{TreatmentWorkflowStore,PatientEvolutionPort}` (`PatientEvolutionPort`
+  cruza a `patient`, dirección permitida; `DuplicateRequestException` en el store, mismo patrón
+  que `UsernameOrEmailConflictException` de `admin` — traduce `DataIntegrityViolationException`
+  en el borde porque `org.springframework.dao` tampoco puede pisar `application`) ·
+  `application/service/WorkflowFailure` (`INVALID`/`NOT_FOUND`/`CONFLICT`/`FORBIDDEN`) +
+  `TreatmentWorkflowApplicationService` (`final`, inyecta `Clock` — igual que el original, nunca
+  `Instant.now()` directo) · `infrastructure/persistence/PostgresTreatmentWorkflowStore`
+  (SQL sin cambios) · `infrastructure/patient/PatientEvolutionAdapter` (único lugar que arma el
+  JSON de evolución — specialty fija, highlighted, sourceRef) ·
+  `infrastructure/configuration/TransactionalTreatmentWorkflowManagement` (variante A, sin
+  `ModuleConfiguration` aparte — mismo criterio que `admin`, el `@Service` ya es el bean) ·
+  `infrastructure/web/{TreatmentWorkflowController,TreatmentWorkflowJsonMapper,
+  WorkflowFailureAdvice}` (mismos 6 endpoints; `inbox`/`seen`/`resolve` sin `requirePermission`
+  explícito en el controller — igual que el original, la autorización de `resolve` es una regla
+  de negocio dentro del use case vía `PermissionChecker`).
+  2 tests viejos adaptados sin cambiar aserciones
+  (`TreatmentWorkflowApplicationServiceCycleBoundsTest`,
+  `PostgresTreatmentWorkflowStoreAuthorizationTest`) + 8 tests nuevos
+  (`TreatmentWorkflowApplicationServiceTest` 5, `TreatmentWorkflowControllerPermissionTest` 3).
+  `workflow` sale de `TRACKED_LEGACY_MODULES`. `mvn -f backend/pom.xml verify` verde: 418 tests
+  (401 + 17), 1 skip. Sin cambio de contrato HTTP — no requirió Docker.
 
 ### Siguientes etapas (no arrancadas)
 

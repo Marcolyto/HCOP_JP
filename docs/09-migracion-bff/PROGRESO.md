@@ -547,20 +547,38 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
    propio doc de decisiones — crearlo si aparecen desvíos del plan literal, mismo criterio que F2).
 2. El plan completo con el detalle de las 7 piezas del patrón, el orden de migración y los
    riesgos está en `~/.claude/plans/fuzzy-waddling-galaxy.md`, sección `## F3`.
-3. `tools/` (ver arriba) es el ejemplo de referencia más simple ya migrado y verificado — junto
-   con `configuration/`, `guide/` y `protocol/` (los módulos ya hexagonales antes de F3), son los
-   4 ejemplos reales a seguir. `guide/infrastructure/configuration/ConfigurationGuideMetadataAdapter`
-   es la referencia concreta del patrón #7 (puertos cruzados).
+3. Ejemplos reales ya migrados y verificados, del más simple al más rico en patrones:
+   `tools/` (variante B, read-only, el más simple) · `system/` (Postgres*Store trivial) ·
+   `admin/` (primer `Postgres*Store` real con `@Transactional`, traducción de
+   `DataIntegrityViolationException` en el borde) · `catalog/` (7 sub-catálogos en un módulo,
+   el hallazgo de que `domain`/`application` NUNCA pueden importar `tools.jackson` así sea vía
+   allow-list — ver F3.2 (1/3) en este archivo, `TreatmentScheme.definition()` tipado `Object`) ·
+   `integration/` (puerto de salida hacia un servicio HTTP externo no confiable — `LlmPort`,
+   saneamiento de respuesta no confiable vive en el adapter, no en application) ·
+   `media/` (blob store separado del store de metadatos, `PatientLookupPort` real). Más
+   `configuration/`, `guide/` y `protocol/` (ya hexagonales antes de F3).
+   `guide/infrastructure/configuration/ConfigurationGuideMetadataAdapter` es la referencia
+   concreta del patrón #7 (puertos cruzados). **Antes de diseñar un puerto nuevo en F3.3.0,
+   revisar si ya existe** — `PatientLookupPort` (en `media/application/port/out/`) y
+   `DrugCatalogUseCase`/`TreatmentCatalogUseCase` (en `catalog/application/port/in/`) ya se
+   crearon durante F3.2 para otros módulos; F3.3.0 probablemente solo necesita
+   `TreatmentSummaryPort`/`TreatmentCyclePort`/`ClinicalFilePort` (este último quizás ya cubierto
+   por `media/application/port/in/ClinicalFileUseCase.findLatestByTreatment`, usado por
+   `treatment` desde F3.2 (3/3) — confirmar antes de crear uno nuevo).
 4. Antes de cada commit de módulo: correr `mvn -f backend/pom.xml verify` (incluye
    `HexagonalArchitectureTest` y `OpenApiDocumentationKeysTest`), levantar el stack Docker real
    y correr `scripts/generate-openapi-snapshot.ps1 -Check` — **diff vacío es criterio de
-   aceptación bloqueante**, ver F3.0.4.
+   aceptación bloqueante**, ver F3.0.4. Los comandos Docker los corre el usuario, no Claude, salvo
+   que el usuario pida explícitamente que los corra Claude en esa sesión (así se hizo en F3.1/F3.2).
 5. Al terminar un módulo: sacarlo de `TRACKED_LEGACY_MODULES` en
    `backend/src/test/java/ar/com/hexium/hcop/architecture/HexagonalArchitectureTest.java` (esa
    lista ES el tracker ejecutable) y marcarlo `[x]` acá con el hash del commit.
 6. Próximo paso concreto: **F3.3.0 — puertos cruzados** (patient/treatment/infusion, commit propio,
-   sin mover nada — define `PatientLookupPort`/`TreatmentSummaryPort`/`TreatmentCyclePort`/
-   `ClinicalFilePort`/`DrugCatalogPort` con adapters que delegan a los services legacy).
+   sin mover nada — investigar primero el ciclo real entre los tres módulos, todavía no leídos en
+   esta migración; definir los puertos que falten con adapters que delegan a los services legacy).
+7. Estado del repo al cerrar esta sesión: working tree limpio, branch
+   `feature/migracion-bff-arquitectura`, último commit `84749ee` (F3.2 3/3 media). F3.1 y F3.2
+   completas y verificadas end-to-end en Docker real (incl. binarios reales en `media`).
 
 ## Decisiones ya tomadas (no volver a preguntar)
 - Layout: backend/ bff/ frontend/ en raíz · Auth: JWT completo · Alcance: hexagonal completo

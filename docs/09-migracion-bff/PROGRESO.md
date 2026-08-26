@@ -440,7 +440,53 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
   `/api/clinical/schemes` y `/duration` (treatment), `/api/clinical/protocols`,
   `/api/clinical/coir-catalog`, `/api/clinical/protocols/coir-347` (protocol module, consumidor
   cruzado) — todo con el mismo shape y valores reales que antes.
-- [ ] F3.2 (2/3) — `integration` (1297 LOC, saca 638 LOC de prompts del controller, define `LlmPort`)
+- [x] F3.2 (2/3) — `integration` migrado (1298 LOC: `LlmController` 639, `LlmClient` 237,
+  `SystemConfigService`/`SystemSettingsRepository` 229, `SecretBox` 61, `AgentChatRequestSizeFilter`
+  132 — el más grande y delicado de F3.2, único módulo con I/O real a un servicio externo).
+  **Decisión previa preguntada al usuario** (sin credenciales LLM en este entorno): verificar con
+  `mvn verify` + Docker/smoke-test/snapshot (no dependen del LLM) + tests unitarios con `LlmPort`
+  mockeado; `/api/llm/test`/`/agent/chat` reales contra un proveedor quedan sin probar end-to-end,
+  igual que antes de esta migración.
+  7 casos de uso: `SystemConfigurationUseCase` (view/update/draftConfiguration/currentConfiguration),
+  `LlmStatusUseCase`, `LlmConnectionTestUseCase`, `ClinicalTimelineExtractionUseCase`,
+  `ClinicalSummaryUseCase`, `SystemicFormFillUseCase`, `AgentChatUseCase` — todos comparten
+  `IntegrationFailure` (`INVALID`/`NOT_FOUND`) y el helper puro `LlmProviders`
+  (`requiresApiKey`/`configured`, sin I/O, reutilizado por el adapter HTTP).
+  `LlmPort` (puerto de salida, el pedido explícito del plan): `complete` (texto libre) +
+  `completeAgentChat` (estructurado, esquema fijo) + `parseJson` — implementado por
+  `infrastructure/http/HttpLlmClient`, que absorbe **sin cambio de comportamiento** tanto la lógica
+  HTTP de `LlmClient` (F1) como el saneamiento de `LlmController.parseAgentResponse` (tablas,
+  gráficos, followUps — con sus límites deterministas): ambas cosas son parsing/protocolo de un
+  servicio externo no confiable, no casos de uso. La única regla que sí quedó en
+  `AgentChatApplicationService` (aplicación, no adapter): el filtro de highlights por
+  containment literal contra el texto clínico — es la regla de seguridad clínica real (evita que
+  el LLM resalte términos no documentados), separable de cómo se habla con el proveedor.
+  **Hallazgo real (mismo de F3.2 catalog, ArchUnit incondicional):** `TreatmentScheme`-style,
+  `SystemConfigService.Config`→`domain/LlmConfiguration` y las respuestas del LLM no pueden llevar
+  `JsonNode` en `domain`/`application` — `ClinicalTimelineExtractionUseCase`/`ClinicalSummaryUseCase`/
+  `SystemicFormFillUseCase` trabajan con `Object`/`List<Object>` (árboles ya convertidos por el
+  adapter vía `mapper.convertValue(_, Object.class)`), y `ClinicalSummaryUseCase.summarize` recibe
+  `String eventsJson` ya serializado por la capa web (serializar SÍ requiere Jackson) en vez de
+  `List<Object>`.
+  Tests: 841 líneas de tests viejos (`LlmControllerTest`, `LlmClientTest`, `SystemConfigServiceTest`,
+  `AgentChatRequestSizeFilterTest`) relocadas y **divididas por capa** sin perder ningún escenario:
+  `HttpLlmClientTest` (HTTP real con `com.sun.net.httpserver.HttpServer`, igual que antes, + los
+  casos de saneamiento JSON-cercado/límites deterministas, ahora contra `completeAgentChat`),
+  `AgentChatApplicationServiceTest` (validaciones, historial acotado/deduplicado, prompt,
+  containment de highlights — con mocks de `LlmPort`), `SystemConfigurationApplicationServiceTest`
+  (validación de API key con `LlmConfigurationStore` mockeado), `LlmControllerTest` (slim: permisos
+  + mapeo DTO), `AgentChatRequestSizeFilterTest` (relocado sin cambios). `integration` sale de
+  `TRACKED_LEGACY_MODULES`.
+  Verificado: `mvn -f backend/pom.xml verify` verde (382 tests) · `docker compose up --build --wait`
+  5 servicios healthy · `generate-openapi-snapshot.ps1 -Check` diff vacío (pese al rediseño interno
+  completo, el contrato externo no cambió un bit) · `smoke-test.ps1` verde · barrido real por curl
+  con login: `GET/PUT /api/config` (incl. rechazo de Gemini sin API key, 400), `GET /api/llm/status`
+  (disabled/configured:false), `POST /api/llm/test` con LLM deshabilitado apuntando a un puerto
+  local sin servidor (502 `LLM_CONNECTION_ERROR` real — confirma que el adapter intenta conectar
+  de verdad), `POST /api/agent/chat` deshabilitado (503 `LLM_DISABLED`) y con mensaje vacío (400),
+  `POST /api/llm/summarize` sin eventos (400), `/extract-timeline` con texto vacío (400),
+  `/fill-systemic-form` con plantilla inexistente (404) — configuración restaurada al estado
+  original (`enabled:false`, sin API key) al terminar.
 - [ ] F3.2 (3/3) — `media` (791 LOC, introduce `PatientLookupPort`)
 
 ### Siguientes etapas (no arrancadas)
@@ -466,8 +512,7 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
 5. Al terminar un módulo: sacarlo de `TRACKED_LEGACY_MODULES` en
    `backend/src/test/java/ar/com/hexium/hcop/architecture/HexagonalArchitectureTest.java` (esa
    lista ES el tracker ejecutable) y marcarlo `[x]` acá con el hash del commit.
-6. Próximo paso concreto: **F3.2 (2/3) — `integration`** (1297 LOC, saca 638 LOC de prompts del
-   controller a texto plano/recursos, define `LlmPort`).
+6. Próximo paso concreto: **F3.2 (3/3) — `media`** (791 LOC, introduce `PatientLookupPort`).
 
 ## Decisiones ya tomadas (no volver a preguntar)
 - Layout: backend/ bff/ frontend/ en raíz · Auth: JWT completo · Alcance: hexagonal completo

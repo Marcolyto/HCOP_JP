@@ -1,4 +1,4 @@
-package ar.com.hexium.hcop.integration;
+package ar.com.hexium.hcop.integration.infrastructure.persistence;
 
 import ar.com.hexium.hcop.config.HcopProperties;
 import java.nio.ByteBuffer;

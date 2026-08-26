@@ -1,4 +1,4 @@
-package ar.com.hexium.hcop.integration;
+package ar.com.hexium.hcop.integration.infrastructure.web;
 
 import ar.com.hexium.hcop.common.api.ApiErrorResponse;
 import jakarta.servlet.FilterChain;

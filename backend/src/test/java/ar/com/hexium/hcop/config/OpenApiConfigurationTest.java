@@ -5,8 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import ar.com.hexium.hcop.catalog.infrastructure.web.AjccCatalogController;
 import ar.com.hexium.hcop.catalog.infrastructure.web.LegacyCatalogController;
 import ar.com.hexium.hcop.tools.infrastructure.web.CalculatorCatalogController;
-import ar.com.hexium.hcop.integration.LlmController;
-import ar.com.hexium.hcop.integration.LlmController.AgentChatRequest;
+import ar.com.hexium.hcop.integration.infrastructure.web.LlmController;
+import ar.com.hexium.hcop.integration.infrastructure.web.LlmController.AgentChatRequest;
 import ar.com.hexium.hcop.patient.ClinicalDocumentController;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -255,7 +255,7 @@ class OpenApiConfigurationTest {
   }
 
   private HandlerMethod handler(String name, Class<?>... parameterTypes) throws Exception {
-    LlmController controller = new LlmController(null, null, null, null, null);
+    LlmController controller = new LlmController(null, null, null, null, null, null, null, null, null, null);
     return new HandlerMethod(
         controller,
         LlmController.class.getDeclaredMethod(name, parameterTypes));

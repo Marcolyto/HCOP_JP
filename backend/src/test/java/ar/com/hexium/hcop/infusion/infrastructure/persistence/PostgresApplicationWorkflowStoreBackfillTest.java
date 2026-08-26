@@ -1,11 +1,12 @@
-package ar.com.hexium.hcop.infusion;
+package ar.com.hexium.hcop.infusion.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.verify;
 
-import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.Key;
+import ar.com.hexium.hcop.infusion.infrastructure.persistence.PostgresApplicationWorkflowStore.Key;
+import ar.com.hexium.hcop.patient.application.port.in.PatientDocumentUseCase;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -19,16 +20,16 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.json.JsonMapper;
 
-class ApplicationWorkflowRepositoryBackfillTest {
+class PostgresApplicationWorkflowStoreBackfillTest {
+  private final PatientDocumentUseCase documents = mock(PatientDocumentUseCase.class);
 
   @Test
   void runtimeBackfillNeverInventsPreparedOrReleasedTraceability() {
     JdbcTemplate jdbc = mock(JdbcTemplate.class);
-    var repository =
-        new ApplicationWorkflowRepository(jdbc, JsonMapper.builder().build(), Clock.systemUTC());
+    var store = new PostgresApplicationWorkflowStore(jdbc, JsonMapper.builder().build(), Clock.systemUTC(), documents);
     ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
 
-    repository.ensureWorkflowRows();
+    store.ensureWorkflowRows();
 
     verify(jdbc).update(sql.capture());
     assertThat(sql.getValue())
@@ -45,13 +46,12 @@ class ApplicationWorkflowRepositoryBackfillTest {
   void preparationUpdateBindsTimestampActorsAndVerifierInSqlOrder() {
     JdbcTemplate jdbc = mock(JdbcTemplate.class);
     var mapper = JsonMapper.builder().build();
-    var repository =
-        new ApplicationWorkflowRepository(jdbc, mapper, Clock.systemUTC());
+    var store = new PostgresApplicationWorkflowStore(jdbc, mapper, Clock.systemUTC(), documents);
     Instant now = Instant.parse("2026-07-29T15:00:00Z");
     Instant expiresAt = Instant.parse("2026-07-29T16:30:00Z");
     Key key = new Key(9, "tx-1", 2, 8);
 
-    repository.updatePreparation(
+    store.updatePreparation(
         key, 7, "prepared", mapper.createObjectNode().put("lot", "A-1"),
         expiresAt, 44L, 22L, now);
 
@@ -59,8 +59,7 @@ class ApplicationWorkflowRepositoryBackfillTest {
     Object[] rawArguments = invocation.getRawArguments();
     String sql = (String) rawArguments[0];
     Object[] parameters = (Object[]) rawArguments[1];
-    assertThat(sql.chars().filter(character -> character == '?').count())
-        .isEqualTo(27);
+    assertThat(sql.chars().filter(character -> character == '?').count()).isEqualTo(27);
     assertThat(parameters).hasSize(27);
     assertThat(parameters[6]).isEqualTo(Timestamp.from(now));
     assertThat(parameters[8]).isEqualTo(22L);
@@ -74,12 +73,11 @@ class ApplicationWorkflowRepositoryBackfillTest {
   @Test
   void preparationLotPersistsTheCanonicalComponentKey() {
     JdbcTemplate jdbc = mock(JdbcTemplate.class);
-    var repository =
-        new ApplicationWorkflowRepository(jdbc, JsonMapper.builder().build(), Clock.systemUTC());
+    var store = new PostgresApplicationWorkflowStore(jdbc, JsonMapper.builder().build(), Clock.systemUTC(), documents);
     Key key = new Key(9, "tx-1", 2, 8);
     Instant now = Instant.parse("2026-07-29T15:00:00Z");
 
-    repository.insertPreparationLot(
+    store.insertPreparationLot(
         UUID.randomUUID(), key, "protocol-row-2", null, null,
         "Paclitaxel", "LOT-7", LocalDate.of(2027, 1, 1),
         new BigDecimal("80"), "80 mg", "mg", "SF", "250 ml",
@@ -97,22 +95,16 @@ class ApplicationWorkflowRepositoryBackfillTest {
   void inventoryExpirationUsesTheClinicalLocalDateInsteadOfDatabaseCurrentDate() {
     JdbcTemplate jdbc = mock(JdbcTemplate.class);
     Instant nearUtcDayBoundary = Instant.parse("2026-07-30T02:30:00Z");
-    Clock buenosAiresClock = Clock.fixed(
-        nearUtcDayBoundary, ZoneId.of("America/Argentina/Buenos_Aires"));
-    var repository = new ApplicationWorkflowRepository(
-        jdbc, JsonMapper.builder().build(), buenosAiresClock);
+    Clock buenosAiresClock = Clock.fixed(nearUtcDayBoundary, ZoneId.of("America/Argentina/Buenos_Aires"));
+    var store = new PostgresApplicationWorkflowStore(jdbc, JsonMapper.builder().build(), buenosAiresClock, documents);
 
-    repository.reserveInventory(
-        10, "drug-1", "Droga", new BigDecimal("25"), "mg",
-        22, nearUtcDayBoundary);
+    store.reserveInventory(10, "drug-1", "Droga", new BigDecimal("25"), "mg", 22, nearUtcDayBoundary);
 
     var invocation = mockingDetails(jdbc).getInvocations().iterator().next();
     Object[] rawArguments = invocation.getRawArguments();
     String sql = (String) rawArguments[0];
     Object[] parameters = (Object[]) rawArguments[1];
-    assertThat(sql)
-        .contains("expiration_date >= ?")
-        .doesNotContain("CURRENT_DATE");
+    assertThat(sql).contains("expiration_date >= ?").doesNotContain("CURRENT_DATE");
     assertThat(parameters).hasSize(11);
     assertThat(parameters[4]).isEqualTo(Date.valueOf(LocalDate.of(2026, 7, 29)));
   }
@@ -120,13 +112,10 @@ class ApplicationWorkflowRepositoryBackfillTest {
   @Test
   void preparationQueueKeepsReleasedRowsAndSearchesByMedicalRecord() {
     JdbcTemplate jdbc = mock(JdbcTemplate.class);
-    Clock clock = Clock.fixed(
-        Instant.parse("2026-07-29T15:00:00Z"),
-        ZoneId.of("America/Argentina/Buenos_Aires"));
-    var repository =
-        new ApplicationWorkflowRepository(jdbc, JsonMapper.builder().build(), clock);
+    Clock clock = Clock.fixed(Instant.parse("2026-07-29T15:00:00Z"), ZoneId.of("America/Argentina/Buenos_Aires"));
+    var store = new PostgresApplicationWorkflowStore(jdbc, JsonMapper.builder().build(), clock, documents);
 
-    repository.list("preparation", LocalDate.of(2026, 7, 29), "HC-1042", "");
+    store.listApplications("preparation", LocalDate.of(2026, 7, 29), "HC-1042", "");
 
     var invocation = mockingDetails(jdbc).getInvocations().iterator().next();
     Object[] rawArguments = invocation.getRawArguments();
@@ -145,12 +134,9 @@ class ApplicationWorkflowRepositoryBackfillTest {
   @Test
   void preparationRestartAlsoForcesAClinicalReevaluation() {
     JdbcTemplate jdbc = mock(JdbcTemplate.class);
-    var repository =
-        new ApplicationWorkflowRepository(jdbc, JsonMapper.builder().build(), Clock.systemUTC());
+    var store = new PostgresApplicationWorkflowStore(jdbc, JsonMapper.builder().build(), Clock.systemUTC(), documents);
 
-    repository.restartPreparation(
-        new Key(9, "tx-1", 2, 8), 7, "TTL vencido", 22,
-        Instant.parse("2026-07-29T15:00:00Z"));
+    store.restartPreparation(new Key(9, "tx-1", 2, 8), 7, "TTL vencido", 22, Instant.parse("2026-07-29T15:00:00Z"));
 
     var invocation = mockingDetails(jdbc).getInvocations().iterator().next();
     String sql = (String) invocation.getRawArguments()[0];

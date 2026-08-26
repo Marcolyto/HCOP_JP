@@ -1,12 +1,12 @@
-package ar.com.hexium.hcop.infusion;
+package ar.com.hexium.hcop.infusion.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import ar.com.hexium.hcop.common.ApiException;
-import ar.com.hexium.hcop.infusion.ApplicationWorkflowCommands.Preparation;
-import ar.com.hexium.hcop.infusion.ApplicationWorkflowCommands.StockComponent;
+import ar.com.hexium.hcop.infusion.application.port.in.ApplicationWorkflowUseCase.PreparationInput;
+import ar.com.hexium.hcop.infusion.application.port.in.ApplicationWorkflowUseCase.StockComponentInput;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -22,14 +22,13 @@ class ApplicationComponentValidatorTest {
   void repeatedDrugRowsReceiveStableUniqueOrdinalKeys() throws Exception {
     JsonNode drugs = drugsWithoutSourceRefs();
 
-    List<StockComponent> components =
-        ApplicationComponentValidator.componentsFromDrugs(drugs);
+    List<StockComponentInput> components = ApplicationComponentValidator.componentsFromDrugs(drugs);
 
     assertThat(components)
-        .extracting(StockComponent::componentKey)
+        .extracting(StockComponentInput::componentKey)
         .containsExactly("drug-7-1", "drug-7-2");
     assertThat(components)
-        .extracting(StockComponent::requestedQuantity)
+        .extracting(StockComponentInput::requestedQuantity)
         .containsExactly(new BigDecimal("10"), new BigDecimal("20"));
     assertThatCode(() ->
         ApplicationComponentValidator.validateStockComponents(drugs, components))
@@ -58,30 +57,28 @@ class ApplicationComponentValidatorTest {
         """);
 
     assertThat(ApplicationComponentValidator.componentsFromDrugs(drugs))
-        .extracting(StockComponent::componentKey)
+        .extracting(StockComponentInput::componentKey)
         .containsExactly("protocol-row-a", "protocol-row-b");
   }
 
   @Test
   void stockReservationRejectsSubsetsExtrasAndDuplicateKeys() throws Exception {
     JsonNode drugs = drugsWithoutSourceRefs();
-    List<StockComponent> exact =
-        ApplicationComponentValidator.componentsFromDrugs(drugs);
+    List<StockComponentInput> exact = ApplicationComponentValidator.componentsFromDrugs(drugs);
 
     assertThatThrownBy(() ->
-        ApplicationComponentValidator.validateStockComponents(
-            drugs, List.of(exact.getFirst())))
+        ApplicationComponentValidator.validateStockComponents(drugs, List.of(exact.getFirst())))
         .isInstanceOf(ApiException.class)
         .hasMessageContaining("exactamente todos");
 
-    List<StockComponent> withExtra = new ArrayList<>(exact);
+    List<StockComponentInput> withExtra = new ArrayList<>(exact);
     withExtra.add(component("extra-3", "other", "Otra", "1", "mg"));
     assertThatThrownBy(() ->
         ApplicationComponentValidator.validateStockComponents(drugs, withExtra))
         .isInstanceOf(ApiException.class)
         .hasMessageContaining("exactamente todos");
 
-    List<StockComponent> duplicate = List.of(
+    List<StockComponentInput> duplicate = List.of(
         exact.getFirst(),
         component(
             exact.getFirst().componentKey(),
@@ -98,10 +95,9 @@ class ApplicationComponentValidatorTest {
   @Test
   void stockReservationRejectsEveryPrescriptionFieldMismatch() throws Exception {
     JsonNode drugs = drugsWithoutSourceRefs();
-    List<StockComponent> exact =
-        ApplicationComponentValidator.componentsFromDrugs(drugs);
-    StockComponent first = exact.getFirst();
-    StockComponent second = exact.getLast();
+    List<StockComponentInput> exact = ApplicationComponentValidator.componentsFromDrugs(drugs);
+    StockComponentInput first = exact.getFirst();
+    StockComponentInput second = exact.getLast();
 
     assertMismatch(drugs, component(
         first.componentKey(), first.drugId(), "Docetaxel", "10", first.unit()), second);
@@ -116,20 +112,20 @@ class ApplicationComponentValidatorTest {
   @Test
   void preparationComparesTheWholeDrugMultisetForEveryMedicationSource() throws Exception {
     JsonNode drugs = drugsWithoutSourceRefs();
-    List<Preparation> exact = List.of(
+    List<PreparationInput> exact = List.of(
         preparation(null, "Paclitaxel", "10", "mg"),
         preparation(null, "Paclitaxel", "20", "mg"));
 
     assertThatCode(() ->
-        ApplicationComponentValidator.validatePreparationMultiplicity(drugs, exact))
+        ApplicationComponentValidator.resolvePreparations(drugs, exact))
         .doesNotThrowAnyException();
     assertThatThrownBy(() ->
-        ApplicationComponentValidator.validatePreparationMultiplicity(
+        ApplicationComponentValidator.resolvePreparations(
             drugs, List.of(preparation(null, "Paclitaxel", "10", "mg"))))
         .isInstanceOf(ApiException.class)
         .hasMessageContaining("drogas repetidas");
     assertThatThrownBy(() ->
-        ApplicationComponentValidator.validatePreparationMultiplicity(
+        ApplicationComponentValidator.resolvePreparations(
             drugs, List.of(
                 preparation(null, "Paclitaxel", "10", "mg"),
                 preparation(null, "Paclitaxel", "20", "mg"),
@@ -139,8 +135,7 @@ class ApplicationComponentValidatorTest {
   }
 
   @Test
-  void legacyPreparationWithoutKeysResolvesEachRepeatedDoseToItsCanonicalComponent()
-      throws Exception {
+  void legacyPreparationWithoutKeysResolvesEachRepeatedDoseToItsCanonicalComponent() throws Exception {
     JsonNode drugs = drugsWithoutSourceRefs();
 
     var resolved = ApplicationComponentValidator.resolvePreparations(
@@ -178,8 +173,7 @@ class ApplicationComponentValidatorTest {
   }
 
   @Test
-  void identicalLegacyRowsReceiveDifferentCanonicalKeysInPrescriptionOrder()
-      throws Exception {
+  void identicalLegacyRowsReceiveDifferentCanonicalKeysInPrescriptionOrder() throws Exception {
     JsonNode drugs = mapper.readTree("""
         [
           {
@@ -229,8 +223,7 @@ class ApplicationComponentValidatorTest {
         ]
         """);
 
-    assertThatThrownBy(() ->
-        ApplicationComponentValidator.componentsFromDrugs(drugs))
+    assertThatThrownBy(() -> ApplicationComponentValidator.componentsFromDrugs(drugs))
         .isInstanceOf(ApiException.class)
         .hasMessageContaining("sourceItemRef único");
   }
@@ -254,36 +247,21 @@ class ApplicationComponentValidatorTest {
         """);
   }
 
-  private void assertMismatch(
-      JsonNode drugs, StockComponent changed, StockComponent untouched) {
+  private void assertMismatch(JsonNode drugs, StockComponentInput changed, StockComponentInput untouched) {
     assertThatThrownBy(() ->
-        ApplicationComponentValidator.validateStockComponents(
-            drugs, List.of(changed, untouched)))
+        ApplicationComponentValidator.validateStockComponents(drugs, List.of(changed, untouched)))
         .isInstanceOf(ApiException.class)
         .hasMessageContaining("no coincide");
   }
 
-  private StockComponent component(
-      String key, String drugId, String name, String quantity, String unit) {
-    return new StockComponent(
+  private StockComponentInput component(String key, String drugId, String name, String quantity, String unit) {
+    return new StockComponentInput(
         key, drugId, name, new BigDecimal(quantity), quantity + " " + unit, unit, null);
   }
 
-  private Preparation preparation(
-      String componentKey, String drugName, String quantity, String unit) {
-    return new Preparation(
-        componentKey,
-        drugName,
-        "LOT-1",
-        LocalDate.of(2027, 1, 1),
-        new BigDecimal(quantity),
-        quantity + " " + unit,
-        unit,
-        "SF",
-        "100 ml",
-        "0.01 mg/ml",
-        120,
-        null,
-        null);
+  private PreparationInput preparation(String componentKey, String drugName, String quantity, String unit) {
+    return new PreparationInput(
+        componentKey, drugName, "LOT-1", LocalDate.of(2027, 1, 1), new BigDecimal(quantity),
+        quantity + " " + unit, unit, "SF", "100 ml", "0.01 mg/ml", 120, null, null);
   }
 }

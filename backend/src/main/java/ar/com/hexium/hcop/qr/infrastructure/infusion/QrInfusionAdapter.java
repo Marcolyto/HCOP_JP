@@ -1,6 +1,6 @@
 package ar.com.hexium.hcop.qr.infrastructure.infusion;
 
-import ar.com.hexium.hcop.infusion.InfusionService;
+import ar.com.hexium.hcop.infusion.application.port.in.InfusionUseCase;
 import ar.com.hexium.hcop.infusion.application.port.out.InfusionStore;
 import ar.com.hexium.hcop.infusion.domain.Infusion;
 import ar.com.hexium.hcop.qr.application.port.out.QrInfusionPort;
@@ -15,9 +15,9 @@ import tools.jackson.databind.JsonNode;
 @Component
 public class QrInfusionAdapter implements QrInfusionPort {
   private final InfusionStore infusionRepository;
-  private final InfusionService infusionService;
+  private final InfusionUseCase infusionService;
 
-  public QrInfusionAdapter(InfusionStore infusionRepository, InfusionService infusionService) {
+  public QrInfusionAdapter(InfusionStore infusionRepository, InfusionUseCase infusionService) {
     this.infusionRepository = infusionRepository;
     this.infusionService = infusionService;
   }

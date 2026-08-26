@@ -1,7 +1,8 @@
-package ar.com.hexium.hcop.infusion;
+package ar.com.hexium.hcop.infusion.infrastructure.web;
 
 import ar.com.hexium.hcop.auth.AuthContext;
 import ar.com.hexium.hcop.auth.SessionPrincipal;
+import ar.com.hexium.hcop.infusion.application.port.in.InfusionUseCase;
 import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDate;
@@ -20,10 +21,10 @@ import tools.jackson.databind.JsonNode;
 
 @RestController
 public class InfusionController {
-  private final InfusionService infusions;
+  private final InfusionUseCase infusions;
   private final AuthContext auth;
 
-  public InfusionController(InfusionService infusions, AuthContext auth) {
+  public InfusionController(InfusionUseCase infusions, AuthContext auth) {
     this.infusions = infusions;
     this.auth = auth;
   }
@@ -39,22 +40,19 @@ public class InfusionController {
   }
 
   @PostMapping("/api/clinical/infusions")
-  ResponseEntity<Map<String, Object>> create(
-      @RequestBody JsonNode body,
-      HttpServletRequest request) {
+  ResponseEntity<Map<String, Object>> create(@RequestBody JsonNode body, HttpServletRequest request) {
     auth.requirePermission(request, "application.schedule.manage");
     SessionPrincipal actor = auth.require(request);
     return ResponseEntity.status(HttpStatus.CREATED)
-        .body(Map.of("ok", true, "infusion", infusions.create(body, actor)));
+        .body(Map.of("ok", true, "infusion", infusions.create(body, actor.userId(), actor.displayName())));
   }
 
   @PatchMapping("/api/clinical/infusions/{id}")
   Map<String, Object> update(
-      @PathVariable long id,
-      @RequestBody JsonNode body,
-      HttpServletRequest request) {
+      @PathVariable long id, @RequestBody JsonNode body, HttpServletRequest request) {
     auth.requirePermission(request, "application.schedule.manage");
-    return Map.of("ok", true, "infusion", infusions.update(id, body, auth.require(request)));
+    SessionPrincipal actor = auth.require(request);
+    return Map.of("ok", true, "infusion", infusions.update(id, body, actor.userId(), actor.displayName()));
   }
 
   @GetMapping("/api/clinical/infusion-candidates")
@@ -68,24 +66,20 @@ public class InfusionController {
       @RequestParam(defaultValue = "true") boolean onlySchedulingEligible,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.day-hospital.view");
-    List<Map<String, Object>> result =
-        infusions.candidates(q, includeScheduled, onlySchedulingEligible);
+    List<Map<String, Object>> result = infusions.candidates(q, includeScheduled, onlySchedulingEligible);
     return Map.of("ok", true, "candidates", result, "total", result.size());
   }
 
   @PatchMapping("/api/clinical/treatment-cycles/{patientId}/{treatmentId}/{cycleNumber}/logistics")
   Map<String, Object> logistics(
-      @PathVariable long patientId,
-      @PathVariable String treatmentId,
-      @PathVariable int cycleNumber,
+      @PathVariable long patientId, @PathVariable String treatmentId, @PathVariable int cycleNumber,
       @RequestParam(defaultValue = "1") int applicationDay,
-      @RequestBody JsonNode body,
-      HttpServletRequest request) {
+      @RequestBody JsonNode body, HttpServletRequest request) {
     auth.requirePermission(request, "application.pharmacy.manage");
+    SessionPrincipal actor = auth.require(request);
     return Map.of(
         "ok", true,
         "logistics", infusions.updateLogistics(
-            patientId, treatmentId, cycleNumber, applicationDay, body, auth.require(request)));
+            patientId, treatmentId, cycleNumber, applicationDay, body, actor.userId(), actor.displayName()));
   }
-
 }

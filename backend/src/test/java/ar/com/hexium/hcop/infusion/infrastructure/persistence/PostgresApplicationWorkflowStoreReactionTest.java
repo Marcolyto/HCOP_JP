@@ -1,4 +1,4 @@
-package ar.com.hexium.hcop.infusion;
+package ar.com.hexium.hcop.infusion.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -6,16 +6,16 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
 
-class ApplicationWorkflowServiceReactionTest {
+class PostgresApplicationWorkflowStoreReactionTest {
   private final ObjectMapper mapper = new ObjectMapper();
 
   @Test
   void completionWithoutInterruptionUsesTheReportedReaction() {
     ObjectNode administration = mapper.createObjectNode();
 
-    var none = ApplicationWorkflowService.resolveAdministrationReaction(
+    var none = PostgresApplicationWorkflowStore.resolveAdministrationReaction(
         administration, false, "texto que no corresponde");
-    var reported = ApplicationWorkflowService.resolveAdministrationReaction(
+    var reported = PostgresApplicationWorkflowStore.resolveAdministrationReaction(
         administration, true, "Eritema leve, tratado con antihistamínico");
 
     assertThat(none.occurred()).isFalse();
@@ -37,7 +37,7 @@ class ApplicationWorkflowServiceReactionTest {
         .put("patientCondition", "Estable luego del rescate")
         .put("disposition", "medical_review");
 
-    var result = ApplicationWorkflowService.resolveAdministrationReaction(
+    var result = PostgresApplicationWorkflowStore.resolveAdministrationReaction(
         administration, false, "");
 
     assertThat(result.occurred()).isTrue();
@@ -67,7 +67,7 @@ class ApplicationWorkflowServiceReactionTest {
         .put("patientCondition", "Estable")
         .put("disposition", "emergency_transfer");
 
-    var result = ApplicationWorkflowService.resolveAdministrationReaction(
+    var result = PostgresApplicationWorkflowStore.resolveAdministrationReaction(
         administration, true, "Reacción resuelta; se completó a menor velocidad");
 
     assertThat(result.occurred()).isTrue();
@@ -86,7 +86,7 @@ class ApplicationWorkflowServiceReactionTest {
     ObjectNode administration = mapper.createObjectNode();
     administration.withArray("interruptions").addObject();
 
-    var result = ApplicationWorkflowService.resolveAdministrationReaction(
+    var result = PostgresApplicationWorkflowStore.resolveAdministrationReaction(
         administration, false, "");
 
     assertThat(result.occurred()).isTrue();

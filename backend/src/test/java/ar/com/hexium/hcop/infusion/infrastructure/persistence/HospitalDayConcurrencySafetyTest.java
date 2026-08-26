@@ -1,5 +1,4 @@
-package ar.com.hexium.hcop.infusion;
-import ar.com.hexium.hcop.infusion.application.port.in.TreatmentApplicationLogisticsUseCase;
+package ar.com.hexium.hcop.infusion.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -10,12 +9,14 @@ import static org.mockito.Mockito.when;
 
 import ar.com.hexium.hcop.auth.SessionPrincipal;
 import ar.com.hexium.hcop.common.ApiException;
-import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.Key;
-import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.ScheduleGate;
+import ar.com.hexium.hcop.infusion.application.port.in.TreatmentApplicationLogisticsUseCase;
 import ar.com.hexium.hcop.infusion.application.port.out.InfusionStore;
 import ar.com.hexium.hcop.infusion.domain.Infusion;
 import ar.com.hexium.hcop.infusion.domain.Logistics;
 import ar.com.hexium.hcop.infusion.domain.ScheduleSettings;
+import ar.com.hexium.hcop.infusion.infrastructure.persistence.PostgresApplicationWorkflowStore.Key;
+import ar.com.hexium.hcop.infusion.infrastructure.persistence.PostgresApplicationWorkflowStore.ScheduleGate;
+import ar.com.hexium.hcop.patient.application.port.in.PatientDocumentUseCase;
 import ar.com.hexium.hcop.patient.application.port.in.PatientUseCase;
 import ar.com.hexium.hcop.treatment.application.port.out.TreatmentStore;
 import ar.com.hexium.hcop.treatment.domain.Treatment;
@@ -48,28 +49,22 @@ import tools.jackson.databind.json.JsonMapper;
 /**
  * Regression tests for the two concurrency scenarios that previously required
  * two human QA sessions (FAR-25 and TUR-25).
- *
- * <p>The tests never connect to the running application or its database. They
- * exercise the repository's atomic command and the scheduling service's public
- * conflict contract with two synchronized worker threads.</p>
  */
 class HospitalDayConcurrencySafetyTest {
   private static final Instant NOW = Instant.parse("2026-07-29T15:00:00Z");
 
   @Test
   void far25TwoPharmacistsCannotOverReserveTheSameInventoryLot() throws Exception {
-    AtomicStockJdbcTemplate jdbc =
-        new AtomicStockJdbcTemplate(new BigDecimal("100.0"), 2);
-    ApplicationWorkflowRepository repository = new ApplicationWorkflowRepository(
-        jdbc, JsonMapper.builder().build(), Clock.fixed(NOW, ZoneOffset.UTC));
+    AtomicStockJdbcTemplate jdbc = new AtomicStockJdbcTemplate(new BigDecimal("100.0"), 2);
+    PostgresApplicationWorkflowStore store = new PostgresApplicationWorkflowStore(
+        jdbc, JsonMapper.builder().build(), Clock.fixed(NOW, ZoneOffset.UTC), mock(PatientDocumentUseCase.class));
     ExecutorService workers = Executors.newFixedThreadPool(2);
 
     try {
-      Callable<Boolean> reserve = () -> repository.reserveInventory(
+      Callable<Boolean> reserve = () -> store.reserveInventory(
           41, "drug-1", "Paclitaxel", new BigDecimal("75.0"), "mg", 22, NOW);
       List<Future<Boolean>> attempts = workers.invokeAll(List.of(reserve, reserve));
-      List<Boolean> outcomes = attempts.stream().map(HospitalDayConcurrencySafetyTest::result)
-          .toList();
+      List<Boolean> outcomes = attempts.stream().map(HospitalDayConcurrencySafetyTest::result).toList();
 
       assertThat(outcomes).containsExactlyInAnyOrder(true, false);
       assertThat(jdbc.reserved()).isEqualByComparingTo("75.0");
@@ -85,10 +80,10 @@ class HospitalDayConcurrencySafetyTest {
   @Test
   void far25ApplicationLockSerializesTwoPharmacistsBeforeCheckingRevision() {
     JdbcTemplate jdbc = mock(JdbcTemplate.class);
-    ApplicationWorkflowRepository repository = new ApplicationWorkflowRepository(
-        jdbc, JsonMapper.builder().build(), Clock.fixed(NOW, ZoneOffset.UTC));
+    PostgresApplicationWorkflowStore store = new PostgresApplicationWorkflowStore(
+        jdbc, JsonMapper.builder().build(), Clock.fixed(NOW, ZoneOffset.UTC), mock(PatientDocumentUseCase.class));
 
-    repository.lock(new Key(9, "tx-1", 1, 1));
+    store.lock(new Key(9, "tx-1", 1, 1));
 
     String sql = (String) org.mockito.Mockito.mockingDetails(jdbc)
         .getInvocations().iterator().next().getRawArguments()[0];
@@ -108,18 +103,16 @@ class HospitalDayConcurrencySafetyTest {
       if (appointmentCreated.compareAndSet(false, true)) {
         return fixture.appointment();
       }
-      throw new DataIntegrityViolationException(
-          "23P01: El sillón ya está ocupado en ese horario.");
+      throw new DataIntegrityViolationException("23P01: El sillón ya está ocupado en ese horario.");
     });
 
     JsonNode input = fixture.scheduleInput("2026-07-30T13:00:00Z", "1");
     ExecutorService workers = Executors.newFixedThreadPool(2);
     try {
-      Callable<Object> drop = () -> fixture.service.create(input.deepCopy(), fixture.actor);
+      Callable<Object> drop = () -> fixture.store.create(
+          input.deepCopy(), fixture.actor.userId(), fixture.actor.displayName());
       List<Future<Object>> attempts = workers.invokeAll(List.of(drop, drop));
-      List<Object> outcomes = attempts.stream()
-          .map(HospitalDayConcurrencySafetyTest::outcome)
-          .toList();
+      List<Object> outcomes = attempts.stream().map(HospitalDayConcurrencySafetyTest::outcome).toList();
 
       assertThat(outcomes.stream().filter(Map.class::isInstance)).hasSize(1);
       List<ApiException> conflicts = outcomes.stream()
@@ -138,11 +131,9 @@ class HospitalDayConcurrencySafetyTest {
 
   @Test
   void tur25DatabaseSerializesAChairAndRejectsDuplicateActiveApplications() throws Exception {
-    String overlapGuard = new ClassPathResource(
-        "db/migration/V003__scheduler_overlap_guard.sql")
+    String overlapGuard = new ClassPathResource("db/migration/V003__scheduler_overlap_guard.sql")
         .getContentAsString(StandardCharsets.UTF_8);
-    String applicationGuard = new ClassPathResource(
-        "db/migration/V007__application_level_day_hospital.sql")
+    String applicationGuard = new ClassPathResource("db/migration/V007__application_level_day_hospital.sql")
         .getContentAsString(StandardCharsets.UTF_8);
 
     assertThat(overlapGuard)
@@ -159,18 +150,17 @@ class HospitalDayConcurrencySafetyTest {
   @Test
   void tur25AcceptsExactWorkdayEdgesAndRejectsTheFirstOverflowingSlot() {
     SchedulingFixture fixture = new SchedulingFixture();
-    when(fixture.infusions.insert(any(), anyLong()))
-        .thenReturn(fixture.appointment());
+    when(fixture.infusions.insert(any(), anyLong())).thenReturn(fixture.appointment());
 
-    assertThat(fixture.service.create(
-        fixture.scheduleInput("2026-07-30T08:00:00Z", "1"), fixture.actor))
+    assertThat(fixture.store.create(
+        fixture.scheduleInput("2026-07-30T08:00:00Z", "1"), fixture.actor.userId(), fixture.actor.displayName()))
         .containsEntry("chair", "1");
-    assertThat(fixture.service.create(
-        fixture.scheduleInput("2026-07-30T14:30:00Z", "1"), fixture.actor))
+    assertThat(fixture.store.create(
+        fixture.scheduleInput("2026-07-30T14:30:00Z", "1"), fixture.actor.userId(), fixture.actor.displayName()))
         .containsEntry("chair", "1");
 
-    assertThatThrownBy(() -> fixture.service.create(
-        fixture.scheduleInput("2026-07-30T14:40:00Z", "1"), fixture.actor))
+    assertThatThrownBy(() -> fixture.store.create(
+        fixture.scheduleInput("2026-07-30T14:40:00Z", "1"), fixture.actor.userId(), fixture.actor.displayName()))
         .isInstanceOfSatisfying(ApiException.class, conflict -> {
           assertThat(conflict.status()).isEqualTo(HttpStatus.CONFLICT);
           assertThat(conflict.code()).isEqualTo("OUTSIDE_DAY_HOSPITAL_HOURS");
@@ -248,19 +238,16 @@ class HospitalDayConcurrencySafetyTest {
 
   private static final class SchedulingFixture {
     private final InfusionStore infusions = mock(InfusionStore.class);
-    private final TreatmentApplicationLogisticsUseCase logistics =
-        mock(TreatmentApplicationLogisticsUseCase.class);
-    private final ApplicationWorkflowRepository workflows =
-        mock(ApplicationWorkflowRepository.class);
+    private final TreatmentApplicationLogisticsUseCase logistics = mock(TreatmentApplicationLogisticsUseCase.class);
+    private final PostgresApplicationWorkflowStore workflows = mock(PostgresApplicationWorkflowStore.class);
     private final TreatmentStore treatments = mock(TreatmentStore.class);
     private final PatientUseCase patients = mock(PatientUseCase.class);
     private final JsonMapper mapper = JsonMapper.builder().build();
     private final SessionPrincipal actor = new SessionPrincipal(
         22, "admisiones", "", "Admisiones", "", "",
         true, null, List.of(), Set.of("application.schedule.manage"));
-    private final InfusionService service = new InfusionService(
-        infusions, logistics, workflows, treatments, patients,
-        mapper, Clock.fixed(NOW, ZoneOffset.UTC));
+    private final PostgresInfusionOperationsStore store = new PostgresInfusionOperationsStore(
+        infusions, logistics, workflows, treatments, patients, mapper, Clock.fixed(NOW, ZoneOffset.UTC));
 
     private SchedulingFixture() {
       Treatment treatment = new Treatment(
@@ -283,8 +270,7 @@ class HospitalDayConcurrencySafetyTest {
 
       when(treatments.find(9, "tx-1")).thenReturn(Optional.of(treatment));
       when(infusions.logistics(9, "tx-1", 1, 1)).thenReturn(Optional.of(planned));
-      when(infusions.scheduleSettings())
-          .thenReturn(new ScheduleSettings(6, 10, "08:00", "16:00"));
+      when(infusions.scheduleSettings()).thenReturn(new ScheduleSettings(6, 10, "08:00", "16:00"));
       when(workflows.scheduleGate(key)).thenReturn(Optional.of(gate));
       when(workflows.markAppointmentScheduled(
           any(Key.class), anyLong(), anyLong(), any(Instant.class))).thenReturn(true);

@@ -1,8 +1,8 @@
-package ar.com.hexium.hcop.infusion;
+package ar.com.hexium.hcop.infusion.infrastructure.persistence;
 
 import ar.com.hexium.hcop.common.ApiException;
-import ar.com.hexium.hcop.infusion.ApplicationWorkflowCommands.Preparation;
-import ar.com.hexium.hcop.infusion.ApplicationWorkflowCommands.StockComponent;
+import ar.com.hexium.hcop.infusion.application.port.in.ApplicationWorkflowUseCase.PreparationInput;
+import ar.com.hexium.hcop.infusion.application.port.in.ApplicationWorkflowUseCase.StockComponentInput;
 import java.math.BigDecimal;
 import java.text.Normalizer;
 import java.util.ArrayList;
@@ -19,7 +19,10 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * Pure safety checks that keep one prescribed application, its stock reservation and its
- * preparation trace in one-to-one correspondence.
+ * preparation trace in one-to-one correspondence. Movido verbatim de {@code infusion} —
+ * infraestructura, no negocio puro (protocolo de datos no confiables, mismo criterio que
+ * {@code media.FilesystemClinicalFileBlobStore}), así que sigue lanzando {@code ApiException}
+ * directo.
  */
 final class ApplicationComponentValidator {
   private static final Pattern FIRST_NUMBER =
@@ -28,9 +31,9 @@ final class ApplicationComponentValidator {
   private ApplicationComponentValidator() {
   }
 
-  static List<StockComponent> componentsFromDrugs(JsonNode drugs) {
+  static List<StockComponentInput> componentsFromDrugs(JsonNode drugs) {
     return expectedComponents(drugs).stream()
-        .map(component -> new StockComponent(
+        .map(component -> new StockComponentInput(
             component.key(),
             component.drugId(),
             component.drugName(),
@@ -41,7 +44,7 @@ final class ApplicationComponentValidator {
         .toList();
   }
 
-  static void validateStockComponents(JsonNode drugs, List<StockComponent> supplied) {
+  static void validateStockComponents(JsonNode drugs, List<StockComponentInput> supplied) {
     List<ExpectedComponent> expected = expectedComponents(drugs);
     if (expected.isEmpty()) {
       throw conflict(
@@ -62,7 +65,7 @@ final class ApplicationComponentValidator {
       byKey.put(component.key(), component);
     }
     Set<String> seen = new HashSet<>();
-    for (StockComponent actual : supplied) {
+    for (StockComponentInput actual : supplied) {
       if (actual == null) {
         throw badRequest("La reserva contiene un componente vacío.");
       }
@@ -107,13 +110,8 @@ final class ApplicationComponentValidator {
     }
   }
 
-  static void validatePreparationMultiplicity(
-      JsonNode drugs, List<Preparation> preparations) {
-    resolvePreparations(drugs, preparations);
-  }
-
   static List<ResolvedPreparation> resolvePreparations(
-      JsonNode drugs, List<Preparation> preparations) {
+      JsonNode drugs, List<PreparationInput> preparations) {
     List<ExpectedComponent> expected = expectedComponents(drugs);
     if (preparations == null || preparations.size() != expected.size()) {
       throw conflict(
@@ -125,7 +123,7 @@ final class ApplicationComponentValidator {
     expected.forEach(component -> byKey.put(component.key(), component));
     Set<String> used = new HashSet<>();
     List<ResolvedPreparation> resolved = new ArrayList<>();
-    for (Preparation preparation : preparations) {
+    for (PreparationInput preparation : preparations) {
       if (preparation == null) {
         throw badRequest("La preparación contiene un componente vacío.");
       }
@@ -209,7 +207,7 @@ final class ApplicationComponentValidator {
   }
 
   private static boolean samePreparationComponent(
-      ExpectedComponent expected, Preparation actual) {
+      ExpectedComponent expected, PreparationInput actual) {
     return normalizedText(actual.drugName()).equals(normalizedText(expected.drugName()))
         && actual.quantity() != null
         && actual.quantity().compareTo(expected.quantity()) == 0
@@ -217,7 +215,7 @@ final class ApplicationComponentValidator {
   }
 
   private static void validatePreparationComponent(
-      ExpectedComponent expected, Preparation actual) {
+      ExpectedComponent expected, PreparationInput actual) {
     if (!normalizedText(actual.drugName()).equals(normalizedText(expected.drugName()))) {
       throw conflict(
           "La droga preparada no coincide con el componente " + expected.key() + ".",
@@ -298,6 +296,6 @@ final class ApplicationComponentValidator {
       String unit) {
   }
 
-  record ResolvedPreparation(String componentKey, Preparation preparation) {
+  record ResolvedPreparation(String componentKey, PreparationInput preparation) {
   }
 }

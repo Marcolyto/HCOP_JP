@@ -1,5 +1,4 @@
-package ar.com.hexium.hcop.infusion;
-import ar.com.hexium.hcop.infusion.application.port.in.TreatmentApplicationLogisticsUseCase;
+package ar.com.hexium.hcop.infusion.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -13,15 +12,16 @@ import static org.mockito.Mockito.when;
 
 import ar.com.hexium.hcop.auth.SessionPrincipal;
 import ar.com.hexium.hcop.common.ApiException;
-import ar.com.hexium.hcop.infusion.ApplicationWorkflowPolicy.State;
-import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.Application;
-import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.Key;
-import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.ScheduleGate;
+import ar.com.hexium.hcop.infusion.application.port.in.TreatmentApplicationLogisticsUseCase;
 import ar.com.hexium.hcop.infusion.application.port.out.InfusionStore;
+import ar.com.hexium.hcop.infusion.domain.ApplicationWorkflowPolicy.State;
 import ar.com.hexium.hcop.infusion.domain.Infusion;
 import ar.com.hexium.hcop.infusion.domain.Logistics;
 import ar.com.hexium.hcop.infusion.domain.Patch;
 import ar.com.hexium.hcop.infusion.domain.ScheduleSettings;
+import ar.com.hexium.hcop.infusion.infrastructure.persistence.PostgresApplicationWorkflowStore.Application;
+import ar.com.hexium.hcop.infusion.infrastructure.persistence.PostgresApplicationWorkflowStore.Key;
+import ar.com.hexium.hcop.infusion.infrastructure.persistence.PostgresApplicationWorkflowStore.ScheduleGate;
 import ar.com.hexium.hcop.patient.application.port.in.PatientUseCase;
 import ar.com.hexium.hcop.treatment.application.port.out.TreatmentStore;
 import ar.com.hexium.hcop.treatment.domain.Treatment;
@@ -37,19 +37,16 @@ import org.mockito.ArgumentCaptor;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-class InfusionServiceSchedulingWorkflowTest {
+class PostgresInfusionOperationsStoreSchedulingWorkflowTest {
   private static final Instant NOW = Instant.parse("2026-07-29T15:00:00Z");
   private final InfusionStore infusions = mock(InfusionStore.class);
-  private final TreatmentApplicationLogisticsUseCase logistics =
-      mock(TreatmentApplicationLogisticsUseCase.class);
-  private final ApplicationWorkflowRepository workflows =
-      mock(ApplicationWorkflowRepository.class);
+  private final TreatmentApplicationLogisticsUseCase logistics = mock(TreatmentApplicationLogisticsUseCase.class);
+  private final PostgresApplicationWorkflowStore workflows = mock(PostgresApplicationWorkflowStore.class);
   private final TreatmentStore treatments = mock(TreatmentStore.class);
   private final PatientUseCase patients = mock(PatientUseCase.class);
   private final JsonMapper mapper = JsonMapper.builder().build();
-  private final InfusionService service = new InfusionService(
-      infusions, logistics, workflows, treatments, patients,
-      mapper, Clock.fixed(NOW, ZoneOffset.UTC));
+  private final PostgresInfusionOperationsStore store = new PostgresInfusionOperationsStore(
+      infusions, logistics, workflows, treatments, patients, mapper, Clock.fixed(NOW, ZoneOffset.UTC));
 
   @Test
   void reschedulingAfterFailReopensTriageAndAuditsThePreviousAssessment() {
@@ -57,27 +54,19 @@ class InfusionServiceSchedulingWorkflowTest {
     JsonNode previousAssessment = mapper.createObjectNode()
         .put("decision", "FAIL")
         .put("reason", "Neutropenia");
-    ScheduleGate failed = gate(
-        "failed", "postponed", previousAssessment, 8);
-    ScheduleGate pending = gate(
-        "pending", "triage_pending", mapper.createObjectNode(), 9);
-    Infusion existing = infusion(
-        Instant.parse("2026-07-29T13:00:00Z"), "Sillón 1", 3);
-    Infusion moved = infusion(
-        Instant.parse("2026-07-30T13:30:00Z"), "Sillón 2", 4);
+    ScheduleGate failed = gate("failed", "postponed", previousAssessment, 8);
+    ScheduleGate pending = gate("pending", "triage_pending", mapper.createObjectNode(), 9);
+    Infusion existing = infusion(Instant.parse("2026-07-29T13:00:00Z"), "Sillón 1", 3);
+    Infusion moved = infusion(Instant.parse("2026-07-30T13:30:00Z"), "Sillón 2", 4);
     SessionPrincipal actor = actor();
 
     when(infusions.find(7)).thenReturn(Optional.of(existing));
     Logistics plannedApplication = mock(Logistics.class);
     when(plannedApplication.durationMinutes()).thenReturn(90);
-    when(infusions.logistics(9, "tx-1", 2, 8))
-        .thenReturn(Optional.of(plannedApplication));
-    when(infusions.scheduleSettings())
-        .thenReturn(new ScheduleSettings(6, 10, "08:00", "16:00"));
-    when(workflows.scheduleGate(key))
-        .thenReturn(Optional.of(failed), Optional.of(pending));
-    when(workflows.markAppointmentScheduled(key, 8, actor.userId(), NOW))
-        .thenReturn(true);
+    when(infusions.logistics(9, "tx-1", 2, 8)).thenReturn(Optional.of(plannedApplication));
+    when(infusions.scheduleSettings()).thenReturn(new ScheduleSettings(6, 10, "08:00", "16:00"));
+    when(workflows.scheduleGate(key)).thenReturn(Optional.of(failed), Optional.of(pending));
+    when(workflows.markAppointmentScheduled(key, 8, actor.userId(), NOW)).thenReturn(true);
     when(infusions.update(eq(7L), eq(3L), any(Patch.class), eq(actor.userId())))
         .thenReturn(Optional.of(moved));
     when(infusions.medications(7)).thenReturn(List.of());
@@ -89,7 +78,7 @@ class InfusionServiceSchedulingWorkflowTest {
         .put("durationMinutes", 90)
         .put("appointmentConfirmed", true);
 
-    service.update(7, input, actor);
+    store.update(7, input, actor.userId(), actor.displayName());
 
     ArgumentCaptor<Patch> savedPatch = ArgumentCaptor.forClass(Patch.class);
     verify(infusions).update(eq(7L), eq(3L), savedPatch.capture(), eq(actor.userId()));
@@ -110,18 +99,15 @@ class InfusionServiceSchedulingWorkflowTest {
         before.capture(),
         after.capture(),
         eq(NOW));
-    assertThat(before.getValue().path("clinicalAssessment").path("reason").asText())
-        .isEqualTo("Neutropenia");
-    assertThat(after.getValue().path("clinicalAuthorizationStatus").asText())
-        .isEqualTo("pending");
+    assertThat(before.getValue().path("clinicalAssessment").path("reason").asText()).isEqualTo("Neutropenia");
+    assertThat(after.getValue().path("clinicalAuthorizationStatus").asText()).isEqualTo("pending");
     assertThat(after.getValue().path("clinicalAssessment").isEmpty()).isTrue();
   }
 
   @Test
   void removingAnAppointmentPreservesPharmacyAndAdministrationAndAuditsTheReason() {
     Key key = new Key(9, "tx-1", 2, 8);
-    Infusion existing = infusion(
-        Instant.parse("2026-07-30T13:00:00Z"), "Sillón 1", 3);
+    Infusion existing = infusion(Instant.parse("2026-07-30T13:00:00Z"), "Sillón 1", 3);
     Infusion removed = new Infusion(
         7, 9, "tx-1", 2, 8, null,
         null, "", 90, "cancelled", "pending", "not_started", false,
@@ -133,10 +119,8 @@ class InfusionServiceSchedulingWorkflowTest {
     when(application.policyState()).thenReturn(new State(
         "scheduled", "confirmed", "center_stock", "approved", "reserved",
         "pending", "not_started", "not_started"));
-    ScheduleGate before = gate(
-        "pending", "scheduled", mapper.createObjectNode(), 8);
-    ScheduleGate after = gate(
-        "pending", "medication_ready", mapper.createObjectNode(), 9);
+    ScheduleGate before = gate("pending", "scheduled", mapper.createObjectNode(), 8);
+    ScheduleGate after = gate("pending", "medication_ready", mapper.createObjectNode(), 9);
 
     when(infusions.find(7)).thenReturn(Optional.of(existing));
     when(workflows.lock(key)).thenReturn(Optional.of(application));
@@ -153,7 +137,7 @@ class InfusionServiceSchedulingWorkflowTest {
         .put("clinicalStatus", "cancelled")
         .put("reason", "Paciente solicitó reprogramar");
 
-    service.update(7, input, actor());
+    store.update(7, input, actor().userId(), actor().displayName());
 
     ArgumentCaptor<Patch> savedPatch = ArgumentCaptor.forClass(Patch.class);
     verify(infusions).update(eq(7L), eq(3L), savedPatch.capture(), eq(actor().userId()));
@@ -165,8 +149,7 @@ class InfusionServiceSchedulingWorkflowTest {
     verify(workflows).insertEvent(
         eq(key), eq("appointment_cancelled"), any(), eq(actor().userId()),
         eq(8L), eq(9L), command.capture(), any(), any(), eq(NOW));
-    assertThat(command.getValue().path("reason").asText())
-        .isEqualTo("Paciente solicitó reprogramar");
+    assertThat(command.getValue().path("reason").asText()).isEqualTo("Paciente solicitó reprogramar");
   }
 
   @Test
@@ -174,7 +157,7 @@ class InfusionServiceSchedulingWorkflowTest {
     arrangeSchedulableApplication(new ScheduleSettings(6, 10, "08:00", "16:00"));
     JsonNode input = scheduleInput("2026-07-30T13:00:00Z", "2", 80);
 
-    assertThatThrownBy(() -> service.create(input, actor()))
+    assertThatThrownBy(() -> store.create(input, actor().userId(), actor().displayName()))
         .isInstanceOfSatisfying(ApiException.class, error ->
             assertThat(error.code()).isEqualTo("SCHEDULE_DURATION_MISMATCH"));
 
@@ -186,7 +169,7 @@ class InfusionServiceSchedulingWorkflowTest {
     arrangeSchedulableApplication(new ScheduleSettings(6, 10, "08:00", "16:00"));
     JsonNode input = scheduleInput("2026-07-30T13:00:00Z", "Sillon 7", 90);
 
-    assertThatThrownBy(() -> service.create(input, actor()))
+    assertThatThrownBy(() -> store.create(input, actor().userId(), actor().displayName()))
         .isInstanceOf(ApiException.class)
         .hasMessageContaining("entre 1 y 6");
 
@@ -198,7 +181,7 @@ class InfusionServiceSchedulingWorkflowTest {
     arrangeSchedulableApplication(new ScheduleSettings(6, 10, "08:00", "16:00"));
     JsonNode input = scheduleInput("2026-07-30T15:00:00Z", "2", 90);
 
-    assertThatThrownBy(() -> service.create(input, actor()))
+    assertThatThrownBy(() -> store.create(input, actor().userId(), actor().displayName()))
         .isInstanceOfSatisfying(ApiException.class, error ->
             assertThat(error.code()).isEqualTo("OUTSIDE_DAY_HOSPITAL_HOURS"));
 
@@ -210,7 +193,7 @@ class InfusionServiceSchedulingWorkflowTest {
     arrangeSchedulableApplication(new ScheduleSettings(6, 10, "08:00", "16:00"));
     JsonNode input = scheduleInput("2026-07-30T13:05:00Z", "2", 90);
 
-    assertThatThrownBy(() -> service.create(input, actor()))
+    assertThatThrownBy(() -> store.create(input, actor().userId(), actor().displayName()))
         .isInstanceOfSatisfying(ApiException.class, error ->
             assertThat(error.code()).isEqualTo("SCHEDULE_SLOT_MISMATCH"));
 
@@ -226,13 +209,12 @@ class InfusionServiceSchedulingWorkflowTest {
         "passed", "", mapper.createObjectNode(),
         "not_started", "not_started", "clinically_authorized", 5)));
 
-    assertThatThrownBy(() -> service.requireScheduleGate(9, "tx-1", 2, 8))
+    assertThatThrownBy(() -> store.requireScheduleGate(9, "tx-1", 2, 8))
         .isInstanceOf(ApiException.class)
         .hasMessageContaining("etapa clínica");
   }
 
-  private ScheduleGate gate(
-      String clinicalStatus, String workflowStatus, JsonNode assessment, long revision) {
+  private ScheduleGate gate(String clinicalStatus, String workflowStatus, JsonNode assessment, long revision) {
     return new ScheduleGate(
         "confirmed", "active", false,
         "approved", "center_stock", "reserved",

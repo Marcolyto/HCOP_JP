@@ -1,6 +1,6 @@
 package ar.com.hexium.hcop.infusion.infrastructure.treatment;
 
-import ar.com.hexium.hcop.infusion.InfusionService;
+import ar.com.hexium.hcop.infusion.application.port.in.InfusionUseCase;
 import ar.com.hexium.hcop.infusion.application.port.out.InfusionStore;
 import ar.com.hexium.hcop.infusion.domain.Infusion;
 import ar.com.hexium.hcop.treatment.application.port.out.InfusionAppointmentPort;
@@ -16,11 +16,11 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class InfusionForTreatmentAdapter implements InfusionSummaryPort, InfusionAppointmentPort {
-  private final InfusionService infusionService;
+  private final InfusionUseCase infusionService;
   private final InfusionStore infusionRepository;
 
   public InfusionForTreatmentAdapter(
-      InfusionService infusionService, InfusionStore infusionRepository) {
+      InfusionUseCase infusionService, InfusionStore infusionRepository) {
     this.infusionService = infusionService;
     this.infusionRepository = infusionRepository;
   }

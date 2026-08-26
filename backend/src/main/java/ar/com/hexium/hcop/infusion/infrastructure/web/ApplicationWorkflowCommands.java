@@ -1,4 +1,4 @@
-package ar.com.hexium.hcop.infusion;
+package ar.com.hexium.hcop.infusion.infrastructure.web;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
@@ -7,6 +7,8 @@ import java.time.LocalDate;
 import java.util.List;
 import tools.jackson.databind.JsonNode;
 
+/** DTOs de {@code @RequestBody} — el controller los mapea 1:1 a los comandos planos de
+ * {@code application.port.in.ApplicationWorkflowUseCase}. */
 final class ApplicationWorkflowCommands {
   private ApplicationWorkflowCommands() {
   }

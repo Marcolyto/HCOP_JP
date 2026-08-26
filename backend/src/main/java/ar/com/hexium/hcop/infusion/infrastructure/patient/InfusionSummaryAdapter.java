@@ -1,6 +1,6 @@
 package ar.com.hexium.hcop.infusion.infrastructure.patient;
 
-import ar.com.hexium.hcop.infusion.InfusionService;
+import ar.com.hexium.hcop.infusion.application.port.in.InfusionUseCase;
 import ar.com.hexium.hcop.patient.application.port.out.InfusionSummaryPort;
 import java.util.List;
 import java.util.Map;
@@ -9,9 +9,9 @@ import org.springframework.stereotype.Component;
 /** F3.3.0: único lugar que implementa el puerto cruzado {@code patient} → {@code infusion}. */
 @Component
 public class InfusionSummaryAdapter implements InfusionSummaryPort {
-  private final InfusionService infusions;
+  private final InfusionUseCase infusions;
 
-  public InfusionSummaryAdapter(InfusionService infusions) {
+  public InfusionSummaryAdapter(InfusionUseCase infusions) {
     this.infusions = infusions;
   }
 

@@ -2,6 +2,7 @@ package ar.com.hexium.hcop.admin.infrastructure.web;
 
 import ar.com.hexium.hcop.admin.application.port.in.AdminManagementUseCase;
 import ar.com.hexium.hcop.auth.AuthContext;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +45,7 @@ public class AdminController {
 
   @PutMapping("/api/admin/users/{id}")
   Map<String, Object> updateUser(
+      @Parameter(description = "Id del usuario")
       @PathVariable long id, @RequestBody JsonNode body, HttpServletRequest request) {
     auth.requirePermission(request, "admin.manage-users");
     var item = admin.updateUser(json.updateUserCommand(id, body, auth.require(request).userId()));
@@ -67,6 +69,7 @@ public class AdminController {
 
   @PutMapping("/api/admin/roles/{id}")
   Map<String, Object> updateRole(
+      @Parameter(description = "Id del rol")
       @PathVariable long id, @RequestBody JsonNode body, HttpServletRequest request) {
     auth.requirePermission(request, "admin.manage-roles");
     var item = admin.updateRole(json.updateRoleCommand(id, body, auth.require(request).userId()));
@@ -88,6 +91,7 @@ public class AdminController {
 
   @GetMapping("/api/clinical/users")
   Map<String, Object> clinicalUsers(
+      @Parameter(description = "Permiso a filtrar (vacío devuelve todos los usuarios)")
       @RequestParam(defaultValue = "") String capability,
       HttpServletRequest request) {
     auth.require(request);

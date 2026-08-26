@@ -7,6 +7,7 @@ import ar.com.hexium.hcop.media.application.port.in.ClinicalFileUseCase.StoreIma
 import ar.com.hexium.hcop.media.application.port.in.ClinicalFileUseCase.UploadStudyCommand;
 import ar.com.hexium.hcop.media.domain.ClinicalFile;
 import ar.com.hexium.hcop.sharedkernel.domain.UserId;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletRequest;
 import java.nio.file.Path;
 import java.util.Base64;
@@ -43,8 +44,11 @@ public class ClinicalFileController {
 
   @PostMapping("/api/media/studies")
   ResponseEntity<Map<String, Object>> uploadStudy(
+      @Parameter(description = "Id interno del paciente")
       @RequestParam long patientId,
+      @Parameter(description = "Id del estudio clínico al que pertenece el archivo")
       @RequestParam String studyId,
+      @Parameter(description = "Nombre de archivo")
       @RequestParam(name = "name") String fileName,
       HttpServletRequest request) throws java.io.IOException {
     auth.requirePermission(request, "section.studies.edit");
@@ -57,7 +61,8 @@ public class ClinicalFileController {
   }
 
   @GetMapping("/api/media/studies/{name:.+}")
-  ResponseEntity<Resource> study(@PathVariable String name, HttpServletRequest request) {
+  ResponseEntity<Resource> study(@Parameter(description = "Nombre de archivo (clave de storage)")
+  @PathVariable String name, HttpServletRequest request) {
     auth.requirePermission(request, "section.studies.view");
     ClinicalFile file = files.requireStudy(name);
     return file(file, files.resolvePath(file), false);
@@ -65,6 +70,7 @@ public class ClinicalFileController {
 
   @DeleteMapping("/api/media/studies/{name:.+}")
   Map<String, Object> deleteStudy(
+      @Parameter(description = "Nombre de archivo (clave de storage)")
       @PathVariable String name,
       @RequestHeader(name = "X-Study-Delete-Token", defaultValue = "") String deleteToken,
       HttpServletRequest request) {
@@ -101,7 +107,8 @@ public class ClinicalFileController {
   }
 
   @GetMapping("/api/media/images/{name:.+}")
-  ResponseEntity<Resource> image(@PathVariable String name, HttpServletRequest request) {
+  ResponseEntity<Resource> image(@Parameter(description = "Nombre de archivo (clave de storage)")
+  @PathVariable String name, HttpServletRequest request) {
     auth.requirePermission(request, "section.studies.view");
     ClinicalFile file = files.requireImage(name);
     return file(file, files.resolvePath(file), true);

@@ -1,5 +1,6 @@
 package ar.com.hexium.hcop.qr.infrastructure.web;
 
+import io.swagger.v3.oas.annotations.Parameter;
 import ar.com.hexium.hcop.auth.AuthContext;
 import ar.com.hexium.hcop.auth.SessionPrincipal;
 import ar.com.hexium.hcop.qr.application.port.in.QrUseCase;
@@ -32,9 +33,13 @@ public class QrWorkflowController {
       value = "/api/clinical/patients/{patientId}/treatments/{treatmentId}/documents/qr",
       produces = MediaType.TEXT_HTML_VALUE)
   ResponseEntity<String> document(
+      @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId,
+      @Parameter(description = "Id del tratamiento")
       @PathVariable String treatmentId,
+      @Parameter(description = "Número de ciclo del tratamiento")
       @RequestParam int cycle,
+      @Parameter(description = "Día de aplicación dentro del ciclo")
       @RequestParam(defaultValue = "1") int applicationDay,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.day-hospital.view");

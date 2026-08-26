@@ -62,9 +62,14 @@ public class InfusionApplicationWorkflowController {
   @GetMapping("/api/clinical/application-workflows")
   @Operation(summary = "Listar una cola operativa por aplicación")
   Map<String, Object> list(
+      @Parameter(description = "Cola operativa a listar: applications, pharmacy, "
+          + "triage, preparation o administration")
       @RequestParam(defaultValue = "pharmacy") String queue,
+      @Parameter(description = "Fecha a filtrar (aplica sólo a colas distintas de pharmacy)")
       @RequestParam(required = false) LocalDate date,
+      @Parameter(description = "Texto libre para filtrar por paciente o droga")
       @RequestParam(defaultValue = "") String q,
+      @Parameter(description = "Filtra por origen de la medicación")
       @RequestParam(defaultValue = "") String medicationSource,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.day-hospital.view");
@@ -75,8 +80,12 @@ public class InfusionApplicationWorkflowController {
   @GetMapping(ROOT)
   @Operation(summary = "Abrir el circuito completo de una aplicación")
   Map<String, Object> get(
-      @PathVariable long patientId, @PathVariable String treatmentId,
-      @PathVariable int cycleNumber, @PathVariable int applicationDay,
+      @Parameter(description = "Id interno del paciente")
+      @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
+      @PathVariable String treatmentId,
+      @Parameter(description = "Número de ciclo del tratamiento")
+      @PathVariable int cycleNumber, @Parameter(description = "Día de aplicación dentro del ciclo")
+      @PathVariable int applicationDay,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.day-hospital.view");
     return Map.of("ok", true, "workflow", workflows.get(patientId, treatmentId, cycleNumber, applicationDay));
@@ -85,8 +94,12 @@ public class InfusionApplicationWorkflowController {
   @PostMapping(ROOT + "/pharmacy-validation")
   @Operation(summary = "Validar la orden en Farmacia")
   Map<String, Object> pharmacyValidation(
-      @PathVariable long patientId, @PathVariable String treatmentId,
-      @PathVariable int cycleNumber, @PathVariable int applicationDay,
+      @Parameter(description = "Id interno del paciente")
+      @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
+      @PathVariable String treatmentId,
+      @Parameter(description = "Número de ciclo del tratamiento")
+      @PathVariable int cycleNumber, @Parameter(description = "Día de aplicación dentro del ciclo")
+      @PathVariable int applicationDay,
       @RequestBody PharmacyValidation body, HttpServletRequest request) {
     auth.requirePermission(request, "application.pharmacy.manage");
     SessionPrincipal actor = auth.require(request);
@@ -101,8 +114,12 @@ public class InfusionApplicationWorkflowController {
   @PostMapping(ROOT + "/stock-reservation")
   @Operation(summary = "Reservar o liberar stock por componente")
   Map<String, Object> stockReservation(
-      @PathVariable long patientId, @PathVariable String treatmentId,
-      @PathVariable int cycleNumber, @PathVariable int applicationDay,
+      @Parameter(description = "Id interno del paciente")
+      @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
+      @PathVariable String treatmentId,
+      @Parameter(description = "Número de ciclo del tratamiento")
+      @PathVariable int cycleNumber, @Parameter(description = "Día de aplicación dentro del ciclo")
+      @PathVariable int applicationDay,
       @RequestBody StockReservation body, HttpServletRequest request) {
     auth.requirePermission(request, "application.pharmacy.manage");
     SessionPrincipal actor = auth.require(request);
@@ -119,8 +136,12 @@ public class InfusionApplicationWorkflowController {
   @PostMapping(ROOT + "/clinical-authorization")
   @Operation(summary = "Registrar triaje y emitir PASS o FAIL")
   Map<String, Object> clinicalAuthorization(
-      @PathVariable long patientId, @PathVariable String treatmentId,
-      @PathVariable int cycleNumber, @PathVariable int applicationDay,
+      @Parameter(description = "Id interno del paciente")
+      @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
+      @PathVariable String treatmentId,
+      @Parameter(description = "Número de ciclo del tratamiento")
+      @PathVariable int cycleNumber, @Parameter(description = "Día de aplicación dentro del ciclo")
+      @PathVariable int applicationDay,
       @RequestBody ClinicalAuthorization body, HttpServletRequest request) {
     auth.requirePermission(request, "application.triage.manage");
     SessionPrincipal actor = auth.require(request);
@@ -135,8 +156,12 @@ public class InfusionApplicationWorkflowController {
   @PostMapping(ROOT + "/preparation/start")
   @Operation(summary = "Iniciar preparación estéril")
   Map<String, Object> preparationStart(
-      @PathVariable long patientId, @PathVariable String treatmentId,
-      @PathVariable int cycleNumber, @PathVariable int applicationDay,
+      @Parameter(description = "Id interno del paciente")
+      @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
+      @PathVariable String treatmentId,
+      @Parameter(description = "Número de ciclo del tratamiento")
+      @PathVariable int cycleNumber, @Parameter(description = "Día de aplicación dentro del ciclo")
+      @PathVariable int applicationDay,
       @RequestBody Basic body, HttpServletRequest request) {
     auth.requirePermission(request, "application.preparation.manage");
     SessionPrincipal actor = auth.require(request);
@@ -147,8 +172,12 @@ public class InfusionApplicationWorkflowController {
   @PostMapping(ROOT + "/preparation/complete")
   @Operation(summary = "Registrar mezcla, lotes, etiqueta y TTL")
   Map<String, Object> preparationComplete(
-      @PathVariable long patientId, @PathVariable String treatmentId,
-      @PathVariable int cycleNumber, @PathVariable int applicationDay,
+      @Parameter(description = "Id interno del paciente")
+      @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
+      @PathVariable String treatmentId,
+      @Parameter(description = "Número de ciclo del tratamiento")
+      @PathVariable int cycleNumber, @Parameter(description = "Día de aplicación dentro del ciclo")
+      @PathVariable int applicationDay,
       @RequestBody PreparationComplete body, HttpServletRequest request) {
     auth.requirePermission(request, "application.preparation.manage");
     SessionPrincipal actor = auth.require(request);
@@ -164,8 +193,12 @@ public class InfusionApplicationWorkflowController {
   @PostMapping(ROOT + "/preparation/release")
   @Operation(summary = "Liberar mezcla hacia la sala")
   Map<String, Object> preparationRelease(
-      @PathVariable long patientId, @PathVariable String treatmentId,
-      @PathVariable int cycleNumber, @PathVariable int applicationDay,
+      @Parameter(description = "Id interno del paciente")
+      @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
+      @PathVariable String treatmentId,
+      @Parameter(description = "Número de ciclo del tratamiento")
+      @PathVariable int cycleNumber, @Parameter(description = "Día de aplicación dentro del ciclo")
+      @PathVariable int applicationDay,
       @RequestBody Basic body, HttpServletRequest request) {
     auth.requirePermission(request, "application.preparation.manage");
     SessionPrincipal actor = auth.require(request);
@@ -176,8 +209,12 @@ public class InfusionApplicationWorkflowController {
   @PostMapping(ROOT + "/preparation/restart")
   @Operation(summary = "Descartar y repetir una preparación")
   Map<String, Object> preparationRestart(
-      @PathVariable long patientId, @PathVariable String treatmentId,
-      @PathVariable int cycleNumber, @PathVariable int applicationDay,
+      @Parameter(description = "Id interno del paciente")
+      @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
+      @PathVariable String treatmentId,
+      @Parameter(description = "Número de ciclo del tratamiento")
+      @PathVariable int cycleNumber, @Parameter(description = "Día de aplicación dentro del ciclo")
+      @PathVariable int applicationDay,
       @RequestBody Basic body, HttpServletRequest request) {
     auth.requirePermission(request, "application.preparation.manage");
     SessionPrincipal actor = auth.require(request);
@@ -188,8 +225,12 @@ public class InfusionApplicationWorkflowController {
   @GetMapping(value = ROOT + "/preparation-label", produces = MediaType.TEXT_HTML_VALUE)
   @Operation(summary = "Imprimir etiqueta trazable de la mezcla")
   ResponseEntity<String> preparationLabel(
-      @PathVariable long patientId, @PathVariable String treatmentId,
-      @PathVariable int cycleNumber, @PathVariable int applicationDay,
+      @Parameter(description = "Id interno del paciente")
+      @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
+      @PathVariable String treatmentId,
+      @Parameter(description = "Número de ciclo del tratamiento")
+      @PathVariable int cycleNumber, @Parameter(description = "Día de aplicación dentro del ciclo")
+      @PathVariable int applicationDay,
       HttpServletRequest request) {
     auth.requirePermission(request, "application.preparation.manage");
     return ResponseEntity.ok()
@@ -200,8 +241,12 @@ public class InfusionApplicationWorkflowController {
   @PostMapping(ROOT + "/administration/start")
   @Operation(summary = "Iniciar administración con doble control")
   Map<String, Object> administrationStart(
-      @PathVariable long patientId, @PathVariable String treatmentId,
-      @PathVariable int cycleNumber, @PathVariable int applicationDay,
+      @Parameter(description = "Id interno del paciente")
+      @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
+      @PathVariable String treatmentId,
+      @Parameter(description = "Número de ciclo del tratamiento")
+      @PathVariable int cycleNumber, @Parameter(description = "Día de aplicación dentro del ciclo")
+      @PathVariable int applicationDay,
       @RequestBody AdministrationStart body, HttpServletRequest request) {
     auth.requirePermission(request, "application.administration.manage");
     SessionPrincipal actor = auth.require(request);
@@ -216,8 +261,12 @@ public class InfusionApplicationWorkflowController {
   @PostMapping(ROOT + "/administration/interrupt")
   @Operation(summary = "Interrumpir una administración en curso")
   Map<String, Object> administrationInterrupt(
-      @PathVariable long patientId, @PathVariable String treatmentId,
-      @PathVariable int cycleNumber, @PathVariable int applicationDay,
+      @Parameter(description = "Id interno del paciente")
+      @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
+      @PathVariable String treatmentId,
+      @Parameter(description = "Número de ciclo del tratamiento")
+      @PathVariable int cycleNumber, @Parameter(description = "Día de aplicación dentro del ciclo")
+      @PathVariable int applicationDay,
       @RequestBody AdministrationInterrupt body, HttpServletRequest request) {
     auth.requirePermission(request, "application.administration.manage");
     SessionPrincipal actor = auth.require(request);
@@ -232,8 +281,12 @@ public class InfusionApplicationWorkflowController {
   @PostMapping(ROOT + "/administration/resolve")
   @Operation(summary = "Resolver una administración interrumpida")
   Map<String, Object> administrationResolve(
-      @PathVariable long patientId, @PathVariable String treatmentId,
-      @PathVariable int cycleNumber, @PathVariable int applicationDay,
+      @Parameter(description = "Id interno del paciente")
+      @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
+      @PathVariable String treatmentId,
+      @Parameter(description = "Número de ciclo del tratamiento")
+      @PathVariable int cycleNumber, @Parameter(description = "Día de aplicación dentro del ciclo")
+      @PathVariable int applicationDay,
       @RequestBody AdministrationResolve body, HttpServletRequest request) {
     auth.requirePermission(request, "application.administration.manage");
     SessionPrincipal actor = auth.require(request);
@@ -248,8 +301,12 @@ public class InfusionApplicationWorkflowController {
   @PostMapping(ROOT + "/administration/complete")
   @Operation(summary = "Cerrar la aplicación con datos reales")
   Map<String, Object> administrationComplete(
-      @PathVariable long patientId, @PathVariable String treatmentId,
-      @PathVariable int cycleNumber, @PathVariable int applicationDay,
+      @Parameter(description = "Id interno del paciente")
+      @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
+      @PathVariable String treatmentId,
+      @Parameter(description = "Número de ciclo del tratamiento")
+      @PathVariable int cycleNumber, @Parameter(description = "Día de aplicación dentro del ciclo")
+      @PathVariable int applicationDay,
       @RequestBody AdministrationComplete body, HttpServletRequest request) {
     auth.requirePermission(request, "application.administration.manage");
     SessionPrincipal actor = auth.require(request);

@@ -4,6 +4,7 @@ import ar.com.hexium.hcop.auth.AuthContext;
 import ar.com.hexium.hcop.media.application.port.in.ClinicalFileUseCase;
 import ar.com.hexium.hcop.media.domain.ClinicalFile;
 import ar.com.hexium.hcop.treatment.application.port.in.TreatmentDocumentUseCase;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletRequest;
 import java.nio.file.Path;
 import org.springframework.core.io.FileSystemResource;
@@ -35,6 +36,7 @@ public class TreatmentDocumentController {
 
   @GetMapping("/api/clinical/treatments/{treatmentId}/consent")
   ResponseEntity<Resource> consent(
+      @Parameter(description = "Id del tratamiento")
       @PathVariable String treatmentId,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.prescriptions.view");
@@ -45,8 +47,11 @@ public class TreatmentDocumentController {
       value = "/api/clinical/patients/{patientId}/treatments/{treatmentId}/documents/treatment-sheet",
       produces = MediaType.TEXT_HTML_VALUE)
   ResponseEntity<String> treatmentSheet(
+      @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId,
+      @Parameter(description = "Id del tratamiento")
       @PathVariable String treatmentId,
+      @Parameter(description = "Número de ciclo a incluir en la hoja")
       @RequestParam int cycle,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.prescriptions.view");
@@ -58,7 +63,9 @@ public class TreatmentDocumentController {
 
   @GetMapping("/api/clinical/patients/{patientId}/treatments/{treatmentId}/documents/prescription")
   ResponseEntity<Resource> prescription(
+      @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId,
+      @Parameter(description = "Id del tratamiento")
       @PathVariable String treatmentId,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.prescriptions.view");

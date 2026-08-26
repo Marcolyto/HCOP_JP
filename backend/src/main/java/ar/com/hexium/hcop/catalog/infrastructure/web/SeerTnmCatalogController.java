@@ -1,6 +1,7 @@
 package ar.com.hexium.hcop.catalog.infrastructure.web;
 
 import ar.com.hexium.hcop.catalog.application.port.in.TnmCatalogUseCase;
+import io.swagger.v3.oas.annotations.Parameter;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,7 +33,8 @@ public class SeerTnmCatalogController {
   }
 
   @GetMapping("/detail")
-  public Map<String, Object> detail(@RequestParam String id) {
+  public Map<String, Object> detail(@Parameter(description = "Código del esquema TNM/SEER")
+  @RequestParam String id) {
     var detail = catalog.detail(id);
     return Map.of("ok", true, "schema", json.view(detail.schema()), "stageTables", detail.stageTables());
   }

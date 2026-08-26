@@ -4,6 +4,7 @@ import ar.com.hexium.hcop.auth.AuthContext;
 import ar.com.hexium.hcop.catalog.application.port.in.DrugCatalogUseCase;
 import ar.com.hexium.hcop.catalog.application.port.in.LegacyProtocolCatalogUseCase;
 import ar.com.hexium.hcop.catalog.application.port.in.TnmCatalogUseCase;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,6 +36,7 @@ public class LegacyCatalogController {
 
   @GetMapping("/api/protocols")
   Map<String, Object> protocols(
+      @Parameter(description = "Origen del catálogo (coir/seer)")
       @RequestParam(defaultValue = "coir") String source,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.protocols.view");
@@ -43,7 +45,9 @@ public class LegacyCatalogController {
 
   @GetMapping("/api/protocols/detail")
   Map<String, Object> protocolDetail(
+      @Parameter(description = "Id del protocolo (según `source`)")
       @RequestParam String id,
+      @Parameter(description = "Origen del catálogo (coir/seer)")
       @RequestParam(defaultValue = "coir") String source,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.protocols.view");
@@ -52,6 +56,7 @@ public class LegacyCatalogController {
 
   @GetMapping("/api/medications/search")
   Map<String, Object> medicationSearch(
+      @Parameter(description = "Texto libre de búsqueda de medicamentos")
       @RequestParam(defaultValue = "") String q,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.prescriptions.view");

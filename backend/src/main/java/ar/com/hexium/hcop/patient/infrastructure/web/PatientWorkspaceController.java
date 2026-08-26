@@ -9,6 +9,7 @@ import ar.com.hexium.hcop.patient.application.port.out.InfusionSummaryPort;
 import ar.com.hexium.hcop.patient.application.port.out.TreatmentSummaryPort;
 import ar.com.hexium.hcop.patient.domain.Patient;
 import ar.com.hexium.hcop.patient.domain.StoredDocument;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -53,7 +54,8 @@ public class PatientWorkspaceController {
   }
 
   @PostMapping("/api/clinical/patients/{patientId}/activate")
-  Map<String, Object> activate(@PathVariable long patientId, HttpServletRequest request) {
+  Map<String, Object> activate(@Parameter(description = "Id interno del paciente")
+  @PathVariable long patientId, HttpServletRequest request) {
     auth.requirePermission(request, "section.history.view");
     SessionPrincipal principal = auth.require(request);
     authService.setActivePatient(auth.sessionId(request), patientId);
@@ -62,6 +64,7 @@ public class PatientWorkspaceController {
 
   @GetMapping("/api/clinical/patients/{patientId}/workspace")
   ResponseEntity<Map<String, Object>> workspace(
+      @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.history.view");

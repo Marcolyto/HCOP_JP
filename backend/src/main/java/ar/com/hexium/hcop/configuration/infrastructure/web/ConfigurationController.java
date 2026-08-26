@@ -3,6 +3,7 @@ package ar.com.hexium.hcop.configuration.infrastructure.web;
 import ar.com.hexium.hcop.auth.AuthContext;
 import ar.com.hexium.hcop.configuration.application.port.in.ConfigurationManagementUseCase;
 import ar.com.hexium.hcop.sharedkernel.domain.UserId;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +36,9 @@ public class ConfigurationController {
 
   @GetMapping("/api/clinical/configuration/{kind}")
   Map<String, Object> list(
+      @Parameter(description = "Tipo de configuración (protocolo, guía, calculadora, etc.)")
       @PathVariable String kind,
+      @Parameter(description = "1 para incluir elementos inactivos, 0 (default) para omitirlos")
       @RequestParam(defaultValue = "0") int includeInactive,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.configuration.view");
@@ -48,6 +51,7 @@ public class ConfigurationController {
 
   @PostMapping("/api/clinical/configuration/{kind}")
   ResponseEntity<Map<String, Object>> create(
+      @Parameter(description = "Tipo de configuración (protocolo, guía, calculadora, etc.)")
       @PathVariable String kind,
       @RequestBody JsonNode body,
       HttpServletRequest request) {
@@ -60,7 +64,9 @@ public class ConfigurationController {
 
   @PutMapping("/api/clinical/configuration/{kind}/{id}")
   Map<String, Object> update(
+      @Parameter(description = "Tipo de configuración (protocolo, guía, calculadora, etc.)")
       @PathVariable String kind,
+      @Parameter(description = "Id del recurso de configuración")
       @PathVariable long id,
       @RequestBody JsonNode body,
       HttpServletRequest request) {
@@ -72,7 +78,9 @@ public class ConfigurationController {
 
   @DeleteMapping("/api/clinical/configuration/{kind}/{id}")
   Map<String, Object> archive(
+      @Parameter(description = "Tipo de configuración (protocolo, guía, calculadora, etc.)")
       @PathVariable String kind,
+      @Parameter(description = "Id del recurso de configuración")
       @PathVariable long id,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.configuration.manage");
@@ -82,7 +90,9 @@ public class ConfigurationController {
 
   @GetMapping("/api/clinical/configuration/{kind}/{id}/versions")
   Map<String, Object> versions(
+      @Parameter(description = "Tipo de configuración (protocolo, guía, calculadora, etc.)")
       @PathVariable String kind,
+      @Parameter(description = "Id del recurso de configuración")
       @PathVariable long id,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.configuration.view");
@@ -95,8 +105,11 @@ public class ConfigurationController {
 
   @GetMapping("/api/clinical/configuration/{kind}/{id}/versions/{revision}")
   Map<String, Object> version(
+      @Parameter(description = "Tipo de configuración (protocolo, guía, calculadora, etc.)")
       @PathVariable String kind,
+      @Parameter(description = "Id del recurso de configuración")
       @PathVariable long id,
+      @Parameter(description = "Número de revisión histórica a consultar")
       @PathVariable long revision,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.configuration.view");

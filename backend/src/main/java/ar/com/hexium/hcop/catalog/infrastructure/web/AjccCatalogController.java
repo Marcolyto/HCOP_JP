@@ -2,6 +2,7 @@ package ar.com.hexium.hcop.catalog.infrastructure.web;
 
 import ar.com.hexium.hcop.auth.AuthContext;
 import ar.com.hexium.hcop.catalog.application.port.in.AjccStagingUseCase;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,7 +42,8 @@ public class AjccCatalogController {
   }
 
   @GetMapping("/detail")
-  public Map<String, Object> detail(@RequestParam String id, HttpServletRequest request) {
+  public Map<String, Object> detail(@Parameter(description = "Código del sitio AJCC")
+  @RequestParam String id, HttpServletRequest request) {
     auth.requirePermission(request, "section.tools.view");
     return json.view(catalog.detail(id));
   }

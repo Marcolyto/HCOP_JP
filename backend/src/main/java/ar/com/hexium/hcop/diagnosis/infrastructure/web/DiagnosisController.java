@@ -5,6 +5,7 @@ import ar.com.hexium.hcop.diagnosis.application.port.in.DiagnosisUseCase;
 import ar.com.hexium.hcop.diagnosis.application.port.in.DiagnosisUseCase.DiagnosisLinkResult;
 import ar.com.hexium.hcop.diagnosis.application.port.in.DiagnosisUseCase.DiagnosisListView;
 import ar.com.hexium.hcop.diagnosis.domain.DiagnosisRecord;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -27,7 +28,8 @@ public class DiagnosisController {
   }
 
   @GetMapping("/api/clinical/patients/{patientId}/diagnosis")
-  Map<String, Object> list(@PathVariable long patientId, HttpServletRequest request) {
+  Map<String, Object> list(@Parameter(description = "Id interno del paciente")
+  @PathVariable long patientId, HttpServletRequest request) {
     auth.requirePermission(request, "section.history.view");
     DiagnosisListView view = diagnoses.list(patientId);
     return Map.of(
@@ -39,6 +41,7 @@ public class DiagnosisController {
 
   @PutMapping("/api/clinical/patients/{patientId}/diagnosis")
   Map<String, Object> link(
+      @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId,
       @RequestBody JsonNode body,
       HttpServletRequest request) {

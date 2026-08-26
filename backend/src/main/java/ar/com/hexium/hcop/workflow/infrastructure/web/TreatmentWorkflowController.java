@@ -10,6 +10,7 @@ import ar.com.hexium.hcop.workflow.application.port.in.TreatmentWorkflowUseCase.
 import ar.com.hexium.hcop.workflow.application.port.in.TreatmentWorkflowUseCase.ResumeCommand;
 import ar.com.hexium.hcop.workflow.application.port.in.TreatmentWorkflowUseCase.SuspendCommand;
 import ar.com.hexium.hcop.workflow.domain.WorkflowRequest;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
@@ -37,7 +38,9 @@ public class TreatmentWorkflowController {
 
   @PostMapping("/api/clinical/treatments/{patientId}/{treatmentId}/suspend")
   Map<String, Object> suspend(
-      @PathVariable long patientId, @PathVariable String treatmentId,
+      @Parameter(description = "Id interno del paciente")
+      @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
+      @PathVariable String treatmentId,
       @RequestBody JsonNode body, HttpServletRequest request) {
     auth.requirePermission(request, "workflow.suspend");
     SessionPrincipal actor = auth.require(request);
@@ -50,7 +53,9 @@ public class TreatmentWorkflowController {
 
   @PostMapping("/api/clinical/treatments/{patientId}/{treatmentId}/resume")
   Map<String, Object> resume(
-      @PathVariable long patientId, @PathVariable String treatmentId,
+      @Parameter(description = "Id interno del paciente")
+      @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
+      @PathVariable String treatmentId,
       @RequestBody JsonNode body, HttpServletRequest request) {
     auth.requirePermission(request, "workflow.resume");
     SessionPrincipal actor = auth.require(request);
@@ -82,7 +87,8 @@ public class TreatmentWorkflowController {
   }
 
   @PatchMapping("/api/clinical/treatment-workflow-requests/{id}/seen")
-  Map<String, Object> seen(@PathVariable long id, HttpServletRequest request) {
+  Map<String, Object> seen(@Parameter(description = "Id de la solicitud de workflow")
+  @PathVariable long id, HttpServletRequest request) {
     SessionPrincipal actor = auth.require(request);
     WorkflowRequest item = workflows.seen(id, actor.userId());
     return Map.of("ok", true, "item", json.requestView(item));
@@ -90,6 +96,7 @@ public class TreatmentWorkflowController {
 
   @PostMapping("/api/clinical/treatment-workflow-requests/{id}/resolve")
   Map<String, Object> resolve(
+      @Parameter(description = "Id de la solicitud de workflow")
       @PathVariable long id, @RequestBody JsonNode body, HttpServletRequest request) {
     SessionPrincipal actor = auth.require(request);
     RequestActionResult result = workflows.resolveRequest(new ResolveCommand(

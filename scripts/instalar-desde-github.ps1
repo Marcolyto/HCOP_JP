@@ -1443,7 +1443,9 @@ function Invoke-ValidateOnly {
     [ref]$errors) | Out-Null
   $repositoryRoot = Split-Path -Parent $PSScriptRoot
   $required = @(
-    "Dockerfile",
+    "backend\Dockerfile",
+    "bff\Dockerfile",
+    "frontend\Dockerfile",
     "compose.yaml",
     "compose.github.yaml",
     "INSTALAR-DESDE-GITHUB.bat",

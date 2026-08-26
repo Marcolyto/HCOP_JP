@@ -10,6 +10,7 @@ import ar.com.hexium.hcop.patient.application.port.in.PatientUseCase.DuplicatePa
 import ar.com.hexium.hcop.patient.domain.NewPatient;
 import ar.com.hexium.hcop.patient.domain.Patient;
 import ar.com.hexium.hcop.patient.domain.StoredDocument;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
@@ -50,7 +51,8 @@ public class PatientController {
   }
 
   @GetMapping({"/api/clinical/patients", "/api/lira/patients"})
-  Map<String, Object> search(@RequestParam(defaultValue = "") String q, HttpServletRequest request) {
+  Map<String, Object> search(@Parameter(description = "Texto libre de búsqueda")
+  @RequestParam(defaultValue = "") String q, HttpServletRequest request) {
     authContext.requirePermission(request, "section.history.view");
     List<Map<String, Object>> found = patients.search(q).stream().map(json::searchView).toList();
     return Map.of("ok", true, "patients", found, "total", found.size());
@@ -88,6 +90,7 @@ public class PatientController {
 
   @GetMapping("/api/lira/patients/{patientId}/preview")
   Map<String, Object> preview(
+      @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId,
       HttpServletRequest request) {
     authContext.requirePermission(request, "section.history.view");
@@ -106,6 +109,7 @@ public class PatientController {
 
   @PostMapping({"/api/lira/patients/{patientId}/import", "/api/lira/patients/{patientId}/refresh"})
   Map<String, Object> importPatient(
+      @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId,
       HttpServletRequest request) {
     authContext.requirePermission(request, "section.history.view");

@@ -31,7 +31,9 @@ public class InfusionController {
 
   @GetMapping("/api/clinical/infusions")
   Map<String, Object> list(
+      @Parameter(description = "Id del paciente a filtrar (opcional)")
       @RequestParam(required = false) Long patientId,
+      @Parameter(description = "Fecha a filtrar (YYYY-MM-DD)")
       @RequestParam(required = false) LocalDate date,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.day-hospital.view");
@@ -49,6 +51,7 @@ public class InfusionController {
 
   @PatchMapping("/api/clinical/infusions/{id}")
   Map<String, Object> update(
+      @Parameter(description = "Id de la aplicación (infusión) a actualizar")
       @PathVariable long id, @RequestBody JsonNode body, HttpServletRequest request) {
     auth.requirePermission(request, "application.schedule.manage");
     SessionPrincipal actor = auth.require(request);
@@ -57,7 +60,9 @@ public class InfusionController {
 
   @GetMapping("/api/clinical/infusion-candidates")
   Map<String, Object> candidates(
+      @Parameter(description = "Texto libre de búsqueda de candidatos")
       @RequestParam(defaultValue = "") String q,
+      @Parameter(description = "true para incluir aplicaciones ya agendadas")
       @RequestParam(defaultValue = "false") boolean includeScheduled,
       @Parameter(
           description =
@@ -72,7 +77,11 @@ public class InfusionController {
 
   @PatchMapping("/api/clinical/treatment-cycles/{patientId}/{treatmentId}/{cycleNumber}/logistics")
   Map<String, Object> logistics(
-      @PathVariable long patientId, @PathVariable String treatmentId, @PathVariable int cycleNumber,
+      @Parameter(description = "Id interno del paciente")
+      @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
+      @PathVariable String treatmentId, @Parameter(description = "Número de ciclo del tratamiento")
+      @PathVariable int cycleNumber,
+      @Parameter(description = "Día de aplicación dentro del ciclo")
       @RequestParam(defaultValue = "1") int applicationDay,
       @RequestBody JsonNode body, HttpServletRequest request) {
     auth.requirePermission(request, "application.pharmacy.manage");

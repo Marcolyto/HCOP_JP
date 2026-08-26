@@ -1,6 +1,7 @@
 package ar.com.hexium.hcop.catalog.infrastructure.web;
 
 import ar.com.hexium.hcop.catalog.application.port.in.DiagnosisCatalogUseCase;
+import io.swagger.v3.oas.annotations.Parameter;
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,8 +21,11 @@ public class DiagnosisCatalogController {
 
   @GetMapping("/search")
   public Map<String, Object> search(
+      @Parameter(description = "Sistema de codificación (SNOMED/CIE-10)")
       @RequestParam String system,
+      @Parameter(description = "Texto libre de búsqueda diagnóstica")
       @RequestParam(name = "q") String query,
+      @Parameter(description = "Cantidad máxima de resultados")
       @RequestParam(defaultValue = "40") int limit) {
     var result = catalog.search(system, query, limit);
     var items = result.items().stream().map(json::view).toList();

@@ -7,6 +7,7 @@ import ar.com.hexium.hcop.catalog.domain.TreatmentScheme;
 import ar.com.hexium.hcop.treatment.application.port.in.TreatmentUseCase;
 import ar.com.hexium.hcop.treatment.application.port.in.TreatmentUseCase.CreateTreatmentCommand;
 import ar.com.hexium.hcop.treatment.application.port.in.TreatmentUseCase.CreationResult;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -37,7 +38,8 @@ public class TreatmentController {
   }
 
   @GetMapping("/api/clinical/patients/{patientId}/treatments")
-  Map<String, Object> list(@PathVariable long patientId, HttpServletRequest request) {
+  Map<String, Object> list(@Parameter(description = "Id interno del paciente")
+  @PathVariable long patientId, HttpServletRequest request) {
     auth.requirePermission(request, "section.prescriptions.view");
     List<Map<String, Object>> oncology = treatments.list(patientId);
     return Map.of(
@@ -53,6 +55,7 @@ public class TreatmentController {
 
   @PostMapping("/api/clinical/patients/{patientId}/treatments")
   ResponseEntity<Map<String, Object>> create(
+      @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId,
       @RequestBody JsonNode body,
       HttpServletRequest request) {
@@ -100,14 +103,17 @@ public class TreatmentController {
   }
 
   @GetMapping("/api/clinical/patients/{patientId}/treatment-options")
-  Map<String, Object> options(@PathVariable long patientId, HttpServletRequest request) {
+  Map<String, Object> options(@Parameter(description = "Id interno del paciente")
+  @PathVariable long patientId, HttpServletRequest request) {
     auth.requirePermission(request, "section.prescriptions.view");
     return treatments.options(patientId);
   }
 
   @GetMapping("/api/clinical/patients/{patientId}/treatment-requirements/{schemeId}")
   Map<String, Object> requirements(
+      @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId,
+      @Parameter(description = "Id del esquema de tratamiento")
       @PathVariable String schemeId,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.prescriptions.view");
@@ -116,7 +122,9 @@ public class TreatmentController {
 
   @GetMapping("/api/clinical/patients/{patientId}/treatments/{treatmentId}/detail")
   Map<String, Object> detail(
+      @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId,
+      @Parameter(description = "Id del tratamiento")
       @PathVariable String treatmentId,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.prescriptions.view");
@@ -125,6 +133,7 @@ public class TreatmentController {
 
   @GetMapping("/api/clinical/schemes")
   Map<String, Object> schemes(
+      @Parameter(description = "Texto libre de búsqueda de esquemas")
       @RequestParam(defaultValue = "") String q,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.protocols.view");
@@ -157,7 +166,8 @@ public class TreatmentController {
   }
 
   @GetMapping("/api/clinical/schemes/{id}/duration")
-  Map<String, Object> duration(@PathVariable String id, HttpServletRequest request) {
+  Map<String, Object> duration(@Parameter(description = "Id del esquema de tratamiento")
+  @PathVariable String id, HttpServletRequest request) {
     auth.requirePermission(request, "section.protocols.view");
     var scheme = catalog.scheme(id)
         .orElseThrow(() -> new ar.com.hexium.hcop.platform.web.ApiException(

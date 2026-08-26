@@ -2,6 +2,7 @@ package ar.com.hexium.hcop.protocol.infrastructure.web;
 
 import ar.com.hexium.hcop.auth.AuthContext;
 import ar.com.hexium.hcop.protocol.application.port.in.ProtocolManagementUseCase;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
@@ -34,7 +35,9 @@ public class ProtocolController {
 
   @GetMapping("/api/clinical/protocols")
   Map<String, Object> list(
+      @Parameter(description = "1 para incluir protocolos archivados, 0 (default) para omitirlos")
       @RequestParam(defaultValue = "0") int includeArchived,
+      @Parameter(description = "1 para incluir protocolos de catálogo, 0 (default) para omitirlos")
       @RequestParam(defaultValue = "0") int includeCatalog,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.protocols.view");
@@ -49,7 +52,8 @@ public class ProtocolController {
   }
 
   @GetMapping("/api/clinical/protocols/{id}")
-  Map<String, Object> get(@PathVariable String id, HttpServletRequest request) {
+  Map<String, Object> get(@Parameter(description = "Id del protocolo")
+  @PathVariable String id, HttpServletRequest request) {
     auth.requirePermission(request, "section.protocols.view");
     return Map.of("ok", true, "protocol", json.view(protocols.get(id)));
   }
@@ -66,6 +70,7 @@ public class ProtocolController {
 
   @PutMapping("/api/clinical/protocols/{id}")
   Map<String, Object> update(
+      @Parameter(description = "Id del protocolo")
       @PathVariable String id,
       @RequestBody JsonNode body,
       HttpServletRequest request) {
@@ -75,7 +80,8 @@ public class ProtocolController {
   }
 
   @DeleteMapping("/api/clinical/protocols/{id}")
-  Map<String, Object> archive(@PathVariable String id, HttpServletRequest request) {
+  Map<String, Object> archive(@Parameter(description = "Id del protocolo")
+  @PathVariable String id, HttpServletRequest request) {
     auth.requirePermission(request, "section.protocols.edit");
     var protocol = protocols.archive(id, ar.com.hexium.hcop.sharedkernel.domain.UserId.of(
         auth.require(request).userId()));
@@ -91,6 +97,7 @@ public class ProtocolController {
 
   @GetMapping("/api/clinical/drugs")
   Map<String, Object> drugs(
+      @Parameter(description = "Texto libre de búsqueda de drogas")
       @RequestParam(defaultValue = "") String q,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.protocols.view");

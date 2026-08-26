@@ -2,6 +2,7 @@ package ar.com.hexium.hcop.guide.infrastructure.web;
 
 import ar.com.hexium.hcop.auth.AuthContext;
 import ar.com.hexium.hcop.guide.application.port.in.GuideCatalogUseCase;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.Map;
@@ -32,6 +33,7 @@ public class GuideCatalogController {
 
   @GetMapping("/api/guides")
   Map<String, Object> list(
+      @Parameter(description = "1 para incluir guías inactivas, 0 (default) para omitirlas")
       @RequestParam(defaultValue = "0") int includeInactive,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.tools.view");
@@ -41,6 +43,7 @@ public class GuideCatalogController {
 
   @GetMapping("/api/guides/file")
   ResponseEntity<InputStreamResource> file(
+      @Parameter(description = "Nombre de archivo de la guía a descargar")
       @RequestParam String name,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.tools.view");
@@ -56,6 +59,7 @@ public class GuideCatalogController {
 
   @PutMapping(value = "/api/guides/import", consumes = MediaType.APPLICATION_PDF_VALUE)
   Map<String, Object> upload(
+      @Parameter(description = "Nombre de archivo con el que se guarda la guía")
       @RequestParam String name,
       HttpServletRequest request) throws IOException {
     auth.requirePermission(request, "section.configuration.manage");

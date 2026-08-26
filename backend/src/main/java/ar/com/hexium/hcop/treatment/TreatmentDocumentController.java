@@ -1,8 +1,8 @@
 package ar.com.hexium.hcop.treatment;
 
 import ar.com.hexium.hcop.auth.AuthContext;
-import ar.com.hexium.hcop.media.ClinicalFileService;
-import ar.com.hexium.hcop.media.ClinicalFileRepository.StoredFile;
+import ar.com.hexium.hcop.media.application.port.in.ClinicalFileUseCase;
+import ar.com.hexium.hcop.media.domain.ClinicalFile;
 import jakarta.servlet.http.HttpServletRequest;
 import java.nio.file.Path;
 import org.springframework.core.io.FileSystemResource;
@@ -20,12 +20,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class TreatmentDocumentController {
   private final TreatmentDocumentService documents;
-  private final ClinicalFileService files;
+  private final ClinicalFileUseCase files;
   private final AuthContext auth;
 
   public TreatmentDocumentController(
       TreatmentDocumentService documents,
-      ClinicalFileService files,
+      ClinicalFileUseCase files,
       AuthContext auth) {
     this.documents = documents;
     this.files = files;
@@ -64,8 +64,8 @@ public class TreatmentDocumentController {
     return stored(documents.stored(patientId, treatmentId, "prescription"));
   }
 
-  private ResponseEntity<Resource> stored(StoredFile file) {
-    Path path = files.path(file);
+  private ResponseEntity<Resource> stored(ClinicalFile file) {
+    Path path = files.resolvePath(file);
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(MediaType.parseMediaType(file.contentType()));
     headers.setContentLength(file.size());

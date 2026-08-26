@@ -3,8 +3,8 @@ package ar.com.hexium.hcop.treatment;
 import ar.com.hexium.hcop.common.ApiException;
 import ar.com.hexium.hcop.infusion.InfusionRepository;
 import ar.com.hexium.hcop.infusion.InfusionRepository.Infusion;
-import ar.com.hexium.hcop.media.ClinicalFileRepository;
-import ar.com.hexium.hcop.media.ClinicalFileRepository.StoredFile;
+import ar.com.hexium.hcop.media.application.port.in.ClinicalFileUseCase;
+import ar.com.hexium.hcop.media.domain.ClinicalFile;
 import ar.com.hexium.hcop.patient.PatientService;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -21,20 +21,20 @@ public class TreatmentDocumentService {
   private final TreatmentRepository treatments;
   private final PatientService patients;
   private final InfusionRepository infusions;
-  private final ClinicalFileRepository files;
+  private final ClinicalFileUseCase files;
 
   public TreatmentDocumentService(
       TreatmentRepository treatments,
       PatientService patients,
       InfusionRepository infusions,
-      ClinicalFileRepository files) {
+      ClinicalFileUseCase files) {
     this.treatments = treatments;
     this.patients = patients;
     this.infusions = infusions;
     this.files = files;
   }
 
-  public StoredFile stored(String treatmentId, String kind) {
+  public ClinicalFile stored(String treatmentId, String kind) {
     treatments.find(treatmentId)
         .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tratamiento no encontrado."));
     return files.findLatestByTreatment(treatmentId, kind)
@@ -42,7 +42,7 @@ public class TreatmentDocumentService {
             HttpStatus.NOT_FOUND, "El documento todavía no está disponible en la base clínica local."));
   }
 
-  public StoredFile stored(long patientId, String treatmentId, String kind) {
+  public ClinicalFile stored(long patientId, String treatmentId, String kind) {
     treatments.find(patientId, treatmentId)
         .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tratamiento no encontrado."));
     return files.findLatestByTreatment(treatmentId, kind)

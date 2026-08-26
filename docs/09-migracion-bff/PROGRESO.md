@@ -487,7 +487,53 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
   `POST /api/llm/summarize` sin eventos (400), `/extract-timeline` con texto vacío (400),
   `/fill-systemic-form` con plantilla inexistente (404) — configuración restaurada al estado
   original (`enabled:false`, sin API key) al terminar.
-- [ ] F3.2 (3/3) — `media` (791 LOC, introduce `PatientLookupPort`)
+- [x] F3.2 (3/3) — `media` migrado (822 LOC: `ClinicalFileController`/`Repository`/`Service` +
+  `StudyTemplateController` — subida/descarga de estudios e imágenes clínicas con streaming,
+  validación de firma binaria, borrado por token, y plantillas anatómicas bundled+custom).
+  `domain/ClinicalFile` · `application/port/in/{ClinicalFileUseCase,StudyTemplateUseCase}` ·
+  `application/port/out/{ClinicalFileStore,ClinicalFileBlobStore,PatientLookupPort,
+  StudyTemplateManifestStore}` · `MediaFailure` (`INVALID`/`NOT_FOUND`/`CONFLICT`/
+  `UNSUPPORTED_FORMAT`/`FORBIDDEN`/`TOO_LARGE` — 6 valores, el enum más grande de F3 hasta ahora,
+  necesario porque el módulo original ya usaba 5 status HTTP distintos) ·
+  `infrastructure/persistence/{PostgresClinicalFileStore,FilesystemClinicalFileBlobStore,
+  FilesystemStudyTemplateManifestStore}` (blob store separado del store de metadatos — el
+  filesystem no participa de la transacción de Postgres) ·
+  `infrastructure/patient/PatientServiceLookupAdapter` (implementa `PatientLookupPort`, el pedido
+  explícito del plan — rompe la dependencia directa a `patient`, todavía no hexagonal) ·
+  `infrastructure/web/{ClinicalFileController,StudyTemplateController}` (mismos 7 endpoints) +
+  `ClinicalFileJsonMapper`/`StudyTemplateJsonMapper` + `MediaFailureAdvice`.
+  **Decisión de diseño (mismo criterio que `catalog`/`integration`):** la validación de bytes no
+  confiables (límite de tamaño, firma binaria contra la extensión declarada, movida atómica) queda
+  en `FilesystemClinicalFileBlobStore` lanzando `ApiException` directo — es protocolo de subida, no
+  regla de negocio; las políticas sí de negocio (qué extensiones se aceptan, mapeo de
+  content-type↔extensión) quedan en `ClinicalFileApplicationService`.
+  **Blast radius real fuera de `media/`:** `treatment/{TreatmentDocumentService,
+  TreatmentDocumentController}` consumían `ClinicalFileRepository`/`ClinicalFileService` directo
+  (ni siquiera vía el service para el repositorio) — pasan a depender de `ClinicalFileUseCase`
+  (`findLatestByTreatment`/`resolvePath`), puerto cruzado real en la dirección opuesta a
+  `PatientLookupPort`.
+  **Hallazgo de diseño:** `StudyTemplateJsonMapper` reutiliza `ConfigurationJsonMapper`
+  (`configuration/infrastructure/web`) directo — infra-a-infra entre módulos, sin regla de ArchUnit
+  que lo prohíba (R6 sólo restringe `web`→`application.service`); evita duplicar la proyección
+  `ConfigurationView`→Map que ya existe, mismo shape de respuesta byte a byte.
+  Tests: `StudyTemplateControllerTest` (único test previo del módulo) relocado y adaptado a
+  `StudyTemplateApplicationServiceTest` (mismas 2 aserciones, ahora contra el use case) +
+  `ClinicalFileApplicationServiceTest` nuevo (0 tests antes: extensión no permitida, tipo de imagen
+  no permitido, nombre de archivo inválido, archivo inexistente, borrado sin token válido). `media`
+  sale de `TRACKED_LEGACY_MODULES` — **F3.2 completa**.
+  Verificado en Docker real con binarios reales (no solo mocks): `mvn -f backend/pom.xml verify`
+  verde · `docker compose up --build --wait` 5 servicios healthy · `generate-openapi-snapshot.ps1
+  -Check` diff vacío · `smoke-test.ps1` verde · subida de un PNG real con paciente real →
+  descarga → **comparación de bytes idéntica** (`cmp` sin diferencias) · PNG con firma binaria
+  falsa → 415 · borrado con token incorrecto → 403 · borrado con token correcto → 200 · subida de
+  imagen por `dataUrl` base64 → descarga → bytes idénticos · creación de plantilla de estudio
+  (multipart real) → aparece en `scope=custom` · rechazo sin `rightsConfirmed` → 400 ·
+  `/api/clinical/treatments/{id}/consent` con tratamiento inexistente → 404 (no 500 — confirma que
+  el puerto cruzado de `treatment` funciona).
+
+## F3.2 — CERRADA. `catalog`/`integration`/`media` migrados — la etapa más grande de F3 hasta
+  ahora (3550 LOC originales). Commits: `c8111e3` (1/3 catalog) · `3563566` (2/3 integration) ·
+  (3/3 media, este). Siguiente: F3.3.0 — puertos cruzados (patient/treatment/infusion).
 
 ### Siguientes etapas (no arrancadas)
 
@@ -512,7 +558,9 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
 5. Al terminar un módulo: sacarlo de `TRACKED_LEGACY_MODULES` en
    `backend/src/test/java/ar/com/hexium/hcop/architecture/HexagonalArchitectureTest.java` (esa
    lista ES el tracker ejecutable) y marcarlo `[x]` acá con el hash del commit.
-6. Próximo paso concreto: **F3.2 (3/3) — `media`** (791 LOC, introduce `PatientLookupPort`).
+6. Próximo paso concreto: **F3.3.0 — puertos cruzados** (patient/treatment/infusion, commit propio,
+   sin mover nada — define `PatientLookupPort`/`TreatmentSummaryPort`/`TreatmentCyclePort`/
+   `ClinicalFilePort`/`DrugCatalogPort` con adapters que delegan a los services legacy).
 
 ## Decisiones ya tomadas (no volver a preguntar)
 - Layout: backend/ bff/ frontend/ en raíz · Auth: JWT completo · Alcance: hexagonal completo

@@ -1,10 +1,12 @@
-package ar.com.hexium.hcop.media;
+package ar.com.hexium.hcop.media.infrastructure.web;
 
 import ar.com.hexium.hcop.auth.AuthContext;
-import ar.com.hexium.hcop.auth.SessionPrincipal;
 import ar.com.hexium.hcop.common.ApiException;
-import ar.com.hexium.hcop.media.ClinicalFileRepository.StoredFile;
-import ar.com.hexium.hcop.media.ClinicalFileService.StudyUpload;
+import ar.com.hexium.hcop.media.application.port.in.ClinicalFileUseCase;
+import ar.com.hexium.hcop.media.application.port.in.ClinicalFileUseCase.StoreImageCommand;
+import ar.com.hexium.hcop.media.application.port.in.ClinicalFileUseCase.UploadStudyCommand;
+import ar.com.hexium.hcop.media.domain.ClinicalFile;
+import ar.com.hexium.hcop.sharedkernel.domain.UserId;
 import jakarta.servlet.http.HttpServletRequest;
 import java.nio.file.Path;
 import java.util.Base64;
@@ -29,11 +31,13 @@ import tools.jackson.databind.JsonNode;
 
 @RestController
 public class ClinicalFileController {
-  private final ClinicalFileService files;
+  private final ClinicalFileUseCase files;
+  private final ClinicalFileJsonMapper json;
   private final AuthContext auth;
 
-  public ClinicalFileController(ClinicalFileService files, AuthContext auth) {
+  public ClinicalFileController(ClinicalFileUseCase files, ClinicalFileJsonMapper json, AuthContext auth) {
     this.files = files;
+    this.json = json;
     this.auth = auth;
   }
 
@@ -42,21 +46,21 @@ public class ClinicalFileController {
       @RequestParam long patientId,
       @RequestParam String studyId,
       @RequestParam(name = "name") String fileName,
-      HttpServletRequest request) {
+      HttpServletRequest request) throws java.io.IOException {
     auth.requirePermission(request, "section.studies.edit");
-    StudyUpload upload = files.uploadStudy(
-        request, patientId, studyId, fileName, auth.require(request), auth.sessionId(request));
+    var actor = auth.require(request);
+    var upload = files.uploadStudy(new UploadStudyCommand(
+        patientId, studyId, fileName, request.getContentType(), request.getInputStream(),
+        UserId.of(actor.userId()), auth.sessionId(request)));
     return ResponseEntity.status(HttpStatus.CREATED)
-        .body(withOk(files.studyView(upload.file(), upload.deleteToken())));
+        .body(withOk(json.studyView(upload.file(), upload.deleteToken())));
   }
 
   @GetMapping("/api/media/studies/{name:.+}")
-  ResponseEntity<Resource> study(
-      @PathVariable String name,
-      HttpServletRequest request) {
+  ResponseEntity<Resource> study(@PathVariable String name, HttpServletRequest request) {
     auth.requirePermission(request, "section.studies.view");
-    StoredFile file = files.requireByStorageName("studies", name);
-    return file(file, files.path(file), false);
+    ClinicalFile file = files.requireStudy(name);
+    return file(file, files.resolvePath(file), false);
   }
 
   @DeleteMapping("/api/media/studies/{name:.+}")
@@ -70,9 +74,7 @@ public class ClinicalFileController {
   }
 
   @PostMapping("/api/media/images")
-  ResponseEntity<Map<String, Object>> uploadImage(
-      @RequestBody JsonNode body,
-      HttpServletRequest request) {
+  ResponseEntity<Map<String, Object>> uploadImage(@RequestBody JsonNode body, HttpServletRequest request) {
     auth.requirePermission(request, "section.studies.edit");
     if (body.hasNonNull("sourceUrl") && !body.path("sourceUrl").asText("").isBlank()) {
       throw new ApiException(
@@ -91,27 +93,21 @@ public class ClinicalFileController {
     } catch (IllegalArgumentException invalid) {
       throw new ApiException(HttpStatus.BAD_REQUEST, "La imagen no tiene un formato válido.");
     }
-    SessionPrincipal actor = auth.require(request);
-    StoredFile stored = files.storeImage(
-        body.path("fileName").asText("imagen"),
-        bytes,
-        contentType,
-        body.path("kind").asText("original"),
-        actor,
-        auth.sessionId(request));
-    return ResponseEntity.status(HttpStatus.CREATED).body(withOk(files.imageView(stored)));
+    var actor = auth.require(request);
+    ClinicalFile stored = files.storeImage(new StoreImageCommand(
+        body.path("fileName").asText("imagen"), bytes, contentType, body.path("kind").asText("original"),
+        UserId.of(actor.userId()), auth.sessionId(request)));
+    return ResponseEntity.status(HttpStatus.CREATED).body(withOk(json.imageView(stored)));
   }
 
   @GetMapping("/api/media/images/{name:.+}")
-  ResponseEntity<Resource> image(
-      @PathVariable String name,
-      HttpServletRequest request) {
+  ResponseEntity<Resource> image(@PathVariable String name, HttpServletRequest request) {
     auth.requirePermission(request, "section.studies.view");
-    StoredFile file = files.requireByStorageName("images", name);
-    return file(file, files.path(file), true);
+    ClinicalFile file = files.requireImage(name);
+    return file(file, files.resolvePath(file), true);
   }
 
-  private ResponseEntity<Resource> file(StoredFile file, Path path, boolean immutable) {
+  private ResponseEntity<Resource> file(ClinicalFile file, Path path, boolean immutable) {
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(MediaType.parseMediaType(file.contentType()));
     headers.setContentLength(file.size());

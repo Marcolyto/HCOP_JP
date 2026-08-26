@@ -5,7 +5,7 @@ import java.util.List;
 
 /**
  * F3.3.0 (puertos cruzados): rompe la dependencia directa de {@code treatment} hacia
- * {@code infusion.InfusionRepository.Infusion} — {@code TreatmentDocumentService.treatmentSheet}
+ * {@code infusion.domain.Infusion} — {@code TreatmentDocumentService.treatmentSheet}
  * solo necesita los 5 campos de {@link InfusionAppointment}, no el registro completo de
  * {@code infusion}. Implementado por un adapter que vive en {@code infusion}.
  */

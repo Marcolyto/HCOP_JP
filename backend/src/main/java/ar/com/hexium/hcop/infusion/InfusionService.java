@@ -2,16 +2,17 @@ package ar.com.hexium.hcop.infusion;
 
 import ar.com.hexium.hcop.auth.SessionPrincipal;
 import ar.com.hexium.hcop.common.ApiException;
-import ar.com.hexium.hcop.infusion.InfusionRepository.Candidate;
-import ar.com.hexium.hcop.infusion.InfusionRepository.Infusion;
-import ar.com.hexium.hcop.infusion.InfusionRepository.Logistics;
-import ar.com.hexium.hcop.infusion.InfusionRepository.Medication;
-import ar.com.hexium.hcop.infusion.InfusionRepository.NewInfusion;
-import ar.com.hexium.hcop.infusion.InfusionRepository.Patch;
-import ar.com.hexium.hcop.infusion.InfusionRepository.ScheduleSettings;
+import ar.com.hexium.hcop.infusion.domain.Candidate;
+import ar.com.hexium.hcop.infusion.domain.Infusion;
+import ar.com.hexium.hcop.infusion.domain.Logistics;
+import ar.com.hexium.hcop.infusion.domain.Medication;
+import ar.com.hexium.hcop.infusion.domain.NewInfusion;
+import ar.com.hexium.hcop.infusion.domain.Patch;
+import ar.com.hexium.hcop.infusion.domain.ScheduleSettings;
 import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.Key;
 import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.ScheduleGate;
 import ar.com.hexium.hcop.infusion.application.port.in.TreatmentApplicationLogisticsUseCase;
+import ar.com.hexium.hcop.infusion.application.port.out.InfusionStore;
 import ar.com.hexium.hcop.patient.application.port.in.PatientUseCase;
 import ar.com.hexium.hcop.treatment.domain.DayHospitalApplicationPolicy;
 import ar.com.hexium.hcop.treatment.application.port.out.TreatmentStore;
@@ -41,7 +42,7 @@ public class InfusionService {
       "not_required", "pending", "in_preparation", "ready", "released", "cancelled");
   private static final Set<String> ADMINISTRATION = Set.of(
       "not_started", "in_progress", "completed", "withheld", "cancelled");
-  private final InfusionRepository infusions;
+  private final InfusionStore infusions;
   private final TreatmentApplicationLogisticsUseCase applicationLogistics;
   private final ApplicationWorkflowRepository applicationWorkflows;
   private final TreatmentStore treatments;
@@ -50,7 +51,7 @@ public class InfusionService {
   private final Clock clock;
 
   public InfusionService(
-      InfusionRepository infusions,
+      InfusionStore infusions,
       TreatmentApplicationLogisticsUseCase applicationLogistics,
       ApplicationWorkflowRepository applicationWorkflows,
       TreatmentStore treatments,
@@ -120,7 +121,7 @@ public class InfusionService {
     scheduler.put("durationSource", logistics.durationSource());
     scheduler.put("drugScheme", logistics.drugSummary());
     List<Medication> medicationRows = medications(input.path("medications"));
-    if (medicationRows.isEmpty()) medicationRows = medications(logistics.applicationDrugs());
+    if (medicationRows.isEmpty()) medicationRows = medications((JsonNode) logistics.applicationDrugs());
     String clinicalStatus = enumValue(input, CLINICAL, "planned", "clinicalStatus");
     String pharmacyStatus = enumValue(input, PHARMACY, "pending", "pharmacyStatus");
     String administrationStatus =
@@ -231,7 +232,7 @@ public class InfusionService {
     if (cancellingAppointment) {
       requestedConfirmation = false;
       requestedSourceRef = unconfirmedSourceRef(
-          requestedSourceRef == null ? existing.sourceRef() : requestedSourceRef);
+          requestedSourceRef == null ? (JsonNode) existing.sourceRef() : requestedSourceRef);
     } else if (placementChanged || Boolean.TRUE.equals(requestedConfirmation)) {
       Logistics logistics = infusions.logistics(
               existing.patientId(), existing.treatmentId(),
@@ -254,7 +255,7 @@ public class InfusionService {
       if (placementChanged) {
         requestedConfirmation = false;
         requestedSourceRef = unconfirmedSourceRef(
-            requestedSourceRef == null ? existing.sourceRef() : requestedSourceRef);
+            requestedSourceRef == null ? (JsonNode) existing.sourceRef() : requestedSourceRef);
       }
     }
     Patch patch = new Patch(
@@ -358,16 +359,17 @@ public class InfusionService {
     result.put("diagnosis", infusion.diagnosis());
     result.put("scheme", infusion.scheme());
     result.put("treatmentScheme", infusion.scheme());
-    result.put("drugScheme", infusion.sourceRef().path("scheduler").path("drugScheme").asText(infusion.scheme()));
+    JsonNode sourceRef = (JsonNode) infusion.sourceRef();
+    result.put("drugScheme", sourceRef.path("scheduler").path("drugScheme").asText(infusion.scheme()));
     result.put("treatmentType", infusion.treatmentType());
     result.put("totalCycles", infusion.totalCycles());
     result.put("cycleDays", infusion.cycleDays());
-    boolean received = infusion.sourceRef().path("scheduler").path("medicationReceived").asBoolean(false);
-    boolean withPatient = infusion.sourceRef().path("scheduler").path("medicationWithPatient").asBoolean(false);
+    boolean received = sourceRef.path("scheduler").path("medicationReceived").asBoolean(false);
+    boolean withPatient = sourceRef.path("scheduler").path("medicationWithPatient").asBoolean(false);
     result.put("medicationReceived", received);
     result.put("medicationWithPatient", withPatient);
     result.put("prescriptionConfirmed",
-        infusion.sourceRef().path("scheduler").path("prescriptionConfirmed").asBoolean(true));
+        sourceRef.path("scheduler").path("prescriptionConfirmed").asBoolean(true));
     result.put("medications", infusions.medications(infusion.id()).stream().map(item -> Map.of(
         "id", Long.toString(item.id()),
         "drugId", item.drugId(),

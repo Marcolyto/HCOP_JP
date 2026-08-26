@@ -1,8 +1,8 @@
 package ar.com.hexium.hcop.qr.infrastructure.infusion;
 
-import ar.com.hexium.hcop.infusion.InfusionRepository;
-import ar.com.hexium.hcop.infusion.InfusionRepository.Infusion;
 import ar.com.hexium.hcop.infusion.InfusionService;
+import ar.com.hexium.hcop.infusion.application.port.out.InfusionStore;
+import ar.com.hexium.hcop.infusion.domain.Infusion;
 import ar.com.hexium.hcop.qr.application.port.out.QrInfusionPort;
 import ar.com.hexium.hcop.qr.domain.QrInfusionRef;
 import ar.com.hexium.hcop.treatment.infrastructure.legacy.DayHospitalProtocolRules;
@@ -14,10 +14,10 @@ import tools.jackson.databind.JsonNode;
 /** Único lugar del módulo que navega el JSON de logística (drogas por día de aplicación). */
 @Component
 public class QrInfusionAdapter implements QrInfusionPort {
-  private final InfusionRepository infusionRepository;
+  private final InfusionStore infusionRepository;
   private final InfusionService infusionService;
 
-  public QrInfusionAdapter(InfusionRepository infusionRepository, InfusionService infusionService) {
+  public QrInfusionAdapter(InfusionStore infusionRepository, InfusionService infusionService) {
     this.infusionRepository = infusionRepository;
     this.infusionService = infusionService;
   }
@@ -39,7 +39,7 @@ public class QrInfusionAdapter implements QrInfusionPort {
       long patientId, String treatmentId, int cycle, int applicationDay) {
     return infusionRepository.logistics(patientId, treatmentId, cycle, applicationDay)
         .map(logistics -> {
-          JsonNode components = logistics.applicationDrugs();
+          JsonNode components = (JsonNode) logistics.applicationDrugs();
           return components.isArray() && !components.isEmpty()
               && components.valueStream().anyMatch(DayHospitalProtocolRules::requiresDayHospital);
         });

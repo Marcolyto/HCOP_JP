@@ -17,10 +17,11 @@ import ar.com.hexium.hcop.infusion.ApplicationWorkflowPolicy.State;
 import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.Application;
 import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.Key;
 import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.ScheduleGate;
-import ar.com.hexium.hcop.infusion.InfusionRepository.Infusion;
-import ar.com.hexium.hcop.infusion.InfusionRepository.Logistics;
-import ar.com.hexium.hcop.infusion.InfusionRepository.Patch;
-import ar.com.hexium.hcop.infusion.InfusionRepository.ScheduleSettings;
+import ar.com.hexium.hcop.infusion.application.port.out.InfusionStore;
+import ar.com.hexium.hcop.infusion.domain.Infusion;
+import ar.com.hexium.hcop.infusion.domain.Logistics;
+import ar.com.hexium.hcop.infusion.domain.Patch;
+import ar.com.hexium.hcop.infusion.domain.ScheduleSettings;
 import ar.com.hexium.hcop.patient.application.port.in.PatientUseCase;
 import ar.com.hexium.hcop.treatment.application.port.out.TreatmentStore;
 import ar.com.hexium.hcop.treatment.domain.Treatment;
@@ -38,7 +39,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 class InfusionServiceSchedulingWorkflowTest {
   private static final Instant NOW = Instant.parse("2026-07-29T15:00:00Z");
-  private final InfusionRepository infusions = mock(InfusionRepository.class);
+  private final InfusionStore infusions = mock(InfusionStore.class);
   private final TreatmentApplicationLogisticsUseCase logistics =
       mock(TreatmentApplicationLogisticsUseCase.class);
   private final ApplicationWorkflowRepository workflows =
@@ -93,7 +94,7 @@ class InfusionServiceSchedulingWorkflowTest {
     ArgumentCaptor<Patch> savedPatch = ArgumentCaptor.forClass(Patch.class);
     verify(infusions).update(eq(7L), eq(3L), savedPatch.capture(), eq(actor.userId()));
     assertThat(savedPatch.getValue().appointmentConfirmed()).isFalse();
-    assertThat(savedPatch.getValue().sourceRef()
+    assertThat(((JsonNode) savedPatch.getValue().sourceRef())
         .path("scheduler").path("appointmentConfirmed").asBoolean(true)).isFalse();
 
     ArgumentCaptor<JsonNode> before = ArgumentCaptor.forClass(JsonNode.class);

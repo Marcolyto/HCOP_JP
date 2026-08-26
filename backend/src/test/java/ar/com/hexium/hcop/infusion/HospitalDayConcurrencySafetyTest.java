@@ -12,9 +12,10 @@ import ar.com.hexium.hcop.auth.SessionPrincipal;
 import ar.com.hexium.hcop.common.ApiException;
 import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.Key;
 import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.ScheduleGate;
-import ar.com.hexium.hcop.infusion.InfusionRepository.Infusion;
-import ar.com.hexium.hcop.infusion.InfusionRepository.Logistics;
-import ar.com.hexium.hcop.infusion.InfusionRepository.ScheduleSettings;
+import ar.com.hexium.hcop.infusion.application.port.out.InfusionStore;
+import ar.com.hexium.hcop.infusion.domain.Infusion;
+import ar.com.hexium.hcop.infusion.domain.Logistics;
+import ar.com.hexium.hcop.infusion.domain.ScheduleSettings;
 import ar.com.hexium.hcop.patient.application.port.in.PatientUseCase;
 import ar.com.hexium.hcop.treatment.application.port.out.TreatmentStore;
 import ar.com.hexium.hcop.treatment.domain.Treatment;
@@ -246,7 +247,7 @@ class HospitalDayConcurrencySafetyTest {
   }
 
   private static final class SchedulingFixture {
-    private final InfusionRepository infusions = mock(InfusionRepository.class);
+    private final InfusionStore infusions = mock(InfusionStore.class);
     private final TreatmentApplicationLogisticsUseCase logistics =
         mock(TreatmentApplicationLogisticsUseCase.class);
     private final ApplicationWorkflowRepository workflows =

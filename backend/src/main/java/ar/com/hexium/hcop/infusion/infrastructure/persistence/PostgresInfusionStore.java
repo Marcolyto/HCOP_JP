@@ -1,5 +1,13 @@
-package ar.com.hexium.hcop.infusion;
+package ar.com.hexium.hcop.infusion.infrastructure.persistence;
 
+import ar.com.hexium.hcop.infusion.application.port.out.InfusionStore;
+import ar.com.hexium.hcop.infusion.domain.Candidate;
+import ar.com.hexium.hcop.infusion.domain.Infusion;
+import ar.com.hexium.hcop.infusion.domain.Logistics;
+import ar.com.hexium.hcop.infusion.domain.MedicationView;
+import ar.com.hexium.hcop.infusion.domain.NewInfusion;
+import ar.com.hexium.hcop.infusion.domain.Patch;
+import ar.com.hexium.hcop.infusion.domain.ScheduleSettings;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -16,17 +24,18 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @Repository
-public class InfusionRepository {
+public class PostgresInfusionStore implements InfusionStore {
   private final JdbcTemplate jdbc;
   private final ObjectMapper mapper;
   private final Clock clock;
 
-  public InfusionRepository(JdbcTemplate jdbc, ObjectMapper mapper, Clock clock) {
+  public PostgresInfusionStore(JdbcTemplate jdbc, ObjectMapper mapper, Clock clock) {
     this.jdbc = jdbc;
     this.mapper = mapper;
     this.clock = clock;
   }
 
+  @Override
   public List<Infusion> list(Long patientId, LocalDate date) {
     StringBuilder where = new StringBuilder(" WHERE 1=1");
     List<Object> parameters = new ArrayList<>();
@@ -43,10 +52,12 @@ public class InfusionRepository {
         this::map, parameters.toArray());
   }
 
+  @Override
   public Optional<Infusion> find(long id) {
     return jdbc.query(selectSql() + " WHERE s.id = ?", this::map, id).stream().findFirst();
   }
 
+  @Override
   public Optional<Infusion> findByCycle(long patientId, String treatmentId, int cycleNumber) {
     return jdbc.query(selectSql() + """
          WHERE s.patient_id = ? AND s.treatment_id = ? AND s.cycle_number = ?
@@ -56,6 +67,7 @@ public class InfusionRepository {
         """, this::map, patientId, treatmentId, cycleNumber).stream().findFirst();
   }
 
+  @Override
   public Optional<Infusion> findByApplication(
       long patientId, String treatmentId, int cycleNumber, int applicationDay) {
     return jdbc.query(selectSql() + """
@@ -68,6 +80,7 @@ public class InfusionRepository {
         .stream().findFirst();
   }
 
+  @Override
   public Infusion insert(NewInfusion input, long actorId) {
     Instant now = clock.instant();
     long id = jdbc.queryForObject("""
@@ -84,12 +97,13 @@ public class InfusionRepository {
         input.scheduledAt() == null ? null : Timestamp.from(input.scheduledAt()),
         input.chair(), input.durationMinutes(), input.clinicalStatus(), input.pharmacyStatus(),
         input.administrationStatus(), input.appointmentConfirmed(), input.notes(),
-        input.sourceRef().toString(), actorId, actorId,
+        ((JsonNode) input.sourceRef()).toString(), actorId, actorId,
         Timestamp.from(now), Timestamp.from(now));
-    for (Medication medication : input.medications()) insertMedication(id, medication, actorId, now);
+    for (var medication : input.medications()) insertMedication(id, medication, actorId, now);
     return find(id).orElseThrow();
   }
 
+  @Override
   public Optional<Infusion> update(long id, long expectedRevision, Patch patch, long actorId) {
     Instant now = clock.instant();
     int changed = jdbc.update("""
@@ -112,11 +126,12 @@ public class InfusionRepository {
         patch.scheduledAt() == null ? null : Timestamp.from(patch.scheduledAt()),
         patch.clinicalStatus(), patch.chair(), patch.durationMinutes(), patch.clinicalStatus(), patch.pharmacyStatus(),
         patch.administrationStatus(), patch.appointmentConfirmed(), patch.notes(),
-        patch.sourceRef() == null ? null : patch.sourceRef().toString(),
+        patch.sourceRef() == null ? null : ((JsonNode) patch.sourceRef()).toString(),
         actorId, Timestamp.from(now), id, expectedRevision);
     return changed == 0 ? Optional.empty() : find(id);
   }
 
+  @Override
   public List<MedicationView> medications(long infusionId) {
     return jdbc.query("""
         SELECT id, source_item_ref, drug_id, drug_name, prescribed_dose_text, dose_unit,
@@ -132,10 +147,7 @@ public class InfusionRepository {
         infusionId);
   }
 
-  public List<Candidate> candidates(String query, boolean includeScheduled) {
-    return candidates(query, includeScheduled, true);
-  }
-
+  @Override
   public List<Candidate> candidates(
       String query, boolean includeScheduled, boolean onlySchedulingEligible) {
     List<Object> parameters = new ArrayList<>();
@@ -208,6 +220,7 @@ public class InfusionRepository {
         """, this::mapCandidate, parameters.toArray());
   }
 
+  @Override
   public ScheduleSettings scheduleSettings() {
     JsonNode definition = jdbc.query("""
         SELECT definition_json::text
@@ -228,6 +241,7 @@ public class InfusionRepository {
     return new ScheduleSettings(chairCount, slotMinutes, startTime, endTime);
   }
 
+  @Override
   public Optional<Logistics> logistics(
       long patientId, String treatmentId, int cycleNumber, int applicationDay) {
     return jdbc.query("""
@@ -240,6 +254,7 @@ public class InfusionRepository {
         .stream().findFirst();
   }
 
+  @Override
   public Optional<Logistics> updateLogistics(
       long patientId, String treatmentId, int cycleNumber, int applicationDay, long expectedRevision,
       LocalDate plannedDate, String medicationState, String prescriptionState,
@@ -265,8 +280,7 @@ public class InfusionRepository {
     return Optional.of(saved);
   }
 
-  private void synchronizeActiveSessionLogistics(
-      Logistics logistics, long actorId, Instant now) {
+  private void synchronizeActiveSessionLogistics(Logistics logistics, long actorId, Instant now) {
     boolean medicationReceived = "received".equals(logistics.medicationState());
     boolean medicationWithPatient = "with_patient".equals(logistics.medicationState());
     boolean prescriptionConfirmed = "confirmed".equals(logistics.prescriptionState());
@@ -294,7 +308,8 @@ public class InfusionRepository {
         logistics.cycleNumber(), logistics.applicationDay());
   }
 
-  private void insertMedication(long infusionId, Medication medication, long actorId, Instant now) {
+  private void insertMedication(
+      long infusionId, ar.com.hexium.hcop.infusion.domain.Medication medication, long actorId, Instant now) {
     jdbc.update("""
         INSERT INTO unified_infusion_medications (
           infusion_session_id, source_item_ref, drug_id, drug_name, prescribed_dose_text,
@@ -395,75 +410,5 @@ public class InfusionRepository {
   private String text(ResultSet result, String field) throws SQLException {
     String value = result.getString(field);
     return value == null ? "" : value;
-  }
-
-  public record NewInfusion(
-      long patientId, String treatmentId, int cycleNumber, int applicationDay,
-      Instant scheduledAt, String chair,
-      Integer durationMinutes, String clinicalStatus, String pharmacyStatus,
-      String administrationStatus, boolean appointmentConfirmed, String notes,
-      JsonNode sourceRef, List<Medication> medications) {
-  }
-
-  public record Patch(
-      Instant scheduledAt, String chair, Integer durationMinutes, String clinicalStatus,
-      String pharmacyStatus, String administrationStatus, Boolean appointmentConfirmed,
-      String notes, JsonNode sourceRef) {
-  }
-
-  public record Medication(
-      String sourceItemRef, String drugId, String drugName, String prescribedDoseText,
-      String doseUnit, String route, String preparationStatus, String administrationStatus,
-      String notes) {
-  }
-
-  public record MedicationView(
-      long id, String sourceItemRef, String drugId, String drugName, String prescribedDoseText,
-      String doseUnit, String route, String preparationStatus, String administrationStatus,
-      String notes, long revision) {
-  }
-
-  public record Infusion(
-      long id, long patientId, String treatmentId, int cycleNumber, int applicationDay,
-      Long applicationId,
-      Instant scheduledAt, String chair, Integer durationMinutes, String clinicalStatus,
-      String pharmacyStatus, String administrationStatus, boolean appointmentConfirmed,
-      String notes, JsonNode sourceRef, long revision, Instant createdAt, Instant updatedAt,
-      String patientDni, String medicalRecord, String firstName, String lastName,
-      String insurance, String affiliateNumber, String diagnosis, String scheme,
-      String treatmentType, int totalCycles, int cycleDays) {
-    public String patientName() {
-      return (lastName + ", " + firstName).replaceAll("(^[, ]+|[, ]+$)", "");
-    }
-  }
-
-  public record Candidate(
-      long patientId, String treatmentId, int cycleNumber, int applicationDay,
-      LocalDate plannedDate,
-      String medicationState, String prescriptionState, String logisticsNotes,
-      long logisticsRevision, String patientDni, String medicalRecord, String firstName,
-      String lastName, String insurance, String affiliateNumber, String diagnosis,
-      String schemeId, String scheme, String treatmentType, int totalCycles, int cycleDays,
-      Integer durationMinutes, String durationSource, String drugSummary, JsonNode applicationDrugs,
-      String pharmacyValidationStatus, String medicationSource,
-      String stockReservationStatus, String applicationWorkflowStatus,
-      Long applicationWorkflowRevision,
-      String continuityStatus, Integer effectiveFromCycle, String suspensionReason,
-      LocalDate resumeDate, boolean prescriptionRequired, Long managementRevision) {
-    public String patientName() {
-      return (lastName + ", " + firstName).replaceAll("(^[, ]+|[, ]+$)", "");
-    }
-  }
-
-  public record Logistics(
-      long patientId, String treatmentId, int cycleNumber, int applicationDay,
-      LocalDate plannedDate, String medicationState, String prescriptionState,
-      int durationMinutes, String durationSource, String drugSummary, JsonNode applicationDrugs,
-      String notes, long revision,
-        Instant updatedAt) {
-  }
-
-  public record ScheduleSettings(
-      int chairCount, int slotMinutes, String startTime, String endTime) {
   }
 }

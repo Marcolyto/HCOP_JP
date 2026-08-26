@@ -1,20 +1,20 @@
-param([string]$ApplicationImage = "")
+param([string]$BackendImage = "")
 
 $ErrorActionPreference = "Stop"
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "hcop-data-common.ps1")
 
-if ([string]::IsNullOrWhiteSpace($ApplicationImage)) {
-  foreach ($candidate in @("hcop-pre-research:local", "hcop-jp:local")) {
+if ([string]::IsNullOrWhiteSpace($BackendImage)) {
+  foreach ($candidate in @("hcop-jp-backend:local", "hcop-pre-research:local", "hcop-jp:local")) {
     try {
       Invoke-HcopNative -Executable "docker" -Arguments @("image", "inspect", $candidate) -Capture | Out-Null
-      $ApplicationImage = $candidate
+      $BackendImage = $candidate
       break
     } catch { }
   }
 }
-if ([string]::IsNullOrWhiteSpace($ApplicationImage)) {
-  throw "No hay una imagen local de HCOP JP para probar backup y restauración."
+if ([string]::IsNullOrWhiteSpace($BackendImage)) {
+  throw "No hay una imagen local del backend de HCOP JP para probar backup y restauración."
 }
 
 $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("hcop-backup-restore-" + [Guid]::NewGuid().ToString("N"))
@@ -37,8 +37,8 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
-  application:
-    image: ${HCOP_TEST_APP_IMAGE}
+  backend:
+    image: ${HCOP_TEST_BACKEND_IMAGE}
     depends_on:
       database:
         condition: service_healthy
@@ -52,6 +52,7 @@ services:
       HCOP_SEED_EXAMPLE_PATIENT: "false"
       HCOP_QR_SECRET: ${HCOP_TEST_QR_SECRET}
       HCOP_ENCRYPTION_SECRET: ${HCOP_TEST_ENCRYPTION_SECRET}
+      HCOP_JWT_SECRET: ${HCOP_TEST_JWT_SECRET}
       HCOP_BIND_ADDRESS: 0.0.0.0
       HCOP_PORT: 5180
     volumes:
@@ -67,11 +68,12 @@ volumes:
   storage_data:
 '@
 $environment = @"
-HCOP_TEST_APP_IMAGE=$ApplicationImage
+HCOP_TEST_BACKEND_IMAGE=$BackendImage
 HCOP_TEST_DB_PASSWORD=backup-db-$([Guid]::NewGuid().ToString('N'))
 HCOP_TEST_LOGIN_PASSWORD=Backup-test-2026!
 HCOP_TEST_QR_SECRET=backup-qr-$([Guid]::NewGuid().ToString('N'))
 HCOP_TEST_ENCRYPTION_SECRET=backup-encryption-$([Guid]::NewGuid().ToString('N'))
+HCOP_TEST_JWT_SECRET=backup-jwt-$([Guid]::NewGuid().ToString('N'))-$([Guid]::NewGuid().ToString('N'))
 "@
 [System.IO.File]::WriteAllText($composePath, $compose, (New-Object System.Text.UTF8Encoding($false)))
 [System.IO.File]::WriteAllText($environmentPath, $environment, (New-Object System.Text.UTF8Encoding($false)))
@@ -81,12 +83,12 @@ try {
   Write-Host "Iniciando entorno efímero de backup/restauración..."
   Invoke-HcopCompose $deployment @("up", "--detach", "--wait")
   $database = Get-HcopServiceContainer $deployment "database"
-  $application = Get-HcopServiceContainer $deployment "application"
+  $backend = Get-HcopServiceContainer $deployment "backend"
   Invoke-HcopNative -Executable "docker" -Arguments @(
     "exec", $database, "psql", "--username=hcop_backup_test", "--dbname=hcop_backup_test",
     "--set=ON_ERROR_STOP=1", "--command=CREATE TABLE backup_restore_probe (id integer PRIMARY KEY, value text NOT NULL); INSERT INTO backup_restore_probe VALUES (1, 'original');")
   Invoke-HcopNative -Executable "docker" -Arguments @(
-    "exec", $application, "bash", "-c", "printf 'original-storage' > /opt/hcop/runtime/storage/backup-restore-probe.txt")
+    "exec", $backend, "bash", "-c", "printf 'original-storage' > /opt/hcop/runtime/storage/backup-restore-probe.txt")
 
   $backupOutput = & (Join-Path $PSScriptRoot "backup-hcop.ps1") `
     -ProjectRoot $testRoot -ProjectName $projectName -OutputDirectory (Join-Path $testRoot "backups")
@@ -97,7 +99,7 @@ try {
     "exec", $database, "psql", "--username=hcop_backup_test", "--dbname=hcop_backup_test",
     "--set=ON_ERROR_STOP=1", "--command=UPDATE backup_restore_probe SET value='mutated' WHERE id=1; CREATE TABLE stale_after_backup (id integer PRIMARY KEY);")
   Invoke-HcopNative -Executable "docker" -Arguments @(
-    "exec", $application, "bash", "-c", "printf 'mutated-storage' > /opt/hcop/runtime/storage/backup-restore-probe.txt; printf 'stale' > /opt/hcop/runtime/storage/stale-after-backup.txt")
+    "exec", $backend, "bash", "-c", "printf 'mutated-storage' > /opt/hcop/runtime/storage/backup-restore-probe.txt; printf 'stale' > /opt/hcop/runtime/storage/stale-after-backup.txt")
 
   & (Join-Path $PSScriptRoot "restore-hcop.ps1") `
     -BackupDirectory $backupDirectory `
@@ -107,7 +109,7 @@ try {
     -SkipSafetyBackup
 
   $database = Get-HcopServiceContainer $deployment "database"
-  $application = Get-HcopServiceContainer $deployment "application"
+  $backend = Get-HcopServiceContainer $deployment "backend"
   $databaseValue = Invoke-HcopNative -Executable "docker" -Arguments @(
     "exec", $database, "psql", "--username=hcop_backup_test", "--dbname=hcop_backup_test",
     "--tuples-only", "--no-align", "--command=SELECT value FROM backup_restore_probe WHERE id=1;") -Capture
@@ -115,9 +117,9 @@ try {
     "exec", $database, "psql", "--username=hcop_backup_test", "--dbname=hcop_backup_test",
     "--tuples-only", "--no-align", "--command=SELECT to_regclass('public.stale_after_backup') IS NULL;") -Capture
   $storageValue = Invoke-HcopNative -Executable "docker" -Arguments @(
-    "exec", $application, "bash", "-c", "cat /opt/hcop/runtime/storage/backup-restore-probe.txt") -Capture
+    "exec", $backend, "bash", "-c", "cat /opt/hcop/runtime/storage/backup-restore-probe.txt") -Capture
   $staleStatus = Invoke-HcopNative -Executable "docker" -Arguments @(
-    "exec", $application, "bash", "-c", "test ! -e /opt/hcop/runtime/storage/stale-after-backup.txt && printf absent") -Capture
+    "exec", $backend, "bash", "-c", "test ! -e /opt/hcop/runtime/storage/stale-after-backup.txt && printf absent") -Capture
   if ($databaseValue.Trim() -ne "original" -or
       $staleDatabaseStatus.Trim() -ne "t" -or
       $storageValue.Trim() -ne "original-storage" -or

@@ -1,7 +1,7 @@
 ﻿param(
   [string]$BaseUrl = "http://127.0.0.1:5180",
   [string]$MarkdownPath = "docs/02-arquitectura/ENDPOINTS.md",
-  [string]$HtmlPath = "src/main/resources/static/docs/api-endpoints.html",
+  [string]$HtmlPath = "frontend/public/docs/api-endpoints.html",
   [switch]$Check
 )
 
@@ -141,7 +141,7 @@ $markdown = [System.Text.StringBuilder]::new()
 [void]$markdown.AppendLine('- Swagger UI: `GET /swagger-ui.html`')
 [void]$markdown.AppendLine("- Versión declarada: $Tick$($specification.info.version)$Tick")
 [void]$markdown.AppendLine("- Operaciones documentadas: **$($operations.Count)**")
-[void]$markdown.AppendLine('- Autenticación: cookie HttpOnly `HCOP_SESSION`; las operaciones públicas se identifican expresamente.')
+[void]$markdown.AppendLine('- Autenticación: Bearer JWT (`Authorization: Bearer <accessToken>`); las operaciones públicas se identifican expresamente.')
 [void]$markdown.AppendLine()
 [void]$markdown.AppendLine('Los permisos se validan en el servidor. `authenticated` significa que la ruta exige una sesión activa pero no aplica un permiso granular adicional en el controlador.')
 [void]$markdown.AppendLine()

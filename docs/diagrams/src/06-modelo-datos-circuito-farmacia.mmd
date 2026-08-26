@@ -1,0 +1,64 @@
+%%{init: {"theme":"neutral"}}%%
+erDiagram
+    %% Circuito operativo por aplicación (Farmacia)
+    treatment_application_logistics ||--|| treatment_application_workflows : ejecuta
+    treatment_application_workflows ||--o{ application_stock_reservations : reserva
+    pharmacy_inventory_lots ||--o{ application_stock_reservations : origina
+    treatment_application_workflows ||--o{ application_preparation_lots : prepara
+    application_stock_reservations ||--o{ application_preparation_lots : consume
+    pharmacy_inventory_lots ||--o{ application_preparation_lots : origina
+    treatment_application_workflows ||--o{ treatment_application_workflow_events : audita
+
+    treatment_application_logistics {
+        bigint patient_id PK
+        string treatment_id PK
+        smallint cycle_number PK
+        smallint application_day PK
+        string medication_state
+    }
+
+    pharmacy_inventory_lots {
+        bigint id PK
+        string drug_name
+        string lot_number
+        date expiration_date
+        string inventory_status
+    }
+
+    treatment_application_workflows {
+        bigint patient_id PK
+        string treatment_id PK
+        smallint cycle_number PK
+        smallint application_day PK
+        string workflow_status
+        string pharmacy_validation_status
+        string stock_reservation_status
+        string clinical_authorization_status
+        string preparation_status
+        string administration_status
+    }
+
+    application_stock_reservations {
+        uuid id PK
+        bigint patient_id FK
+        string treatment_id FK
+        string drug_name
+        string reservation_status
+        bigint inventory_lot_id FK
+    }
+
+    application_preparation_lots {
+        uuid id PK
+        uuid stock_reservation_id FK
+        bigint inventory_lot_id FK
+        string drug_name
+        string lot_number
+        string preparation_status
+    }
+
+    treatment_application_workflow_events {
+        bigint id PK
+        string action
+        bigint actor_user_id FK
+        timestamp occurred_at
+    }

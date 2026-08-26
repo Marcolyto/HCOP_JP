@@ -1,0 +1,203 @@
+package ar.com.hexium.hcop.treatment.infrastructure.web;
+
+import ar.com.hexium.hcop.auth.AuthContext;
+import ar.com.hexium.hcop.auth.SessionPrincipal;
+import ar.com.hexium.hcop.catalog.application.port.in.TreatmentCatalogUseCase;
+import ar.com.hexium.hcop.catalog.domain.TreatmentScheme;
+import ar.com.hexium.hcop.treatment.application.port.in.TreatmentUseCase;
+import ar.com.hexium.hcop.treatment.application.port.in.TreatmentUseCase.CreateTreatmentCommand;
+import ar.com.hexium.hcop.treatment.application.port.in.TreatmentUseCase.CreationResult;
+import io.swagger.v3.oas.annotations.Parameter;
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import tools.jackson.databind.JsonNode;
+
+@RestController
+public class TreatmentController {
+  private final TreatmentUseCase treatments;
+  private final TreatmentCatalogUseCase catalog;
+  private final AuthContext auth;
+
+  public TreatmentController(
+      TreatmentUseCase treatments,
+      TreatmentCatalogUseCase catalog,
+      AuthContext auth) {
+    this.treatments = treatments;
+    this.catalog = catalog;
+    this.auth = auth;
+  }
+
+  @GetMapping("/api/clinical/patients/{patientId}/treatments")
+  Map<String, Object> list(@Parameter(description = "Id interno del paciente")
+  @PathVariable long patientId, HttpServletRequest request) {
+    auth.requirePermission(request, "section.prescriptions.view");
+    List<Map<String, Object>> oncology = treatments.list(patientId);
+    return Map.of(
+        "ok", true,
+        "patientId", Long.toString(patientId),
+        "oncology", oncology,
+        "treatments", oncology,
+        "nonOncology", List.of(),
+        "procedures", List.of(),
+        "referrals", List.of(),
+        "total", oncology.size());
+  }
+
+  @PostMapping("/api/clinical/patients/{patientId}/treatments")
+  ResponseEntity<Map<String, Object>> create(
+      @Parameter(description = "Id interno del paciente")
+      @PathVariable long patientId,
+      @RequestBody JsonNode body,
+      HttpServletRequest request) {
+    auth.requirePermission(request, "section.prescriptions.edit");
+    SessionPrincipal actor = auth.require(request);
+    CreationResult creation = treatments.create(new CreateTreatmentCommand(
+        patientId,
+        text(body, "diagnostico", "diagnosis", "diagnosisId"),
+        text(body, "esquema", "scheme", "schemeId"),
+        text(body, "cantidadCiclos", "cycles", "cycleCount"),
+        text(body, "cicloInicial", "initialCycle"),
+        text(body, "duracionCiclo", "cycleDays"),
+        text(body, "fechaCreacion", "date", "createdDate"),
+        text(body, "fechaPrimerCiclo", "firstCycleDate"),
+        text(body, "tipoOncologico", "treatmentType", "type"),
+        text(body, "caracter", "character", "intent"),
+        text(body, "oncologo", "oncologist"),
+        text(body, "estadoConsentimiento", "consent", "consentStatus"),
+        body.path("consentAvailable").asBoolean(false),
+        body.path("protocolMismatchConfirmed").asBoolean(false),
+        text(body, "protocolMismatchReason"),
+        body.path("requirementsConfirmed").asBoolean(false),
+        numericText(body, "peso", "weight"),
+        numericText(body, "talla", "height"),
+        numericText(body, "creatinina", "creatinine"),
+        numericText(body, "tfg", "gfr"),
+        numericText(body, "targetAUC", "targetAuc"),
+        numericText(body, "calcio", "calcium"),
+        numericText(body, "albumina", "albumin"),
+        text(body, "clinicalEntryId", "treatmentEntryId"),
+        body,
+        actor.userId(),
+        actor.displayName()));
+    Map<String, Object> result = new LinkedHashMap<>();
+    result.put("ok", true);
+    result.put("id", creation.treatment().get("id"));
+    result.put("treatment", creation.treatment());
+    result.put("evolution", creation.evolution());
+    result.put("evolutionCreated", !creation.idempotentReplay());
+    result.put("idempotentReplay", creation.idempotentReplay());
+    result.put("documentRevision", creation.documentRevision());
+    result.put("createdAt", creation.createdAt());
+    return ResponseEntity.status(
+        creation.idempotentReplay() ? HttpStatus.OK : HttpStatus.CREATED).body(result);
+  }
+
+  @GetMapping("/api/clinical/patients/{patientId}/treatment-options")
+  Map<String, Object> options(@Parameter(description = "Id interno del paciente")
+  @PathVariable long patientId, HttpServletRequest request) {
+    auth.requirePermission(request, "section.prescriptions.view");
+    return treatments.options(patientId);
+  }
+
+  @GetMapping("/api/clinical/patients/{patientId}/treatment-requirements/{schemeId}")
+  Map<String, Object> requirements(
+      @Parameter(description = "Id interno del paciente")
+      @PathVariable long patientId,
+      @Parameter(description = "Id del esquema de tratamiento")
+      @PathVariable String schemeId,
+      HttpServletRequest request) {
+    auth.requirePermission(request, "section.prescriptions.view");
+    return treatments.requirements(patientId, schemeId);
+  }
+
+  @GetMapping("/api/clinical/patients/{patientId}/treatments/{treatmentId}/detail")
+  Map<String, Object> detail(
+      @Parameter(description = "Id interno del paciente")
+      @PathVariable long patientId,
+      @Parameter(description = "Id del tratamiento")
+      @PathVariable String treatmentId,
+      HttpServletRequest request) {
+    auth.requirePermission(request, "section.prescriptions.view");
+    return treatments.detail(patientId, treatmentId);
+  }
+
+  @GetMapping("/api/clinical/schemes")
+  Map<String, Object> schemes(
+      @Parameter(description = "Texto libre de búsqueda de esquemas")
+      @RequestParam(defaultValue = "") String q,
+      HttpServletRequest request) {
+    auth.requirePermission(request, "section.protocols.view");
+    List<Map<String, Object>> schemes = catalog.schemes(q).stream().map(this::view).toList();
+    return Map.of("ok", true, "schemes", schemes, "total", schemes.size());
+  }
+
+  private Map<String, Object> view(TreatmentScheme scheme) {
+    Map<String, Object> value = new LinkedHashMap<>();
+    value.put("id", scheme.id());
+    value.put("nombre", scheme.name());
+    value.put("name", scheme.name());
+    value.put("activo", "1");
+    value.put("duracionCiclo", scheme.cycleDays() > 0 ? Integer.toString(scheme.cycleDays()) : "");
+    value.put("cycleDays", scheme.cycleDays() > 0 ? scheme.cycleDays() : null);
+    value.put("estimatedDurationMinutes", scheme.durationMinutes());
+    value.put("durationMinutes", scheme.durationMinutes());
+    value.put("estimatedDurationText", durationText(scheme.durationMinutes()));
+    value.put("origin", scheme.custom() ? "custom" : "catalog");
+    return value;
+  }
+
+  private static String durationText(Integer minutes) {
+    if (minutes == null || minutes < 1) return "";
+    int hours = minutes / 60;
+    int remainder = minutes % 60;
+    if (hours == 0) return minutes + " min";
+    if (remainder == 0) return hours + " h";
+    return hours + " h " + remainder + " min";
+  }
+
+  @GetMapping("/api/clinical/schemes/{id}/duration")
+  Map<String, Object> duration(@Parameter(description = "Id del esquema de tratamiento")
+  @PathVariable String id, HttpServletRequest request) {
+    auth.requirePermission(request, "section.protocols.view");
+    var scheme = catalog.scheme(id)
+        .orElseThrow(() -> new ar.com.hexium.hcop.platform.web.ApiException(
+            HttpStatus.NOT_FOUND, "Esquema no encontrado."));
+    return Map.of(
+        "ok", true,
+        "schemeId", scheme.id(),
+        "schemeName", scheme.name(),
+        "durationMinutes", scheme.durationMinutes() == null ? 0 : scheme.durationMinutes(),
+        "estimatedDurationMinutes", scheme.durationMinutes() == null ? 0 : scheme.durationMinutes());
+  }
+
+  private String text(JsonNode node, String... keys) {
+    for (String key : keys) {
+      JsonNode value = node.path(key);
+      if (!value.isMissingNode() && !value.isNull()) {
+        String text = value.asText("").trim();
+        if (!text.isBlank()) return text;
+      }
+    }
+    return "";
+  }
+
+  /** Mismo criterio que el {@code number()} original: usa la primera clave PRESENTE (aunque esté
+   * vacía o no sea numérica), solo prueba la siguiente alias si la clave falta por completo. */
+  private String numericText(JsonNode node, String... keys) {
+    for (String key : keys) {
+      JsonNode value = node.path(key);
+      if (!value.isMissingNode() && !value.isNull()) return value.asText("");
+    }
+    return "";
+  }
+}

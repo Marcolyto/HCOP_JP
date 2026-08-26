@@ -3,13 +3,21 @@
 PostgreSQL es la única base operacional. Flyway crea el esquema de forma
 reproducible al primer inicio.
 
-La definición exacta está en `src/main/resources/db/migration`. El
-[diccionario de datos](DICCIONARIO-DE-DATOS.md) explica las 34 tablas y sus
-relaciones sin reemplazar esas migraciones.
+La definición exacta está en `backend/src/main/resources/db/migration` —
+única base de datos del sistema (`bff/` no tiene esquema propio, sólo usa
+Redis como caché de sesión). El [diccionario de datos](DICCIONARIO-DE-DATOS.md)
+explica las 35 tablas y sus relaciones sin reemplazar esas migraciones.
 
-El esquema actual se construye con **12 migraciones**, de `V001` a `V012`.
+Diagramas ER (relaciones entre tablas, divididas por dominio para que se
+puedan leer): `docs/diagrams/` — `04-modelo-datos-identidad-paciente`,
+`05-modelo-datos-tratamiento`, `06-modelo-datos-circuito-farmacia`.
+
+El esquema actual se construye con **14 migraciones**, de `V001` a `V014`.
 `V012__patient_seed_identity.sql` no agrega tablas: incorpora la garantía de
-unicidad usada por el paciente demostrativo.
+unicidad usada por el paciente demostrativo. `V013__jwt_auth.sql` agrega la
+sesión JWT (`local_session_state`, `local_refresh_tokens`) y `V014__drop_
+local_sessions.sql` elimina la tabla de la sesión-cookie que reemplazan
+(aditiva-terminal: el código dejó de leerla/escribirla en un commit previo).
 
 ## Identidad y acceso
 
@@ -18,7 +26,8 @@ unicidad usada por el paciente demostrativo.
 - `local_permissions`
 - `local_user_roles`
 - `local_role_permissions`
-- `local_sessions`
+- `local_session_state`
+- `local_refresh_tokens`
 - `local_security_settings`
 
 ## Paciente e historia
@@ -62,8 +71,8 @@ puede confirmarse, registra una advertencia y termina sin escribir. Ninguna de
 estas condiciones bloquea el arranque.
 
 La creación o recuperación de esa ficha no escribe
-`local_sessions.active_patient_id`: el ejemplo queda disponible en el buscador,
-pero nunca se activa automáticamente para un usuario.
+`local_session_state.active_patient_id`: el ejemplo queda disponible en el
+buscador, pero nunca se activa automáticamente para un usuario.
 
 ## Tratamiento y Hospital de Día
 

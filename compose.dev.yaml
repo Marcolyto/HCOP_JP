@@ -1,0 +1,12 @@
+name: hcop-jp
+
+# Override de desarrollo: publica el puerto del backend y del BFF para poder pegarles directo
+# con Postman/curl durante debug, sin pasar por nginx. Nunca usar en producción.
+# Uso: docker compose -f compose.yaml -f compose.dev.yaml up --build
+services:
+  backend:
+    ports:
+      - "127.0.0.1:5181:5180"
+  bff:
+    ports:
+      - "127.0.0.1:5184:8080"

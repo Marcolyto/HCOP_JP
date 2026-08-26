@@ -26,7 +26,9 @@ $ErrorActionPreference = "Stop"
 $script:RepositoryZip = "https://github.com/Marcolyto/HCOP_JP/archive/refs/heads/main.zip"
 $script:RepositoryArchiveApi = "https://api.github.com/repos/Marcolyto/HCOP_JP/zipball/main"
 $script:RepositoryCommitApi = "https://api.github.com/repos/Marcolyto/HCOP_JP/commits/main"
-$script:PublishedImage = "ghcr.io/marcolyto/hcop_jp"
+$script:PublishedBackendImage = "ghcr.io/marcolyto/hcop_jp-backend"
+$script:PublishedBffImage = "ghcr.io/marcolyto/hcop_jp-bff"
+$script:PublishedFrontendImage = "ghcr.io/marcolyto/hcop_jp-frontend"
 $script:ProjectName = "hcop-jp"
 $script:LogPath = $null
 $script:TranscriptStarted = $false
@@ -160,6 +162,7 @@ function Write-DotEnv([string]$Path, [hashtable]$Values) {
     "HCOP_SEED_EXAMPLE_PATIENT",
     "HCOP_QR_SECRET",
     "HCOP_ENCRYPTION_SECRET",
+    "HCOP_JWT_SECRET",
     "HCOP_PUBLIC_BASE_URL"
   )
   $lines = [System.Collections.Generic.List[string]]::new()
@@ -227,6 +230,7 @@ function Ensure-Environment([string]$Root) {
     HCOP_SEED_EXAMPLE_PATIENT = "true"
     HCOP_QR_SECRET = (New-RandomSecret 48)
     HCOP_ENCRYPTION_SECRET = (New-RandomSecret 48)
+    HCOP_JWT_SECRET = (New-RandomSecret 48)
     HCOP_PUBLIC_BASE_URL = "http://localhost:$portValue"
   }
   foreach ($key in $defaults.Keys) {
@@ -752,7 +756,9 @@ function Write-ReleaseMetadata(
 function Try-PreparePublishedRelease([pscustomobject]$Candidate) {
   if (-not $Candidate.Commit) { return $false }
   $short = $Candidate.Commit.Substring(0, 7)
-  $image = "$($script:PublishedImage):sha-$short"
+  $backendImage = "$($script:PublishedBackendImage):sha-$short"
+  $bffImage = "$($script:PublishedBffImage):sha-$short"
+  $frontendImage = "$($script:PublishedFrontendImage):sha-$short"
   if ($Candidate.Access) {
     Write-Step "Autorizando la lectura del paquete Docker privado"
     $refreshCode = Invoke-LoggedNative $Candidate.Access.Executable @(
@@ -780,17 +786,25 @@ function Try-PreparePublishedRelease([pscustomobject]$Candidate) {
       -AllowFailure
     if ($loginCode -ne 0) { return $false }
   }
-  Write-Step "Buscando la imagen publicada de esta misma versión"
-  $pullCode = Invoke-LoggedNative $script:DockerPath @("pull", $image) `
-    -Description "Descarga de $image" `
-    -AllowFailure
-  if ($pullCode -ne 0) { return $false }
+  Write-Step "Buscando las imágenes publicadas de esta misma versión"
+  foreach ($image in @($backendImage, $bffImage, $frontendImage)) {
+    $pullCode = Invoke-LoggedNative $script:DockerPath @("pull", $image) `
+      -Description "Descarga de $image" `
+      -AllowFailure
+    if ($pullCode -ne 0) { return $false }
+  }
 
   $override = Join-Path $Candidate.Path "compose.release.override.yaml"
   $content = @"
 services:
-  application:
-    image: $image
+  backend:
+    image: $backendImage
+    pull_policy: missing
+  bff:
+    image: $bffImage
+    pull_policy: missing
+  frontend:
+    image: $frontendImage
     pull_policy: missing
 "@
   [System.IO.File]::WriteAllText(
@@ -802,7 +816,7 @@ services:
     $Candidate.Commit `
     "published" `
     @("compose.github.yaml", "compose.release.override.yaml") `
-    $image
+    "$backendImage,$bffImage,$frontendImage"
   return $true
 }
 
@@ -909,7 +923,7 @@ function Test-PortOwnedByHcop(
   [string]$EnvironmentFile
 ) {
   if (-not $CurrentRelease -or -not $script:DockerPath) { return $false }
-  $result = Invoke-ComposeCapture $CurrentRelease $EnvironmentFile @("port", "application", "5180")
+  $result = Invoke-ComposeCapture $CurrentRelease $EnvironmentFile @("port", "frontend", "8080")
   if ($result.Code -ne 0) { return $false }
   return $result.Output -match "(?:^|:)$Port(?:\s|$)"
 }
@@ -973,7 +987,10 @@ function Start-Release(
 ) {
   $port = Get-ConfiguredPort $EnvironmentFile
   Assert-PortAvailable $port $CurrentRelease $EnvironmentFile
-  $arguments = @("up", "--detach", "--wait", "--wait-timeout", "360")
+  # --remove-orphans: instalaciones que venían de la topología previa a la separación
+  # backend/bff/frontend tenían un único servicio "application"; sin este flag, ese
+  # contenedor queda huérfano y puede seguir ocupando el puerto publicado.
+  $arguments = @("up", "--detach", "--wait", "--wait-timeout", "360", "--remove-orphans")
   if ($Release.Mode -eq "local-build") { $arguments += "--build" }
   Invoke-Compose $Release $EnvironmentFile $arguments "Inicio de HCOP JP" | Out-Null
   Test-HttpSmoke $port
@@ -1426,13 +1443,14 @@ function Invoke-ValidateOnly {
     [ref]$errors) | Out-Null
   $repositoryRoot = Split-Path -Parent $PSScriptRoot
   $required = @(
-    "Dockerfile",
+    "backend\Dockerfile",
+    "bff\Dockerfile",
+    "frontend\Dockerfile",
     "compose.yaml",
     "compose.github.yaml",
     "INSTALAR-DESDE-GITHUB.bat",
     "iniciar.bat",
-    "detener.bat",
-    "reiniciar.bat",
+    "iniciar.sh",
     "scripts\backup-hcop.ps1",
     "scripts\restore-hcop.ps1",
     "scripts\hcop-data-common.ps1"

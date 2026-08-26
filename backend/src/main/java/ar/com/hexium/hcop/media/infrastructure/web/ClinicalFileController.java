@@ -1,0 +1,136 @@
+package ar.com.hexium.hcop.media.infrastructure.web;
+
+import ar.com.hexium.hcop.auth.AuthContext;
+import ar.com.hexium.hcop.platform.web.ApiException;
+import ar.com.hexium.hcop.media.application.port.in.ClinicalFileUseCase;
+import ar.com.hexium.hcop.media.application.port.in.ClinicalFileUseCase.StoreImageCommand;
+import ar.com.hexium.hcop.media.application.port.in.ClinicalFileUseCase.UploadStudyCommand;
+import ar.com.hexium.hcop.media.domain.ClinicalFile;
+import ar.com.hexium.hcop.sharedkernel.domain.UserId;
+import io.swagger.v3.oas.annotations.Parameter;
+import jakarta.servlet.http.HttpServletRequest;
+import java.nio.file.Path;
+import java.util.Base64;
+import java.util.Map;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import tools.jackson.databind.JsonNode;
+
+@RestController
+public class ClinicalFileController {
+  private final ClinicalFileUseCase files;
+  private final ClinicalFileJsonMapper json;
+  private final AuthContext auth;
+
+  public ClinicalFileController(ClinicalFileUseCase files, ClinicalFileJsonMapper json, AuthContext auth) {
+    this.files = files;
+    this.json = json;
+    this.auth = auth;
+  }
+
+  @PostMapping("/api/media/studies")
+  ResponseEntity<Map<String, Object>> uploadStudy(
+      @Parameter(description = "Id interno del paciente")
+      @RequestParam long patientId,
+      @Parameter(description = "Id del estudio clínico al que pertenece el archivo")
+      @RequestParam String studyId,
+      @Parameter(description = "Nombre de archivo")
+      @RequestParam(name = "name") String fileName,
+      HttpServletRequest request) throws java.io.IOException {
+    auth.requirePermission(request, "section.studies.edit");
+    var actor = auth.require(request);
+    var upload = files.uploadStudy(new UploadStudyCommand(
+        patientId, studyId, fileName, request.getContentType(), request.getInputStream(),
+        UserId.of(actor.userId()), auth.sessionId(request)));
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(withOk(json.studyView(upload.file(), upload.deleteToken())));
+  }
+
+  @GetMapping("/api/media/studies/{name:.+}")
+  ResponseEntity<Resource> study(@Parameter(description = "Nombre de archivo (clave de storage)")
+  @PathVariable String name, HttpServletRequest request) {
+    auth.requirePermission(request, "section.studies.view");
+    ClinicalFile file = files.requireStudy(name);
+    return file(file, files.resolvePath(file), false);
+  }
+
+  @DeleteMapping("/api/media/studies/{name:.+}")
+  Map<String, Object> deleteStudy(
+      @Parameter(description = "Nombre de archivo (clave de storage)")
+      @PathVariable String name,
+      @RequestHeader(name = "X-Study-Delete-Token", defaultValue = "") String deleteToken,
+      HttpServletRequest request) {
+    auth.requirePermission(request, "section.studies.edit");
+    files.deleteStudy(name, deleteToken);
+    return Map.of("ok", true, "deleted", true, "name", name);
+  }
+
+  @PostMapping("/api/media/images")
+  ResponseEntity<Map<String, Object>> uploadImage(@RequestBody JsonNode body, HttpServletRequest request) {
+    auth.requirePermission(request, "section.studies.edit");
+    if (body.hasNonNull("sourceUrl") && !body.path("sourceUrl").asText("").isBlank()) {
+      throw new ApiException(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          "La importación remota debe realizarse desde una fuente configurada y verificada.");
+    }
+    String dataUrl = body.path("dataUrl").asText("");
+    int comma = dataUrl.indexOf(',');
+    if (!dataUrl.startsWith("data:image/") || comma < 0 || !dataUrl.substring(0, comma).contains(";base64")) {
+      throw new ApiException(HttpStatus.BAD_REQUEST, "La imagen no tiene un formato válido.");
+    }
+    String contentType = dataUrl.substring("data:".length(), dataUrl.indexOf(';')).toLowerCase();
+    byte[] bytes;
+    try {
+      bytes = Base64.getDecoder().decode(dataUrl.substring(comma + 1));
+    } catch (IllegalArgumentException invalid) {
+      throw new ApiException(HttpStatus.BAD_REQUEST, "La imagen no tiene un formato válido.");
+    }
+    var actor = auth.require(request);
+    ClinicalFile stored = files.storeImage(new StoreImageCommand(
+        body.path("fileName").asText("imagen"), bytes, contentType, body.path("kind").asText("original"),
+        UserId.of(actor.userId()), auth.sessionId(request)));
+    return ResponseEntity.status(HttpStatus.CREATED).body(withOk(json.imageView(stored)));
+  }
+
+  @GetMapping("/api/media/images/{name:.+}")
+  ResponseEntity<Resource> image(@Parameter(description = "Nombre de archivo (clave de storage)")
+  @PathVariable String name, HttpServletRequest request) {
+    auth.requirePermission(request, "section.studies.view");
+    ClinicalFile file = files.requireImage(name);
+    return file(file, files.resolvePath(file), true);
+  }
+
+  private ResponseEntity<Resource> file(ClinicalFile file, Path path, boolean immutable) {
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.parseMediaType(file.contentType()));
+    headers.setContentLength(file.size());
+    headers.setContentDisposition(ContentDisposition.inline().filename(file.originalName()).build());
+    headers.setCacheControl(immutable
+        ? CacheControl.maxAge(java.time.Duration.ofDays(365)).cachePrivate().immutable()
+        : CacheControl.noStore());
+    headers.set("X-Content-Type-Options", "nosniff");
+    headers.set("Cross-Origin-Resource-Policy", "same-origin");
+    return ResponseEntity.ok().headers(headers).body(new FileSystemResource(path));
+  }
+
+  private Map<String, Object> withOk(Map<String, Object> value) {
+    Map<String, Object> result = new java.util.LinkedHashMap<>();
+    result.put("ok", true);
+    result.putAll(value);
+    return result;
+  }
+}

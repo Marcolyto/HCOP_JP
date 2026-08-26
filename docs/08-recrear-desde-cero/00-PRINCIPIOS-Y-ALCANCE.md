@@ -80,17 +80,29 @@ OpenAPI. Todo despliegue se construye desde el repositorio y se valida en CI.
 
 ## Decisiones iniciales
 
-1. **Monolito modular:** un despliegue y una base, con paquetes por dominio.
-2. **Spring MVC + JDBC:** contratos claros y SQL explícito para reglas
-   relacionales críticas.
+1. **Tres servicios, un dominio hexagonal:** `backend` (Java, arquitectura
+   hexagonal por módulo clínico), `bff` (Java, Token Handler de sesión) y
+   `frontend` (Angular + nginx) — no un monolito que sirve HTML y API desde
+   el mismo proceso. Ver [01](01-INICIALIZAR-PROYECTO.md).
+2. **Spring MVC + JDBC dentro de cada módulo:** contratos claros y SQL
+   explícito para reglas relacionales críticas; `domain`/`application` sin
+   dependencia a frameworks (ArchUnit lo hace cumplir). Ver
+   [02](02-ARQUITECTURA-HEXAGONAL.md).
 3. **PostgreSQL:** JSONB, transacciones, índices parciales y controles
-   concurrentes.
-4. **Interfaz estática integrada:** mismo origen, cookie única y sin CORS
-   interno.
-5. **Sesión de servidor:** cookie HttpOnly; no bearer token persistido en el
-   navegador.
+   concurrentes — sólo en `backend`.
+4. **Frontend separado, mismo punto de entrada público:** Angular no
+   comparte proceso con el backend; nginx expone un único puerto (5180) y
+   enruta `/api/` hacia el BFF, no hacia el backend.
+5. **Sesión vía Token Handler:** el navegador nunca ve un JWT. El BFF le da
+   una cookie de sesión opaca (`BFF_SESSION`, HttpOnly), guarda el
+   access/refresh token real en Redis y reenvía `Authorization: Bearer` al
+   backend en cada request. El backend valida JWT firmado con
+   `JwtAuthenticationFilter`, sin cookies propias.
 6. **Flyway:** migraciones inmutables; limpieza destructiva deshabilitada.
-7. **OpenAPI generado:** Swagger deriva del código y se verifica en CI.
+7. **OpenAPI generado:** Swagger deriva del código del backend y se
+   verifica en CI (`generate-api-docs.ps1 -Check`,
+   `generate-openapi-snapshot.ps1 -Check` — el snapshot es el guardián real
+   del contrato, `generate-api-docs.ps1` es una proyección *lossy*).
 8. **Storage fuera del JAR:** los adjuntos sobreviven actualizaciones.
 
 Si una decisión cambia, documente motivo, alternativas, consecuencias y plan de

@@ -6,7 +6,7 @@ hasta PostgreSQL. Los nombres de rutas exactos y sus cuerpos están en
 
 | Área visible | API principal | Controller → Service → Repository | Persistencia / archivos | Permiso |
 |---|---|---|---|---|
-| Login y sesión | `/api/auth/**` | `AuthController` → `AuthService` → `AuthRepository` | `local_users`, `local_sessions`, roles/permisos | pública al ingresar; sesión luego |
+| Login y sesión | `/api/auth/**` (vía `bff`, JWT) | `AuthController` → `AuthService` → `JwtAuthenticationFilter` | `local_users`, `local_session_state`, `local_refresh_tokens`, roles/permisos | pública al ingresar; Bearer JWT luego |
 | Abrir / nuevo paciente | `/api/clinical/patients/**` | `PatientController` / `PatientWorkspaceController` → `PatientService` → `PatientRepository` | `patients`, `hcop_patient_documents` | `section.history.view/edit` |
 | Hoja clínica | `/api/hc` | `ClinicalDocumentController` → `PatientDocumentService` → `PatientDocumentRepository` | `hcop_patient_documents.document_json` | `section.history.view/edit` |
 | Diagnóstico | `/api/clinical/patients/{id}/diagnoses/**` y catálogos | `DiagnosisController` + catalog controllers | `oncology.diagnosisRecords` en la hoja; catálogos locales | `section.history.view/edit` |
@@ -91,10 +91,11 @@ No debe duplicarse una regla en ambos lados sin definir autoridad:
 
 ## Dónde agregar código
 
-- contrato HTTP y permiso: `controller`;
-- validación clínica, transacción e idempotencia: `service`;
-- SQL parametrizado: `repository`;
+- contrato HTTP y permiso: `infrastructure/web` (`*Controller`);
+- validación clínica, transacción e idempotencia: `application/service`
+  (`*ApplicationService`);
+- SQL parametrizado: `infrastructure/persistence` (`Postgres*Store`);
 - restricción que debe resistir concurrencia: migración PostgreSQL;
-- representación visual: `src/main/resources/static`;
+- representación visual: `frontend/src/app/features/<dominio>`;
 - contrato público: `OpenApiConfiguration` y pruebas;
 - explicación: documento correspondiente y mapa funcional.

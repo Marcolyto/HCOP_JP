@@ -176,6 +176,7 @@ try {
     "HCOP_BOOTSTRAP_SECOND_USERNAME=marcolyto2",
     "HCOP_QR_SECRET='qr-secret-test'",
     "HCOP_ENCRYPTION_SECRET='encryption-secret-test'",
+    "HCOP_JWT_SECRET='jwt-secret-test-at-least-32-bytes-long'",
     "HCOP_PUBLIC_BASE_URL=http://localhost:6199"
   ) -join "`r`n"
   [IO.File]::WriteAllText(
@@ -278,8 +279,8 @@ $migrationValidation = & $launcherPath -Mode ValidateOnly -Channel Migration | C
 if ($migrationValidation.ok -ne $true) {
   throw "La validación estática del canal de migración no fue satisfactoria."
 }
-if ($migrationValidation.applicationImage -ne
-    "ghcr.io/marcolyto/hcop_jp:angular-full-parity-v2") {
+if ($migrationValidation.backendImage -ne
+    "ghcr.io/marcolyto/hcop_jp-backend:angular-full-parity-v2") {
   throw "El canal de migración no seleccionó su imagen aislada."
 }
 if ([int]$migrationValidation.defaultPort -ne 5181 -or

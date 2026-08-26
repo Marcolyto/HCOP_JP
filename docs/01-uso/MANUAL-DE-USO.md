@@ -56,7 +56,7 @@ automáticas e inmutables.
 ## Hospital de Día global
 
 El botón **Ayuda** de las pantallas de tratamiento y Hospital de día enlaza al
-[video detallado del circuito](../../src/main/resources/static/help/media/circuito-hospital-dia-paso-a-paso.mp4).
+[video detallado del circuito](../../frontend/public/help/media/circuito-hospital-dia-paso-a-paso.mp4).
 Sus subtítulos azul intenso, el puntero y los recuadros explican cada control,
 incluido cómo encontrar una aplicación en Farmacia, arrastrarla a un sillón,
 confirmar, mover o quitar el turno y resolver PASS, postergación, mezcla

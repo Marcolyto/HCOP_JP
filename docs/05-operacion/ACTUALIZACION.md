@@ -45,16 +45,27 @@ las imágenes necesarias ya estén en el equipo.
 
 ## Actualización desde un checkout de desarrollo
 
-Los archivos de la raíz del repositorio usan el mismo diagnóstico centralizado:
+Un solo script por plataforma en la raíz del repositorio, con el mismo
+diagnóstico centralizado (Windows delega en
+`scripts\instalar-desde-github.ps1`; macOS/Linux usa `docker compose`
+directo — ver [Docker](DOCKER.md)):
 
 ```powershell
+# Windows
 .\iniciar.bat
-.\reiniciar.bat
-.\detener.bat
+.\iniciar.bat reiniciar
+.\iniciar.bat detener
 ```
 
-`iniciar.bat` y `reiniciar.bat` construyen `compose.yaml`, respetan el puerto de
-`.env`, esperan la salud del producto y muestran diagnóstico ante fallos.
+```bash
+# macOS / Linux
+./iniciar.sh
+./iniciar.sh reiniciar
+./iniciar.sh detener
+```
+
+Ambos construyen/levantan `compose.yaml`, respetan el puerto de `.env`,
+esperan la salud del producto y muestran diagnóstico ante fallos.
 
 No edite archivos dentro de un contenedor. Los cambios se pierden al reemplazar
 la imagen.

@@ -1,9 +1,10 @@
 # Diccionario de datos
 
-Este documento describe las 34 tablas creadas por las 12 migraciones Flyway
-actuales (`V001` a `V012`). La fuente ejecutable es
-`src/main/resources/db/migration`; nunca se cambia una migración que ya fue
-aplicada: se agrega una nueva versión.
+Este documento describe las 35 tablas creadas por las 14 migraciones Flyway
+actuales (`V001` a `V014`). La fuente ejecutable es
+`backend/src/main/resources/db/migration` (única base de datos del sistema —
+`bff/` no tiene esquema propio, sólo usa Redis como caché de sesión); nunca
+se cambia una migración que ya fue aplicada: se agrega una nueva versión.
 
 ## Convenciones
 
@@ -46,13 +47,28 @@ Ambas FK eliminan la asociación al borrar su extremo.
 Relación N:N entre usuarios y roles. PK `(user_id, role_id)`. Conserva quién y
 cuándo realizó la asignación.
 
-### 6. `local_sessions`
+### 6. `local_session_state`
 
-Sesiones del navegador. PK `token_hash`: sólo se persiste el SHA-256 del token.
-FK a usuario y, opcionalmente, paciente activo. Guarda vencimiento, última
-actividad, IP y agente del navegador.
+Sesión JWT (`V013`; reemplazo directo de `local_sessions`, eliminada por
+`V014` — el sistema no admite cookie de sesión opaca en el backend desde
+F2.8, sólo Bearer JWT). PK `sid` (UUID, el mismo `sid` que lleva el claim
+del access token). FK a usuario y, opcionalmente, paciente activo.
+`revoked` es la fila que consulta `JwtAuthenticationFilter` en cada request
+para la revocación inmediata (deshabilitar usuario, cambiar contraseña,
+reasignar roles): un access token ya emitido deja de servir sin esperar su
+TTL.
 
-### 7. `local_security_settings`
+### 7. `local_refresh_tokens`
+
+Un refresh token JWT por fila (`V013`). PK `jti` (UUID). FK a
+`local_session_state.sid` y a usuario. Rotación por fila: cada
+`POST /api/auth/refresh` emite un `jti` nuevo y marca `revoked` en el
+anterior — reusar un refresh ya rotado es un intento de robo/replay y se
+rechaza. `expires_at` se gobierna por
+`local_security_settings.session_duration_minutes` (TTL del refresh, no del
+access token, que usa `HCOP_JWT_ACCESS_MINUTES`).
+
+### 8. `local_security_settings`
 
 Fila única (`id=1`) con login obligatorio, duración de sesión y revisión. El
 sistema mantiene `login_required=true`; `auto_user_id` existe únicamente por
@@ -60,7 +76,7 @@ compatibilidad con configuraciones antiguas.
 
 ## Paciente e historia clínica
 
-### 8. `patients`
+### 9. `patients`
 
 Identidad maestra. PK `source_id`. Campos indexados para DNI, número de historia,
 apellido y nombre. Incluye cobertura y número de afiliado. `identity_json`
@@ -72,7 +88,7 @@ parcial `uq_patients_identity_seed_key`, agregado por `V012`, garantiza que una
 clave no vacía identifique como máximo un paciente. No se usa para pacientes
 reales ni reemplaza DNI, historia clínica o `source_id`.
 
-### 9. `hcop_patient_documents`
+### 10. `hcop_patient_documents`
 
 Una hoja clínica por paciente. PK/FK `patient_id`. `document_json` contiene el
 documento visual completo; `revision` evita pisar cambios. Conserva autores y
@@ -90,7 +106,7 @@ actual usa `demoContentVersion=3`.
 El recurso bootstrap es un caso compuesto ficticio de colon y melanoma creado
 desde cero; no deriva de material real anonimizado o pseudonimizado. Su creación
 o actualización no modifica el paciente activo de ninguna fila de
-`local_sessions`. Una omisión best-effort tampoco modifica estas tablas.
+`local_session_state`. Una omisión best-effort tampoco modifica estas tablas.
 
 Rutas principales del JSON:
 
@@ -122,32 +138,32 @@ desde `clinical_treatments`, como fuente operativa primaria. Angular la une con
 las colecciones anteriores usando referencias con dominio, sin reescribir el
 documento clínico ni confundir identificadores numéricos de tablas distintas.
 
-### 10. `patient_records`
+### 11. `patient_records`
 
 Registros normalizados por paciente, categoría e identificador de origen. PK
 `id`; unicidad `(patient_id, category, source_record_id)`. `source_ordinal`
 preserva orden y `payload_sha256` detecta cambios.
 
-### 11. `reference_records`
+### 12. `reference_records`
 
 Registros de referencia compartidos, sin paciente. Unicidad
 `(category, source_record_id)`. Sirve para material importado o catalogado cuyo
 payload requiere orden y hash.
 
-### 12. `local_patient_record_overlays`
+### 13. `local_patient_record_overlays`
 
 Cambios locales sobre registros de paciente importables. Una fila por paciente,
 categoría y `record_id`. `operation` sólo acepta `upsert` o `delete`; una
 restricción exige payload únicamente para `upsert`.
 
-### 13. `local_reference_record_overlays`
+### 14. `local_reference_record_overlays`
 
 Equivalente anterior para datos de referencia. Unicidad por categoría y
 `record_id`.
 
 ## Tratamientos, ciclos y Hospital de Día
 
-### 14. `clinical_treatments`
+### 15. `clinical_treatments`
 
 Cabecera longitudinal del tratamiento. PK textual `id`; FK a paciente. Conserva
 diagnóstico seleccionado, fechas, ciclo inicial/cantidad/intervalo, tipo,
@@ -155,12 +171,12 @@ intención, esquema, oncólogo, estado, consentimiento y duración estimada.
 `scheme_name` y `diagnosis` son copias históricas para que una edición posterior
 del catálogo no reescriba un tratamiento firmado.
 
-### 15. `treatment_details`
+### 16. `treatment_details`
 
 Detalle completo 1:1 del tratamiento. PK/FK `treatment_id`. `detail_json`
 contiene protocolo, componentes, drogas, requisitos y representación visual.
 
-### 16. `unified_infusion_sessions`
+### 17. `unified_infusion_sessions`
 
 Turnos/aplicaciones reales. PK `id`; FK a paciente y tratamiento; identifica
 ciclo, día de aplicación, fecha/hora, sillón y duración. `application_day`
@@ -178,18 +194,18 @@ El trigger `trg_prevent_infusion_overlap` rechaza intervalos superpuestos en el
 mismo sillón. Un índice único evita dos turnos activos para la misma combinación
 tratamiento/ciclo/día.
 
-### 17. `unified_infusion_medications`
+### 18. `unified_infusion_medications`
 
 Drogas preparadas/administradas dentro de un turno. FK
 `infusion_session_id`. Conserva droga, dosis prescrita, unidad, vía, estados de
 preparación y administración, notas y revisión.
 
-### 18. `treatment_cycle_logistics`
+### 19. `treatment_cycle_logistics`
 
 Una fila por paciente, tratamiento y ciclo. PK compuesta. Conserva la cabecera
 de logística del ciclo y compatibilidad con flujos longitudinales.
 
-### 19. `treatment_application_logistics`
+### 20. `treatment_application_logistics`
 
 Una fila por paciente, tratamiento, ciclo y día con medicación administrable en
 Hospital de Día. Guarda fecha planificada, drogas activas en JSONB y resumen,
@@ -201,26 +217,26 @@ HDD. El planificador reconoce horas (`h`, `hs`, `hr`, `hrs`, `hora`, `horas`) y
 minutos, suma tiempos secuenciales y sólo agrupa en paralelo componentes que lo
 declaran explícitamente.
 
-### 20. `treatment_management_states`
+### 21. `treatment_management_states`
 
 Estado de continuidad 1:1 por tratamiento: `active`, `temporary_hold` o
 `discontinued`. Conserva ciclo efectivo, motivo, fecha de reanudación y si exige
 nueva prescripción.
 
-### 21. `treatment_workflow_requests`
+### 22. `treatment_workflow_requests`
 
 Solicitudes entre usuarios para prescripción o continuidad. Relaciona paciente,
 tratamiento, ciclo, solicitante y destinatario. Estados pending/resolved/
 cancelled; resultado, motivo, reanudación y marcas de lectura/resolución. Un
 índice único impide dos solicitudes pendientes iguales.
 
-### 22. `clinical_workflow_events`
+### 23. `clinical_workflow_events`
 
 Eventos inmutables del flujo. PK UUID. Relaciona opcionalmente la solicitud y
 siempre paciente, tratamiento, actor y tipo de evento. `event_json` conserva el
 contexto documentado en la historia.
 
-### 23. `clinical_qr_scan_events`
+### 24. `clinical_qr_scan_events`
 
 Escaneos QR exitosos. PK UUID. `operation_id` es único para idempotencia;
 `code_sha256` permite reconocer el código sin guardar su contenido. Relaciona
@@ -228,46 +244,50 @@ paciente, tratamiento, ciclo, día de aplicación, turno y usuario.
 
 ## Configuración y catálogos
 
-### 24. `clinical_configuration_items`
+### 25. `clinical_configuration_items`
 
 Definiciones administrables: protocolos, guías, calculadoras, formularios,
 plantillas y parámetros. Clave única `(item_kind, item_key)`. Contiene nombre,
 descripción, activo, JSON de definición y revisión.
 
-### 25. `clinical_configuration_versions`
+### 26. `clinical_configuration_versions`
 
 Historial inmutable de cada elemento anterior. Unicidad
 `(configuration_item_id, revision)`; guarda definición completa, actor y fecha.
 
-### 26. `scheme_duration_estimates`
+### 27. `scheme_duration_estimates`
 
 Duración operativa por esquema. PK `scheme_id`. Registra minutos, fuente
 (`coir_catalog`, `protocol_components`, `manual`), método de matching,
 confianza, esquema de origen, duración por componentes, notas y revisión.
 
-### 27. `system_settings`
+### 28. `system_settings`
 
 Configuraciones globales. PK `setting_key`. `setting_value` guarda la parte
 pública y `secret_value` la parte cifrada, por ejemplo credenciales LLM.
 
 ## Archivos y auditoría
 
-### 28. `unified_clinical_audit`
+### 29. `unified_clinical_audit`
 
 Auditoría transversal append-only. FK opcional a actor y paciente. Registra
 tipo/ID de entidad, acción, antes, después, motivo, request ID y fecha. No
 reemplaza la evolución: la auditoría explica la modificación técnica; la
 evolución explica el acto clínico.
 
-### 29. `clinical_files`
+### 30. `clinical_files`
 
 Metadatos de estudios, imágenes y documentos. PK UUID. Puede vincular paciente
 y tratamiento. Guarda clase, nombre original, `storage_key` único, MIME,
 tamaño, SHA-256, metadatos, autor y fecha. El binario queda en el volumen, no en
 PostgreSQL ni Git.
 
-`upload_session_hash` y `deletable_until` permiten borrar una carga reciente
-sólo desde la sesión autorizada. No existe una tabla separada de grants.
+`upload_session_hash`/`upload_session_id` y `deletable_until` permiten
+borrar una carga reciente sólo desde la sesión autorizada. `upload_session_id`
+(`uuid`, agregado por `V013`) es la columna vigente — guarda el `sid` de la
+sesión JWT que subió el archivo; `upload_session_hash` queda nullable, sólo
+para filas históricas del modo cookie retirado en F2.8 (nunca se borra
+retroactivamente). No existe una tabla separada de grants.
 
 ## Circuito seguro por aplicación
 
@@ -276,7 +296,7 @@ La identidad de una aplicación es siempre
 `(patient_id, treatment_id, cycle_number, application_day)`: un ciclo puede
 contener varios días y cada día con medicación recorre su propio circuito.
 
-### 30. `pharmacy_inventory_lots`
+### 31. `pharmacy_inventory_lots`
 
 Inventario opcional por lote. PK `id`. Identifica droga, lote, vencimiento,
 unidad y cantidades física/reservada. `inventory_status` acepta `active`,
@@ -286,7 +306,7 @@ cuando el centro aún no lleva inventario electrónico, pero sólo registra
 constatación, cantidad y unidad: no descuenta existencias ni ofrece bloqueo
 atómico.
 
-### 31. `treatment_application_workflows`
+### 32. `treatment_application_workflows`
 
 Estado operativo 1:1 de cada aplicación planificada. Su PK compuesta y FK
 apuntan a `treatment_application_logistics`. Mantiene por separado:
@@ -316,7 +336,7 @@ con mezcla vencida;
 `preparation_restart_count` cuenta los descartes y repeticiones. `revision`
 protege cada comando contra cambios concurrentes.
 
-### 32. `application_stock_reservations`
+### 33. `application_stock_reservations`
 
 Reserva blanda por droga/componente y aplicación. PK UUID. Registra cantidad
 solicitada y reservada, unidad, procedencia, método de verificación
@@ -329,7 +349,7 @@ Antes de persistir, el servicio exige correspondencia uno a uno con la
 prescripción y rechaza faltantes, extras, duplicados o diferencias de ID,
 nombre, cantidad y unidad.
 
-### 33. `application_preparation_lots`
+### 34. `application_preparation_lots`
 
 Trazabilidad de cada mezcla preparada. PK UUID. Vincula aplicación, reserva y
 lote de inventario; guarda droga, lote, vencimiento, cantidad, diluyente,
@@ -348,7 +368,7 @@ por aplicación y componente. Antes de guardar, el servicio exige la misma
 cantidad de trazas que componentes prescriptos y valida clave, droga, cantidad
 y unidad en correspondencia uno a uno.
 
-### 34. `treatment_application_workflow_events`
+### 35. `treatment_application_workflow_events`
 
 Bitácora inmutable de comandos del circuito. Guarda acción, usuario,
 `expected_revision`, `resulting_revision`, comando recibido y fotografías JSON
@@ -358,7 +378,7 @@ veces la misma orden. `ON DELETE RESTRICT` protege esta evidencia clínica.
 ## Relaciones principales
 
 ```text
-local_users ──< local_sessions
+local_users ──< local_session_state ──< local_refresh_tokens
      │
      ├──< local_user_roles >── local_roles >── local_role_permissions
      │

@@ -21,14 +21,14 @@ $applicationWasRunning = $false
 
 try {
   $databaseContainer = Get-HcopServiceContainer $deployment "database"
-  $applicationContainer = Get-HcopServiceContainer $deployment "application"
+  $applicationContainer = Get-HcopServiceContainer $deployment "backend"
   if (-not (Test-HcopContainerRunning $databaseContainer)) {
     throw "PostgreSQL debe estar iniciado para crear el backup."
   }
   $applicationWasRunning = Test-HcopContainerRunning $applicationContainer
   if ($applicationWasRunning) {
     Write-Host "Deteniendo temporalmente la aplicación para obtener una copia consistente..."
-    Invoke-HcopCompose $deployment @("stop", "application")
+    Invoke-HcopCompose $deployment @("stop", "backend")
   }
 
   $databaseName = Get-HcopContainerValue $databaseContainer "POSTGRES_DB"
@@ -102,7 +102,7 @@ try {
   if ($temporary) { Remove-HcopSafeDirectory -Path $temporary -AllowedRoot $outputRoot }
   if ($applicationWasRunning) {
     Write-Host "Reiniciando HCOP JP..."
-    try { Invoke-HcopCompose $deployment @("up", "--detach", "--wait", "application") } catch { Write-Warning $_.Exception.Message }
+    try { Invoke-HcopCompose $deployment @("up", "--detach", "--wait", "backend") } catch { Write-Warning $_.Exception.Message }
   }
   if ($lock) { $lock.Dispose() }
 }

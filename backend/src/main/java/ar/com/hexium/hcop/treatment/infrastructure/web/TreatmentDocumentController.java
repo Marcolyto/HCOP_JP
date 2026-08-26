@@ -1,0 +1,85 @@
+package ar.com.hexium.hcop.treatment.infrastructure.web;
+
+import ar.com.hexium.hcop.auth.AuthContext;
+import ar.com.hexium.hcop.media.application.port.in.ClinicalFileUseCase;
+import ar.com.hexium.hcop.media.domain.ClinicalFile;
+import ar.com.hexium.hcop.treatment.application.port.in.TreatmentDocumentUseCase;
+import io.swagger.v3.oas.annotations.Parameter;
+import jakarta.servlet.http.HttpServletRequest;
+import java.nio.file.Path;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class TreatmentDocumentController {
+  private final TreatmentDocumentUseCase documents;
+  private final ClinicalFileUseCase files;
+  private final AuthContext auth;
+
+  public TreatmentDocumentController(
+      TreatmentDocumentUseCase documents,
+      ClinicalFileUseCase files,
+      AuthContext auth) {
+    this.documents = documents;
+    this.files = files;
+    this.auth = auth;
+  }
+
+  @GetMapping("/api/clinical/treatments/{treatmentId}/consent")
+  ResponseEntity<Resource> consent(
+      @Parameter(description = "Id del tratamiento")
+      @PathVariable String treatmentId,
+      HttpServletRequest request) {
+    auth.requirePermission(request, "section.prescriptions.view");
+    return stored(documents.stored(treatmentId, "consent"));
+  }
+
+  @GetMapping(
+      value = "/api/clinical/patients/{patientId}/treatments/{treatmentId}/documents/treatment-sheet",
+      produces = MediaType.TEXT_HTML_VALUE)
+  ResponseEntity<String> treatmentSheet(
+      @Parameter(description = "Id interno del paciente")
+      @PathVariable long patientId,
+      @Parameter(description = "Id del tratamiento")
+      @PathVariable String treatmentId,
+      @Parameter(description = "Número de ciclo a incluir en la hoja")
+      @RequestParam int cycle,
+      HttpServletRequest request) {
+    auth.requirePermission(request, "section.prescriptions.view");
+    return ResponseEntity.ok()
+        .contentType(MediaType.TEXT_HTML)
+        .cacheControl(CacheControl.noStore())
+        .body(documents.treatmentSheet(patientId, treatmentId, cycle));
+  }
+
+  @GetMapping("/api/clinical/patients/{patientId}/treatments/{treatmentId}/documents/prescription")
+  ResponseEntity<Resource> prescription(
+      @Parameter(description = "Id interno del paciente")
+      @PathVariable long patientId,
+      @Parameter(description = "Id del tratamiento")
+      @PathVariable String treatmentId,
+      HttpServletRequest request) {
+    auth.requirePermission(request, "section.prescriptions.view");
+    return stored(documents.stored(patientId, treatmentId, "prescription"));
+  }
+
+  private ResponseEntity<Resource> stored(ClinicalFile file) {
+    Path path = files.resolvePath(file);
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.parseMediaType(file.contentType()));
+    headers.setContentLength(file.size());
+    headers.setContentDisposition(ContentDisposition.inline().filename(file.originalName()).build());
+    headers.setCacheControl(CacheControl.noStore());
+    headers.set("X-Content-Type-Options", "nosniff");
+    return ResponseEntity.ok().headers(headers).body(new FileSystemResource(path));
+  }
+}

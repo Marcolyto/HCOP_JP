@@ -1,6 +1,8 @@
 # 08 · Preparar Docker, CI y despliegue
 
-## Dockerfile multi-stage
+## Tres Dockerfiles multi-stage
+
+`backend/Dockerfile` y `bff/Dockerfile` (mismo patrón):
 
 Etapa de build:
 
@@ -8,27 +10,41 @@ Etapa de build:
 - copia primero `pom.xml`;
 - cache de dependencias;
 - copia `src`;
-- empaqueta JAR.
+- corre `mvn test` + `package` (sin socket de Docker disponible dentro del
+  build — Testcontainers no puede correr acá, sólo tests que mockean).
 
 Etapa runtime:
 
 - JRE 21, no JDK/Maven;
 - usuario no root;
-- sólo JAR y catálogos necesarios;
-- directorio storage con propietario correcto;
-- healthcheck;
+- sólo el JAR (y catálogos, en el caso del backend);
+- directorio storage con propietario correcto (sólo backend);
+- healthcheck contra `/actuator/health`;
 - límites de memoria;
 - entrada `java -jar`.
 
-No copie `.git`, `.env`, dumps, pacientes, storage local ni `target` del host.
-Mantenga `.dockerignore`.
+`frontend/Dockerfile` es distinto: etapa de build con Node (`npm ci && npm
+run build`), etapa runtime `nginx:alpine` sirviendo el `dist/` compilado más
+`nginx.conf` (upstream fijo `bff:8080`, no configurable por entorno — si
+falta el servicio `bff` en el compose, nginx no arranca: `emerg host not
+found in upstream "bff"`, un error real que aparece si se lo olvida).
+
+No copie `.git`, `.env`, dumps, pacientes, storage local, `target/`,
+`node_modules/` ni `dist/` del host. Mantenga `.dockerignore` en cada uno de
+los tres servicios.
 
 ## Docker Compose
 
-Servicios:
+Cinco servicios:
 
 - `database`: PostgreSQL 18.4, red interna, volumen persistente y healthcheck;
-- `application`: depende de DB saludable, publica sólo HTTP, monta storage.
+- `redis`: caché de sesión del BFF — efímero a propósito, sin
+  `--appendonly` ni volumen (perderlo obliga a un re-login, no pierde datos
+  clínicos);
+- `backend`: depende de `database` saludable;
+- `bff`: depende de `backend` y `redis` saludables;
+- `frontend`: depende de `bff` saludable, único que publica puerto al host
+  (`5180:8080`).
 
 Volúmenes separados:
 
@@ -37,8 +53,9 @@ hcop_jp_postgres
 hcop_jp_storage
 ```
 
-No monte el código fuente en producción. No publique el puerto 5432 salvo una
-necesidad administrativa temporal y restringida.
+Sólo `backend` y `database` tienen volumen — `bff` y `frontend` son
+stateless. No monte el código fuente en producción. No publique el puerto
+5432 ni 6379 salvo una necesidad administrativa temporal y restringida.
 
 ## Configuración
 
@@ -53,6 +70,7 @@ HCOP_BOOTSTRAP_USERNAME=<administrador>
 HCOP_BOOTSTRAP_PASSWORD=<secreto-inicial>
 HCOP_QR_SECRET=<aleatorio>
 HCOP_ENCRYPTION_SECRET=<aleatorio-distinto>
+HCOP_JWT_SECRET=<aleatorio-de-al-menos-32-bytes>
 HCOP_PUBLIC_BASE_URL=https://hcop.example
 ```
 
@@ -71,27 +89,30 @@ Compose espera esa condición antes de pruebas o exposición.
 
 ## GitHub Actions
 
-Use dos workflows:
+Un solo workflow (`verify.yml`) con jobs independientes que corren en
+paralelo, más un job final de publicación que depende de todos:
 
-### Verificación
+- `java`: `mvn verify` del backend;
+- `bff`: `mvn verify` del bff (pom propio, no se sube al `verify` del
+  backend);
+- `frontend`: `npm ci && npm test && npm run build`;
+- `docker`: `docker compose up --build --wait` con los 5 servicios reales,
+  smoke test, snapshot OpenAPI (`-Check`, bloqueante — es el guardián real
+  del contrato, no `generate-api-docs.ps1 -Check`, que es una proyección
+  *lossy* sin schemas), flujo clínico integral, backup/restore;
+- `browser`: Playwright contra el stack Docker real;
+- `launcher`: valida el script de instalación en Windows;
+- `publish` (`needs: [java, bff, frontend, docker, browser, launcher]`):
+  matriz con una entrada por imagen (`backend`, `bff`, `frontend`) —
+  **las tres**, no sólo dos; un servicio nuevo que se olvida acá se
+  construye y prueba en CI pero nunca se publica, y la instalación desde
+  GHCR queda rota en silencio hasta que alguien la prueba de verdad.
 
-- Maven verify;
-- Docker Compose integral;
-- documentación;
-- flujo clínico;
-- teardown siempre.
+Para cada imagen de la matriz: login a GHCR con `GITHUB_TOKEN`, metadata/tag,
+cache BuildKit, push sólo desde ramas/tags autorizados, digest visible.
 
-### Publicación
-
-- login a GHCR con `GITHUB_TOKEN`;
-- metadata/tag;
-- build multi-architecture si se necesita;
-- cache BuildKit;
-- push sólo desde ramas/tags autorizados;
-- digest visible.
-
-Evite publicar una imagen si la verificación no pasó. Para endurecer, haga que
-publicación dependa del workflow exitoso o aplique reglas de protección.
+`publish` depende de todos los demás jobs — no hay forma de publicar una
+imagen sin que la verificación completa haya pasado primero.
 
 ## Versionado
 

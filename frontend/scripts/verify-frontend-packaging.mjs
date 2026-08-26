@@ -5,19 +5,14 @@ import assert from 'node:assert/strict';
 
 const frontendRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const generatedRoot = resolve(frontendRoot, 'src', 'generated', 'legacy-visual-contract');
-const sourceCandidates = [
-  resolve(frontendRoot, '..', 'src', 'main', 'resources', 'static'),
-  resolve(frontendRoot, 'src', 'main', 'resources', 'static')
-];
+const sourceRoot = resolve(frontendRoot, 'src', 'legacy-visual-contract');
 const visualFiles = [
   ['styles.css', 'styles.css'],
   ['care-scheduler.css', 'care-scheduler.css'],
   ['care-scheduler-modal.css', 'care-scheduler-modal.css'],
-  [join('help', 'help.css'), 'help.css']
+  ['help.css', 'help.css']
 ];
-const sourceRoot = sourceCandidates.find((candidate) =>
-  visualFiles.every(([source]) => existsSync(join(candidate, source))));
-assert(sourceRoot, 'No se encontró el contrato visual fuente.');
+assert(existsSync(sourceRoot), `No se encontró el contrato visual fuente en ${sourceRoot}.`);
 
 for (const [source, target] of visualFiles) {
   assert.deepEqual(
@@ -73,4 +68,43 @@ if (process.argv.includes('--dist')) {
     'El HTML compilado todavía referencia activos visuales o QR fuera del bundle');
 }
 
-console.log('OK · contrato visual y lector QR empaquetados por Angular');
+// Guardián de estáticos: los templates de estudio y los underlays de formularios sistémicos
+// referencian rutas /assets/** que el navegador pide directo a nginx, no al backend. Si un
+// activo falta acá, la falla es silenciosa (plantilla en blanco, sin error en consola/logs).
+const publicRoot = resolve(frontendRoot, 'public');
+const catalogsRoot = resolve(frontendRoot, '..', 'backend', 'runtime', 'catalogs');
+
+// El contexto de build Docker del frontend es SOLO frontend/ (backend/ no existe ahí a
+// propósito: son servicios independientes). Este cruce solo puede correr donde el repo
+// completo está presente (checkout local, job "frontend" de CI) — se omite en el build
+// de imagen, que valida el contrato de otra forma (tests + guardián de la propia imagen).
+if (existsSync(catalogsRoot)) {
+  const manifest = JSON.parse(
+    readFileSync(resolve(catalogsRoot, 'study-templates', 'manifest.json'), 'utf8'));
+  for (const template of manifest.templates) {
+    for (const key of ['file', 'thumbnail']) {
+      const relativePath = template[key];
+      assert(
+        existsSync(resolve(publicRoot, relativePath)),
+        `study-templates/manifest.json referencia ${relativePath} (${key} de "${template.id}") ` +
+          `que no existe en frontend/public/`
+      );
+    }
+  }
+
+  const underlays = JSON.parse(
+    readFileSync(resolve(catalogsRoot, 'systemic-form-underlays.json'), 'utf8'));
+  for (const pagePath of Object.keys(underlays.pages)) {
+    const relativePath = pagePath.replace(/^\//, '');
+    assert(
+      existsSync(resolve(publicRoot, relativePath)),
+      `systemic-form-underlays.json referencia la página ${pagePath} que no existe en frontend/public/`
+    );
+  }
+} else {
+  console.log(
+    `(omitido) ${catalogsRoot} no existe en este contexto de build — ` +
+      'el cruce con los catálogos del backend solo corre con el repo completo.');
+}
+
+console.log('OK · contrato visual, lector QR y activos de catálogo empaquetados por Angular');

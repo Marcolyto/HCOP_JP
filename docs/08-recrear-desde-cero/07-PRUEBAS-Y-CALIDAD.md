@@ -14,6 +14,20 @@ Para reglas puras:
 - firma/verificación;
 - cálculo de antropometría.
 
+### Arquitectura (ArchUnit)
+
+Un módulo de test propio escanea el classpath (`ClassFileImporter`) y hace
+cumplir, incondicionalmente:
+
+- `domain`/`application` no importan Spring, JDBC ni Jackson;
+- `application` no importa clases de `infrastructure`;
+- un módulo clínico no importa el repositorio interno de otro (sólo su
+  `port/in`, vía un adapter propio en `infrastructure`);
+- los módulos clínicos son libres de ciclos entre sí.
+
+Corre en cada `mvn verify`, igual que cualquier otro test — no es un linter
+aparte que se pueda ignorar.
+
 ### Repositorio con PostgreSQL real
 
 Use Testcontainers, no H2, cuando se prueben:
@@ -42,7 +56,7 @@ Verifique:
 
 - cuerpos válidos e inválidos;
 - códigos HTTP;
-- cookie;
+- Bearer JWT (backend) / cookie de sesión del BFF, según el servicio;
 - permisos;
 - MIME/descargas;
 - ausencia de información interna.
@@ -147,7 +161,8 @@ insuficiente para un turnero.
 Una copia limpia debe pasar:
 
 ```powershell
-mvn --batch-mode verify
+mvn --batch-mode -f backend\pom.xml verify
+mvn --batch-mode -f bff\pom.xml verify
 docker compose up --build --detach --wait
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\integration-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-api-docs.ps1 -Check

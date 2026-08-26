@@ -1,0 +1,30 @@
+%%{init: {"theme":"neutral","flowchart":{"htmlLabels":true}}}%%
+flowchart TB
+    U["Usuario<br/>(navegador)"]
+
+    subgraph EGRESS["Red docker: hcop_egress (con salida a Internet)"]
+        FE["frontend<br/>nginx + Angular SPA<br/>host:5180 → 8080"]
+        BFF["bff<br/>Token Handler<br/>:8080"]
+        BE["backend<br/>dominio clínico (hexagonal)<br/>:5180"]
+    end
+
+    subgraph INTERNAL["Red docker: hcop_internal (sin salida a Internet)"]
+        DB[("PostgreSQL 18<br/>database:5432")]
+        RD[("Redis 7<br/>redis:6379")]
+    end
+
+    LLM(["LLM externo opcional<br/>OpenAI-compatible / Ollama"])
+
+    U -->|HTTPS| FE
+    FE -->|"proxy_pass /api, /actuator/health,<br/>/v3/api-docs, /swagger-ui*"| BFF
+    BFF -->|"Authorization: Bearer JWT"| BE
+    BFF -->|"sesión BFF_SESSION (sid)"| RD
+    BE -->|JDBC| DB
+    BE -.->|"opcional, saliente"| LLM
+
+    classDef svc fill:#ffffff,stroke:#2d3142,stroke-width:1px
+    classDef store fill:#eef0f4,stroke:#4f5d75,stroke-width:1px
+    classDef ext fill:#fbeee6,stroke:#eb6c36,stroke-width:1px,stroke-dasharray:4 3
+    class FE,BFF,BE svc
+    class DB,RD store
+    class LLM ext

@@ -5,12 +5,20 @@ producción.
 
 ## Arquitectura
 
-- [ ] Un solo servidor Java entrega UI y API.
-- [ ] Paquetes separados por dominio.
+- [ ] Tres servicios (`backend`/`bff`/`frontend`), un solo punto de entrada
+      público.
+- [ ] El navegador nunca habla directo con `backend` (sólo con nginx→`bff`).
+- [ ] Cada módulo clínico separa `domain`/`application`/`infrastructure`.
+- [ ] `domain`/`application` no importan Spring, JDBC ni Jackson (ArchUnit
+      en verde).
+- [ ] Ningún módulo importa el repositorio interno de otro directo (sólo su
+      `port/in`, vía adapter propio).
+- [ ] Los módulos clínicos son libres de ciclos entre sí.
 - [ ] Controllers sin SQL.
-- [ ] Services concentran reglas/transacciones.
-- [ ] Repositories usan SQL parametrizado.
-- [ ] No existe dependencia operativa de Lira, Node.js o MySQL.
+- [ ] `ApplicationService` concentra reglas/transacciones.
+- [ ] `Postgres*Store` usa SQL parametrizado.
+- [ ] No existe dependencia operativa de Lira, Node.js legacy vanilla o
+      MySQL.
 
 ## Base de datos
 
@@ -25,13 +33,18 @@ producción.
 
 - [ ] Login obligatorio.
 - [ ] Contraseñas BCrypt.
-- [ ] Cookie HttpOnly/SameSite y Secure con HTTPS.
-- [ ] Tokens de sesión almacenados como hash.
+- [ ] Cookie `BFF_SESSION` (BFF): HttpOnly/SameSite y Secure con HTTPS.
+- [ ] El navegador nunca recibe el access/refresh token JWT (test explícito
+      sobre el body de login).
+- [ ] `backend` valida Bearer JWT firmado, sin cookies propias.
+- [ ] Revocación inmediata: deshabilitar usuario/cambiar contraseña/
+      reasignar roles invalida el access token ya emitido, sin esperar el
+      TTL.
 - [ ] Permisos verificados en servidor.
 - [ ] Matriz de roles probada.
 - [ ] QR firmado e idempotente.
 - [ ] Secretos fuera de Git/logs/respuestas.
-- [ ] PostgreSQL no está expuesto públicamente.
+- [ ] PostgreSQL y Redis no están expuestos públicamente.
 
 ## Clínica
 
@@ -62,7 +75,9 @@ producción.
 
 - [ ] Todos los endpoints tienen resumen y descripción.
 - [ ] Cada operación declara controller, permiso y respuestas.
-- [ ] Swagger abre y ejecuta con cookie.
+- [ ] Swagger abre y ejecuta con Bearer.
+- [ ] `generate-openapi-snapshot.ps1 -Check` sin diff (guardián real del
+      contrato — bloqueante).
 - [ ] Catálogo Markdown/HTML está sincronizado.
 - [ ] Modelo, campos, variables y operación están documentados.
 - [ ] Decisiones importantes tienen ADR.
@@ -81,7 +96,8 @@ producción.
 
 ## Pruebas
 
-- [ ] `mvn verify` exitoso.
+- [ ] `mvn verify` exitoso en `backend/` y en `bff/`.
+- [ ] ArchUnit (hexagonal + libre de ciclos) en verde.
 - [ ] Repositories probados con PostgreSQL real.
 - [ ] Permisos `401/403`.
 - [ ] Revisión `409`.

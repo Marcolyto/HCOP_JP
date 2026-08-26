@@ -1,0 +1,8 @@
+.git
+.idea
+.vscode
+target
+target-*
+runtime/storage
+*.md
+*.log

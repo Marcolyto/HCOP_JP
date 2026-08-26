@@ -74,7 +74,10 @@ Configure:
 
 - título, versión, contacto y alcance;
 - servidor relativo `/`;
-- cookie `HCOP_SESSION` como security scheme;
+- `bearerAuth` (HTTP bearer/JWT) como security scheme — el backend no
+  acepta cookies; Swagger corre contra el backend directo, así que ahí sí
+  se pega el access token, aunque el navegador nunca lo vea vía la app
+  (eso lo resuelve el BFF, que no participa en Swagger);
 - grupos completa, clínica y administración;
 - tags funcionales;
 - resumen y descripción por operación;

@@ -2,7 +2,8 @@ package ar.com.hexium.hcop.treatment;
 
 import ar.com.hexium.hcop.auth.AuthContext;
 import ar.com.hexium.hcop.auth.SessionPrincipal;
-import ar.com.hexium.hcop.catalog.TreatmentCatalogService;
+import ar.com.hexium.hcop.catalog.application.port.in.TreatmentCatalogUseCase;
+import ar.com.hexium.hcop.catalog.domain.TreatmentScheme;
 import ar.com.hexium.hcop.treatment.TreatmentService.Creation;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.LinkedHashMap;
@@ -21,12 +22,12 @@ import tools.jackson.databind.JsonNode;
 @RestController
 public class TreatmentController {
   private final TreatmentService treatments;
-  private final TreatmentCatalogService catalog;
+  private final TreatmentCatalogUseCase catalog;
   private final AuthContext auth;
 
   public TreatmentController(
       TreatmentService treatments,
-      TreatmentCatalogService catalog,
+      TreatmentCatalogUseCase catalog,
       AuthContext auth) {
     this.treatments = treatments;
     this.catalog = catalog;
@@ -98,8 +99,32 @@ public class TreatmentController {
       @RequestParam(defaultValue = "") String q,
       HttpServletRequest request) {
     auth.requirePermission(request, "section.protocols.view");
-    List<Map<String, Object>> schemes = catalog.schemes(q);
+    List<Map<String, Object>> schemes = catalog.schemes(q).stream().map(this::view).toList();
     return Map.of("ok", true, "schemes", schemes, "total", schemes.size());
+  }
+
+  private Map<String, Object> view(TreatmentScheme scheme) {
+    Map<String, Object> value = new LinkedHashMap<>();
+    value.put("id", scheme.id());
+    value.put("nombre", scheme.name());
+    value.put("name", scheme.name());
+    value.put("activo", "1");
+    value.put("duracionCiclo", scheme.cycleDays() > 0 ? Integer.toString(scheme.cycleDays()) : "");
+    value.put("cycleDays", scheme.cycleDays() > 0 ? scheme.cycleDays() : null);
+    value.put("estimatedDurationMinutes", scheme.durationMinutes());
+    value.put("durationMinutes", scheme.durationMinutes());
+    value.put("estimatedDurationText", durationText(scheme.durationMinutes()));
+    value.put("origin", scheme.custom() ? "custom" : "catalog");
+    return value;
+  }
+
+  private static String durationText(Integer minutes) {
+    if (minutes == null || minutes < 1) return "";
+    int hours = minutes / 60;
+    int remainder = minutes % 60;
+    if (hours == 0) return minutes + " min";
+    if (remainder == 0) return hours + " h";
+    return hours + " h " + remainder + " min";
   }
 
   @GetMapping("/api/clinical/schemes/{id}/duration")

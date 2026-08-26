@@ -13,7 +13,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import ar.com.hexium.hcop.auth.AuthContext;
-import ar.com.hexium.hcop.catalog.SystemicFormCatalogService;
+import ar.com.hexium.hcop.catalog.application.port.in.SystemicFormCatalogUseCase;
 import ar.com.hexium.hcop.common.ApiException;
 import ar.com.hexium.hcop.integration.LlmClient.Completion;
 import ar.com.hexium.hcop.integration.LlmClient.Message;
@@ -49,7 +49,7 @@ class LlmControllerTest {
     controller = new LlmController(
         configuration,
         llm,
-        mock(SystemicFormCatalogService.class),
+        mock(SystemicFormCatalogUseCase.class),
         auth,
         mapper);
     config = new Config(

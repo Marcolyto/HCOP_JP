@@ -2,8 +2,8 @@ package ar.com.hexium.hcop.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ar.com.hexium.hcop.catalog.AjccCatalogController;
-import ar.com.hexium.hcop.catalog.LegacyCatalogController;
+import ar.com.hexium.hcop.catalog.infrastructure.web.AjccCatalogController;
+import ar.com.hexium.hcop.catalog.infrastructure.web.LegacyCatalogController;
 import ar.com.hexium.hcop.tools.infrastructure.web.CalculatorCatalogController;
 import ar.com.hexium.hcop.integration.LlmController;
 import ar.com.hexium.hcop.integration.LlmController.AgentChatRequest;
@@ -121,7 +121,7 @@ class OpenApiConfigurationTest {
 
   @Test
   void documentaElPermisoDeLosDosContratosCompatiblesDeProtocolos() throws Exception {
-    LegacyCatalogController controller = new LegacyCatalogController(null, null, null, null);
+    LegacyCatalogController controller = new LegacyCatalogController(null, null, null, null, null);
     HandlerMethod list = new HandlerMethod(
         controller,
         LegacyCatalogController.class.getDeclaredMethod(
@@ -149,7 +149,7 @@ class OpenApiConfigurationTest {
 
   @Test
   void documentaLosPermisosDiferenciadosDelCatalogoYCalculoAjcc() throws Exception {
-    AjccCatalogController controller = new AjccCatalogController(null, null);
+    AjccCatalogController controller = new AjccCatalogController(null, null, null);
     OpenApiConfiguration configuration = new OpenApiConfiguration();
 
     HandlerMethod list = new HandlerMethod(

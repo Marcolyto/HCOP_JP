@@ -1,7 +1,8 @@
 package ar.com.hexium.hcop.protocol.infrastructure.catalog;
 
-import ar.com.hexium.hcop.catalog.LegacyProtocolCatalogService;
-import ar.com.hexium.hcop.catalog.TreatmentCatalogService;
+import ar.com.hexium.hcop.catalog.application.port.in.LegacyProtocolCatalogUseCase;
+import ar.com.hexium.hcop.catalog.application.port.in.TreatmentCatalogUseCase;
+import ar.com.hexium.hcop.catalog.domain.TreatmentScheme;
 import ar.com.hexium.hcop.protocol.application.port.out.ProtocolCatalogPort;
 import ar.com.hexium.hcop.protocol.domain.ProtocolDocument;
 import java.util.LinkedHashMap;
@@ -16,13 +17,13 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Component
 public class LegacyProtocolCatalogAdapter implements ProtocolCatalogPort {
-  private final TreatmentCatalogService schemes;
-  private final LegacyProtocolCatalogService details;
+  private final TreatmentCatalogUseCase schemes;
+  private final LegacyProtocolCatalogUseCase details;
   private final ObjectMapper mapper;
 
   public LegacyProtocolCatalogAdapter(
-      TreatmentCatalogService schemes,
-      LegacyProtocolCatalogService details,
+      TreatmentCatalogUseCase schemes,
+      LegacyProtocolCatalogUseCase details,
       ObjectMapper mapper) {
     this.schemes = schemes;
     this.details = details;
@@ -45,9 +46,10 @@ public class LegacyProtocolCatalogAdapter implements ProtocolCatalogPort {
   }
 
   @Override
+  @SuppressWarnings("unchecked")
   public List<ProtocolDocument> components(String schemeId) {
     return details.clinicalComponents(schemeId).stream()
-        .map(ProtocolDocument::of)
+        .map(item -> ProtocolDocument.of((Map<String, Object>) item))
         .toList();
   }
 
@@ -56,7 +58,7 @@ public class LegacyProtocolCatalogAdapter implements ProtocolCatalogPort {
     schemes.invalidate();
   }
 
-  private CatalogScheme scheme(TreatmentCatalogService.Scheme source) {
+  private CatalogScheme scheme(TreatmentScheme source) {
     @SuppressWarnings("unchecked")
     Map<String, Object> definition = mapper.convertValue(source.definition(), Map.class);
     return new CatalogScheme(

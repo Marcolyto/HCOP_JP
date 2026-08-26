@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import ar.com.hexium.hcop.catalog.TreatmentCatalogService;
+import ar.com.hexium.hcop.catalog.application.port.in.TreatmentCatalogUseCase;
 import ar.com.hexium.hcop.infusion.InfusionService;
 import ar.com.hexium.hcop.patient.PatientDocumentService;
 import ar.com.hexium.hcop.patient.PatientService;
@@ -38,7 +38,7 @@ class TreatmentServiceWorkflowStateTest {
     when(repository.list(10L)).thenReturn(List.of(treatment));
     when(repository.workflowStates(10L)).thenReturn(Map.of("trt-1", workflow));
     var service = new TreatmentService(
-        repository, mock(TreatmentCatalogService.class), patients,
+        repository, mock(TreatmentCatalogUseCase.class), patients,
         mock(PatientDocumentService.class), mapper, Clock.systemUTC(),
         mock(InfusionService.class), mock(TreatmentProtocolCompatibility.class),
         mock(TreatmentCycleTimeline.class),

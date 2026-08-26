@@ -1,7 +1,7 @@
 package ar.com.hexium.hcop.integration;
 
 import ar.com.hexium.hcop.auth.AuthContext;
-import ar.com.hexium.hcop.catalog.SystemicFormCatalogService;
+import ar.com.hexium.hcop.catalog.application.port.in.SystemicFormCatalogUseCase;
 import ar.com.hexium.hcop.common.ApiException;
 import ar.com.hexium.hcop.integration.LlmClient.Completion;
 import ar.com.hexium.hcop.integration.LlmClient.Message;
@@ -54,14 +54,14 @@ public class LlmController {
   private static final Pattern AGENT_CHART_COLOR = Pattern.compile("^#[0-9a-fA-F]{6}$");
   private final SystemConfigService configuration;
   private final LlmClient llm;
-  private final SystemicFormCatalogService forms;
+  private final SystemicFormCatalogUseCase forms;
   private final AuthContext auth;
   private final ObjectMapper mapper;
 
   public LlmController(
       SystemConfigService configuration,
       LlmClient llm,
-      SystemicFormCatalogService forms,
+      SystemicFormCatalogUseCase forms,
       AuthContext auth,
       ObjectMapper mapper) {
     this.configuration = configuration;
@@ -225,8 +225,9 @@ public class LlmController {
   Map<String, Object> fillSystemic(@RequestBody JsonNode body, HttpServletRequest request) {
     auth.requirePermission(request, "section.prescriptions.edit");
     String templateId = body.path("templateId").asText("");
-    JsonNode template = forms.find(templateId);
-    if (template == null) throw new ApiException(HttpStatus.NOT_FOUND, "Formulario no encontrado.");
+    Object rawTemplate = forms.find(templateId);
+    if (rawTemplate == null) throw new ApiException(HttpStatus.NOT_FOUND, "Formulario no encontrado.");
+    JsonNode template = mapper.valueToTree(rawTemplate);
     ObjectNode manifest = mapper.createObjectNode();
     template.path("fields").forEach(field -> {
       if ("llm".equals(field.path("source").asText(""))) {

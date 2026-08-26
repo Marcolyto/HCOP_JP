@@ -390,9 +390,61 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
   negocio del módulo dueño). Commits: `1c5fb90` (1/3 tools) · `366c80c` (2/3 system) · (3/3 admin,
   este). Siguiente: F3.2 — catalog, integration, media.
 
+### F3.2 — catalog, integration, media
+
+- [x] F3.2 (1/3) — `catalog` migrado (1462 LOC, 7 sub-catálogos en un solo módulo: AJCC, TNM/SEER,
+  formularios sistémicos, diagnóstico, tratamiento/esquemas COIR+Postgres, protocolo legacy COIR+SEER,
+  medicamentos). `domain/{AjccSite,AjccStagingRule,CatalogSearchResult,TnmSchema,TreatmentScheme,
+  DiagnosisEquivalence}` · 7 puertos de entrada (`AjccStagingUseCase`, `TnmCatalogUseCase`,
+  `SystemicFormCatalogUseCase`, `DiagnosisCatalogUseCase`, `TreatmentCatalogUseCase`,
+  `LegacyProtocolCatalogUseCase`, `DrugCatalogUseCase`) + puertos de salida análogos ·
+  `application/service/CatalogFailure` (`INVALID`/`NOT_FOUND`, compartido) +
+  `CatalogTextSearch` (normalización de texto compartida por AJCC y diagnóstico) ·
+  6 adapters en `infrastructure/persistence` (todos `@Repository`, variante B — ningún sub-catálogo
+  escribe) · 6 controllers migrados a `infrastructure/web` (mismos endpoints/paths/shapes) +
+  `CatalogFailureAdvice` único para los 5 que pueden fallar.
+  **Hallazgo real (ArchUnit, no negociable):** `domainIsIndependentFromFrameworks` y
+  `applicationDoesNotDependOnWebOrPersistenceFrameworks` son reglas **incondicionales** (no las
+  relaja el allow-list de módulos legacy) — ningún `domain`/`application` puede importar
+  `tools.jackson..`. Esto chocó con `TreatmentCatalogService.Scheme.definition()`, que
+  `treatment`/`infusion`/`protocol` (módulos aún no hexagonales, fuera de este commit) consumen
+  como `JsonNode` real. Fix: `TreatmentScheme.definition()` tipa `Object` en la firma pero sigue
+  siendo un `JsonNode` en runtime (el adapter nunca lo convierte) — los 3 call-sites externos que
+  necesitaban navegarlo agregan un cast `(JsonNode)` puntual (`TreatmentService.java` ×2,
+  `TreatmentApplicationLogisticsService.java` ×1); los que solo llamaban `.toString()` no
+  necesitaron cambio. Mismo patrón en `SystemicFormCatalogUseCase.find()` (consumido por
+  `integration.LlmController`) y en los `List<Object>` de `DrugCatalogUseCase`/
+  `LegacyProtocolCatalogUseCase` (consumidos por `protocol/infrastructure/catalog/*Adapter`) —
+  documentado como desvío consciente, no defecto: son datos de catálogo legacy heterogéneos, no
+  vale la pena un modelo de dominio rígido para ellos.
+  **Blast radius real fuera de `catalog/` (todo mecánico, mismo comportamiento):**
+  `protocol/infrastructure/catalog/{LegacyProtocolCatalogAdapter,LocalDrugCatalogAdapter}` (pasan a
+  depender de los `*UseCase` en vez de las clases concretas) · `treatment/{TreatmentController,
+  TreatmentService}` (mismo cambio + arman el JSON de "esquema" que antes vivía en
+  `TreatmentCatalogService.Scheme.view()`, ya que ese método no puede sobrevivir en `domain`) ·
+  `infusion/TreatmentApplicationLogisticsService` · `integration/LlmController` (`forms.find()`
+  ahora `Object`, un `mapper.valueToTree()` de vuelta a `JsonNode`) ·
+  `config/ClinicalCatalogBootstrap` (pasa a depender de `DiagnosisCatalogUseCase`, que ahora expone
+  `equivalences()` además de `search()` — puerto cruzado real, `config` consumiendo un puerto de
+  `catalog`).
+  Tests: 4 tests viejos relocados/adaptados (`AjccCatalogControllerPermissionTest`,
+  `LegacyCatalogControllerPermissionTest`, `PostgresTreatmentSchemeStoreTest` — antes
+  `TreatmentCatalogServiceTest`, verifica >200 esquemas reales incl. "347"=120min —,
+  `ClinicalCatalogConsistencyTest` — verifica el ensamblado real COIR componentes+drogas), sin
+  aserciones cambiadas. `catalog` sale de `TRACKED_LEGACY_MODULES`.
+  Verificado en Docker real: `mvn -f backend/pom.xml verify` verde · `docker compose up --build
+  --wait` 5 servicios healthy · `generate-openapi-snapshot.ps1 -Check` diff vacío (pese al volumen
+  del cambio) · `smoke-test.ps1` verde · barrido real por curl con login: AJCC list/detail/stage
+  (38 sitios), TNM list/detail (153 esquemas, stage tables incl.), formularios sistémicos,
+  diagnóstico ajcc/snomed, protocolos coir (803)/seer (458), medicamentos, catalogs status/update,
+  `/api/clinical/schemes` y `/duration` (treatment), `/api/clinical/protocols`,
+  `/api/clinical/coir-catalog`, `/api/clinical/protocols/coir-347` (protocol module, consumidor
+  cruzado) — todo con el mismo shape y valores reales que antes.
+- [ ] F3.2 (2/3) — `integration` (1297 LOC, saca 638 LOC de prompts del controller, define `LlmPort`)
+- [ ] F3.2 (3/3) — `media` (791 LOC, introduce `PatientLookupPort`)
+
 ### Siguientes etapas (no arrancadas)
 
-- [ ] F3.2 — catalog, integration, media
 - [ ] F3.3.0 — Puertos cruzados (patient/treatment/infusion) — commit propio
 - [ ] F3.3 — patient, diagnosis, workflow, treatment, infusion (3 PRs), qr
 - [ ] F3.4 — common→sharedkernel/platform, config→platform (NO hexagonal), eliminar ApiException
@@ -414,8 +466,8 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
 5. Al terminar un módulo: sacarlo de `TRACKED_LEGACY_MODULES` en
    `backend/src/test/java/ar/com/hexium/hcop/architecture/HexagonalArchitectureTest.java` (esa
    lista ES el tracker ejecutable) y marcarlo `[x]` acá con el hash del commit.
-6. Próximo paso concreto: **F3.2 — `catalog`** (primer módulo de la etapa, read-only sobre
-   `runtime/catalogs` vía adapters de filesystem).
+6. Próximo paso concreto: **F3.2 (2/3) — `integration`** (1297 LOC, saca 638 LOC de prompts del
+   controller a texto plano/recursos, define `LlmPort`).
 
 ## Decisiones ya tomadas (no volver a preguntar)
 - Layout: backend/ bff/ frontend/ en raíz · Auth: JWT completo · Alcance: hexagonal completo

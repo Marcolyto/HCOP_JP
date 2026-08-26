@@ -1,6 +1,7 @@
 package ar.com.hexium.hcop.infusion;
 
-import ar.com.hexium.hcop.catalog.TreatmentCatalogService;
+import ar.com.hexium.hcop.catalog.application.port.in.TreatmentCatalogUseCase;
+import ar.com.hexium.hcop.catalog.domain.TreatmentScheme;
 import ar.com.hexium.hcop.infusion.TreatmentApplicationPlanner.ApplicationPlan;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -20,7 +21,7 @@ public class TreatmentApplicationLogisticsService {
   private final JdbcTemplate jdbc;
   private final ObjectMapper mapper;
   private final TreatmentApplicationPlanner planner;
-  private final TreatmentCatalogService catalog;
+  private final TreatmentCatalogUseCase catalog;
   private final Clock clock;
   private final AtomicBoolean synchronizedExistingTreatments = new AtomicBoolean(false);
 
@@ -28,7 +29,7 @@ public class TreatmentApplicationLogisticsService {
       JdbcTemplate jdbc,
       ObjectMapper mapper,
       TreatmentApplicationPlanner planner,
-      TreatmentCatalogService catalog,
+      TreatmentCatalogUseCase catalog,
       Clock clock) {
     this.jdbc = jdbc;
     this.mapper = mapper;
@@ -85,8 +86,8 @@ public class TreatmentApplicationLogisticsService {
     }, treatmentId);
     if (snapshots.isEmpty()) return;
     Snapshot snapshot = snapshots.getFirst();
-    TreatmentCatalogService.Scheme scheme = catalog.scheme(snapshot.schemeId()).orElse(null);
-    JsonNode protocolDefinition = scheme == null ? null : scheme.definition();
+    TreatmentScheme scheme = catalog.scheme(snapshot.schemeId()).orElse(null);
+    JsonNode protocolDefinition = scheme == null ? null : (JsonNode) scheme.definition();
     Integer protocolDuration = snapshot.protocolDurationMinutes();
     if ((protocolDuration == null || protocolDuration < 1)
         && scheme != null && scheme.durationMinutes() != null && scheme.durationMinutes() > 0) {

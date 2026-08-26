@@ -1,6 +1,7 @@
 package ar.com.hexium.hcop.config;
 
-import ar.com.hexium.hcop.catalog.DiagnosisCatalogService;
+import ar.com.hexium.hcop.catalog.application.port.in.DiagnosisCatalogUseCase;
+import ar.com.hexium.hcop.catalog.domain.DiagnosisEquivalence;
 import java.util.Map;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -11,12 +12,12 @@ import tools.jackson.databind.ObjectMapper;
 public class ClinicalCatalogBootstrap {
   private final JdbcTemplate jdbc;
   private final ObjectMapper mapper;
-  private final DiagnosisCatalogService diagnoses;
+  private final DiagnosisCatalogUseCase diagnoses;
 
   public ClinicalCatalogBootstrap(
       JdbcTemplate jdbc,
       ObjectMapper mapper,
-      DiagnosisCatalogService diagnoses) {
+      DiagnosisCatalogUseCase diagnoses) {
     this.jdbc = jdbc;
     this.mapper = mapper;
     this.diagnoses = diagnoses;
@@ -42,7 +43,7 @@ public class ClinicalCatalogBootstrap {
         "Define las clasificaciones visibles y obligatorias.", definition.toString(), actorId);
   }
 
-  private void seedEquivalence(DiagnosisCatalogService.Equivalence item, long actorId) {
+  private void seedEquivalence(DiagnosisEquivalence item, long actorId) {
     var definition = mapper.createObjectNode();
     definition.put("schemaVersion", 1);
     definition.set("ajcc", mapper.valueToTree(Map.of(

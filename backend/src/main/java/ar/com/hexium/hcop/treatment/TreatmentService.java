@@ -1,8 +1,8 @@
 package ar.com.hexium.hcop.treatment;
 
 import ar.com.hexium.hcop.auth.SessionPrincipal;
-import ar.com.hexium.hcop.catalog.TreatmentCatalogService;
-import ar.com.hexium.hcop.catalog.TreatmentCatalogService.Scheme;
+import ar.com.hexium.hcop.catalog.application.port.in.TreatmentCatalogUseCase;
+import ar.com.hexium.hcop.catalog.domain.TreatmentScheme;
 import ar.com.hexium.hcop.common.ApiException;
 import ar.com.hexium.hcop.patient.PatientDocumentRepository.StoredDocument;
 import ar.com.hexium.hcop.patient.PatientDocumentService;
@@ -37,7 +37,7 @@ import tools.jackson.databind.node.ObjectNode;
 public class TreatmentService {
   private static final DateTimeFormatter ARGENTINE_DATE = DateTimeFormatter.ofPattern("dd/MM/uuuu");
   private final TreatmentRepository treatments;
-  private final TreatmentCatalogService catalog;
+  private final TreatmentCatalogUseCase catalog;
   private final PatientService patients;
   private final PatientDocumentService documents;
   private final ObjectMapper mapper;
@@ -49,7 +49,7 @@ public class TreatmentService {
 
   public TreatmentService(
       TreatmentRepository treatments,
-      TreatmentCatalogService catalog,
+      TreatmentCatalogUseCase catalog,
       PatientService patients,
       PatientDocumentService documents,
       ObjectMapper mapper,
@@ -87,8 +87,8 @@ public class TreatmentService {
     options.put("diagnoses", diagnoses);
     options.put("diagnosticos", diagnoses);
     List<Map<String, Object>> schemes = catalog.schemes("").stream().map(item -> {
-      Map<String, Object> view = new LinkedHashMap<>(item);
-      var assessment = compatibility.assess("", String.valueOf(item.getOrDefault("nombre", "")));
+      Map<String, Object> view = schemeView(item);
+      var assessment = compatibility.assess("", item.name());
       view.put("protocolGroup", assessment.protocolGroup());
       view.put("protocolGroupLabel", assessment.protocolGroupLabel());
       return view;
@@ -108,7 +108,7 @@ public class TreatmentService {
 
   public Map<String, Object> requirements(long patientId, String schemeId) {
     var patient = patients.require(patientId);
-    Scheme scheme = catalog.scheme(schemeId)
+    TreatmentScheme scheme = catalog.scheme(schemeId)
         .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "El esquema no existe."));
     String definitionText = scheme.definition().toString().toLowerCase(Locale.ROOT);
     boolean calvert = definitionText.contains("calvert") || normalize(scheme.name()).contains("carboplatino");
@@ -153,7 +153,7 @@ public class TreatmentService {
       throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "El diagnóstico no pertenece al paciente.");
     }
     String schemeId = text(input, "esquema", "scheme", "schemeId");
-    Scheme scheme = catalog.scheme(schemeId)
+    TreatmentScheme scheme = catalog.scheme(schemeId)
         .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "Seleccione un esquema válido."));
     var protocolAssessment = compatibility.assess(diagnosis, scheme.name());
     boolean protocolMismatchConfirmed = input.path("protocolMismatchConfirmed").asBoolean(false);
@@ -239,7 +239,7 @@ public class TreatmentService {
         .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tratamiento no encontrado."));
     JsonNode detail = treatments.detail(treatmentId).deepCopy();
     if (detail instanceof ObjectNode object) {
-      Scheme scheme = catalog.scheme(treatment.schemeId()).orElse(null);
+      TreatmentScheme scheme = catalog.scheme(treatment.schemeId()).orElse(null);
       object.put("localView", true);
       object.put("localRecord", true);
       object.put("origin", "local");
@@ -250,7 +250,7 @@ public class TreatmentService {
       for (JsonNode value : object.path("cycles")) {
         if (!(value instanceof ObjectNode cycle)) continue;
         if ((!cycle.path("drugs").isArray() || cycle.path("drugs").isEmpty()) && scheme != null) {
-          cycle.set("drugs", extractDrugs(scheme.definition(), cycle.path("number").asInt()));
+          cycle.set("drugs", extractDrugs((JsonNode) scheme.definition(), cycle.path("number").asInt()));
           object.put("protocolSnapshotRecovered", true);
         }
       }
@@ -336,7 +336,7 @@ public class TreatmentService {
       return treatment.durationMinutes();
     }
     return catalog.scheme(treatment.schemeId())
-        .map(Scheme::durationMinutes)
+        .map(TreatmentScheme::durationMinutes)
         .filter(value -> value != null && value > 0)
         .orElse(null);
   }
@@ -419,7 +419,7 @@ public class TreatmentService {
   }
 
   private ObjectNode createDetail(
-      String treatmentId, long patientId, Scheme scheme, int initialCycle, int cycleCount,
+      String treatmentId, long patientId, TreatmentScheme scheme, int initialCycle, int cycleCount,
       LocalDate firstCycle, int cycleDays) {
     return createDetail(
         treatmentId, patientId, scheme, initialCycle, cycleCount,
@@ -427,7 +427,7 @@ public class TreatmentService {
   }
 
   private ObjectNode createDetail(
-      String treatmentId, long patientId, Scheme scheme, int initialCycle, int cycleCount,
+      String treatmentId, long patientId, TreatmentScheme scheme, int initialCycle, int cycleCount,
       LocalDate firstCycle, int cycleDays, DosingContext dosing) {
     ObjectNode detail = mapper.createObjectNode();
     detail.put("treatmentId", treatmentId);
@@ -447,7 +447,7 @@ public class TreatmentService {
       LocalDate planned = cycleDays > 0 ? firstCycle.plusDays((long) (number - initialCycle) * cycleDays) : firstCycle;
       cycle.put("plannedDate", planned.toString());
       cycle.put("date", planned.toString());
-      cycle.set("drugs", extractDrugs(scheme.definition(), number, dosing));
+      cycle.set("drugs", extractDrugs((JsonNode) scheme.definition(), number, dosing));
       cycle.set("applications", mapper.createArrayNode());
       actionCycles.add(number);
     }
@@ -644,7 +644,7 @@ public class TreatmentService {
         .replaceAll("\\p{M}", "").toLowerCase(Locale.ROOT).trim();
   }
 
-  private DosingContext dosingContext(JsonNode input, Scheme scheme) {
+  private DosingContext dosingContext(JsonNode input, TreatmentScheme scheme) {
     if (!input.path("requirementsConfirmed").asBoolean(false)) {
       throw new ApiException(
           HttpStatus.UNPROCESSABLE_ENTITY,
@@ -786,6 +786,21 @@ public class TreatmentService {
 
   private String formatDose(double value) {
     return java.math.BigDecimal.valueOf(roundDose(value)).stripTrailingZeros().toPlainString();
+  }
+
+  private Map<String, Object> schemeView(TreatmentScheme scheme) {
+    Map<String, Object> value = new LinkedHashMap<>();
+    value.put("id", scheme.id());
+    value.put("nombre", scheme.name());
+    value.put("name", scheme.name());
+    value.put("activo", "1");
+    value.put("duracionCiclo", scheme.cycleDays() > 0 ? Integer.toString(scheme.cycleDays()) : "");
+    value.put("cycleDays", scheme.cycleDays() > 0 ? scheme.cycleDays() : null);
+    value.put("estimatedDurationMinutes", scheme.durationMinutes());
+    value.put("durationMinutes", scheme.durationMinutes());
+    value.put("estimatedDurationText", durationText(scheme.durationMinutes()));
+    value.put("origin", scheme.custom() ? "custom" : "catalog");
+    return value;
   }
 
   private String durationText(Integer minutes) {

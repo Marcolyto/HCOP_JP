@@ -3,7 +3,7 @@ package ar.com.hexium.hcop.treatment;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
-import ar.com.hexium.hcop.catalog.TreatmentCatalogService;
+import ar.com.hexium.hcop.catalog.application.port.in.TreatmentCatalogUseCase;
 import ar.com.hexium.hcop.infusion.InfusionService;
 import ar.com.hexium.hcop.patient.PatientDocumentService;
 import ar.com.hexium.hcop.patient.PatientService;
@@ -19,7 +19,7 @@ class TreatmentServiceDoseUnitTest {
   private final JsonMapper mapper = JsonMapper.builder().build();
   private final TreatmentService service = new TreatmentService(
       mock(TreatmentRepository.class),
-      mock(TreatmentCatalogService.class),
+      mock(TreatmentCatalogUseCase.class),
       mock(PatientService.class),
       mock(PatientDocumentService.class),
       mapper,

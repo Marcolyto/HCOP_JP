@@ -42,7 +42,7 @@ class HexagonalArchitectureTest {
    * PROGRESO.md). Las reglas R1/R2/R5/R6/R7/R8/R9 de abajo se relajan solo para lo que sigue acá.
    */
   private static final String[] TRACKED_LEGACY_MODULES = {
-      "catalog", "diagnosis", "infusion", "integration", "media",
+      "diagnosis", "infusion", "integration", "media",
       "patient", "qr", "treatment", "workflow"
   };
 

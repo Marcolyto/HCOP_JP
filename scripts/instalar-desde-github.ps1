@@ -1450,8 +1450,7 @@ function Invoke-ValidateOnly {
     "compose.github.yaml",
     "INSTALAR-DESDE-GITHUB.bat",
     "iniciar.bat",
-    "detener.bat",
-    "reiniciar.bat",
+    "iniciar.sh",
     "scripts\backup-hcop.ps1",
     "scripts\restore-hcop.ps1",
     "scripts\hcop-data-common.ps1"

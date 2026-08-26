@@ -79,6 +79,10 @@ Los comandos siguientes se ejecutan únicamente dentro de una copia local de
 `HCOP_JP`, donde existen `compose.yaml` y `.env`. No sustituyen la línea de
 ejecución directa anterior.
 
+Atajo con diagnóstico incluido: `.\iniciar.bat` (Windows) o `./iniciar.sh`
+(macOS/Linux) en la raíz del repo — cada uno acepta `detener`/`reiniciar`
+como argumento. Ver [Actualización](ACTUALIZACION.md#actualización-desde-un-checkout-de-desarrollo).
+
 Iniciar:
 
 ```powershell

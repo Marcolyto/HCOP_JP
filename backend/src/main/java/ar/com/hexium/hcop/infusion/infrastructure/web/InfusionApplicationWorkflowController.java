@@ -60,7 +60,11 @@ public class InfusionApplicationWorkflowController {
   }
 
   @GetMapping("/api/clinical/application-workflows")
-  @Operation(summary = "Listar una cola operativa por aplicación")
+  @Operation(
+      summary = "Listar una cola operativa por aplicación",
+      description = "Devuelve las aplicaciones en la cola operativa indicada (Farmacia, "
+          + "triaje, preparación o administración), filtrables por fecha, texto libre y "
+          + "origen de la medicación.")
   Map<String, Object> list(
       @Parameter(description = "Cola operativa a listar: applications, pharmacy, "
           + "triage, preparation o administration")
@@ -78,7 +82,11 @@ public class InfusionApplicationWorkflowController {
   }
 
   @GetMapping(ROOT)
-  @Operation(summary = "Abrir el circuito completo de una aplicación")
+  @Operation(
+      summary = "Abrir el circuito completo de una aplicación",
+      description = "Devuelve el estado completo del circuito de una aplicación puntual "
+          + "(paciente, tratamiento, ciclo y día): validación de Farmacia, reserva de "
+          + "stock, triaje, preparación y administración.")
   Map<String, Object> get(
       @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
@@ -92,7 +100,11 @@ public class InfusionApplicationWorkflowController {
   }
 
   @PostMapping(ROOT + "/pharmacy-validation")
-  @Operation(summary = "Validar la orden en Farmacia")
+  @Operation(
+      summary = "Validar la orden en Farmacia",
+      description = "Aprueba o rechaza la orden desde Farmacia, registrando el origen de "
+          + "la medicación. Idempotente por `idempotencyKey`; exige `expectedRevision` "
+          + "para evitar pisar un cambio concurrente.")
   Map<String, Object> pharmacyValidation(
       @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
@@ -112,7 +124,11 @@ public class InfusionApplicationWorkflowController {
   }
 
   @PostMapping(ROOT + "/stock-reservation")
-  @Operation(summary = "Reservar o liberar stock por componente")
+  @Operation(
+      summary = "Reservar o liberar stock por componente",
+      description = "Reserva o libera stock por cada componente/droga prescripto, contra "
+          + "inventario electrónico o de forma manual. Exige correspondencia uno a uno "
+          + "con la prescripción (sin faltantes, extras ni duplicados).")
   Map<String, Object> stockReservation(
       @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
@@ -134,7 +150,11 @@ public class InfusionApplicationWorkflowController {
   }
 
   @PostMapping(ROOT + "/clinical-authorization")
-  @Operation(summary = "Registrar triaje y emitir PASS o FAIL")
+  @Operation(
+      summary = "Registrar triaje y emitir PASS o FAIL",
+      description = "Registra el triaje clínico (laboratorio, signos vitales, toxicidad) y "
+          + "emite la autorización PASS/FAIL que habilita o bloquea la preparación. Un FAIL "
+          + "puede reprogramar la fecha con motivo.")
   Map<String, Object> clinicalAuthorization(
       @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
@@ -154,7 +174,10 @@ public class InfusionApplicationWorkflowController {
   }
 
   @PostMapping(ROOT + "/preparation/start")
-  @Operation(summary = "Iniciar preparación estéril")
+  @Operation(
+      summary = "Iniciar preparación estéril",
+      description = "Marca el inicio de la preparación estéril de la mezcla, una vez que "
+          + "Farmacia y triaje ya aprobaron la aplicación.")
   Map<String, Object> preparationStart(
       @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
@@ -170,7 +193,11 @@ public class InfusionApplicationWorkflowController {
   }
 
   @PostMapping(ROOT + "/preparation/complete")
-  @Operation(summary = "Registrar mezcla, lotes, etiqueta y TTL")
+  @Operation(
+      summary = "Registrar mezcla, lotes, etiqueta y TTL",
+      description = "Cierra la preparación registrando lote, vencimiento, volumen final y "
+          + "TTL de cada componente mezclado, con el verificador que la controló. Exige "
+          + "una traza por cada componente prescripto, incluidas drogas repetidas.")
   Map<String, Object> preparationComplete(
       @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
@@ -191,7 +218,10 @@ public class InfusionApplicationWorkflowController {
   }
 
   @PostMapping(ROOT + "/preparation/release")
-  @Operation(summary = "Liberar mezcla hacia la sala")
+  @Operation(
+      summary = "Liberar mezcla hacia la sala",
+      description = "Libera la mezcla ya preparada para que pase a la sala de "
+          + "administración, respetando el TTL vigente.")
   Map<String, Object> preparationRelease(
       @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
@@ -207,7 +237,11 @@ public class InfusionApplicationWorkflowController {
   }
 
   @PostMapping(ROOT + "/preparation/restart")
-  @Operation(summary = "Descartar y repetir una preparación")
+  @Operation(
+      summary = "Descartar y repetir una preparación",
+      description = "Descarta la preparación actual (vencimiento, error o contaminación) "
+          + "y habilita una repetición, conservando el registro anterior con usuario, "
+          + "fecha y motivo del descarte.")
   Map<String, Object> preparationRestart(
       @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
@@ -223,7 +257,10 @@ public class InfusionApplicationWorkflowController {
   }
 
   @GetMapping(value = ROOT + "/preparation-label", produces = MediaType.TEXT_HTML_VALUE)
-  @Operation(summary = "Imprimir etiqueta trazable de la mezcla")
+  @Operation(
+      summary = "Imprimir etiqueta trazable de la mezcla",
+      description = "Devuelve el HTML imprimible de la etiqueta trazable de la mezcla "
+          + "preparada, con droga, lote, vencimiento y datos del preparador/verificador.")
   ResponseEntity<String> preparationLabel(
       @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
@@ -239,7 +276,10 @@ public class InfusionApplicationWorkflowController {
   }
 
   @PostMapping(ROOT + "/administration/start")
-  @Operation(summary = "Iniciar administración con doble control")
+  @Operation(
+      summary = "Iniciar administración con doble control",
+      description = "Inicia la administración de la mezcla exigiendo verificación de "
+          + "paciente y etiqueta, con doble control registrado.")
   Map<String, Object> administrationStart(
       @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
@@ -259,7 +299,11 @@ public class InfusionApplicationWorkflowController {
   }
 
   @PostMapping(ROOT + "/administration/interrupt")
-  @Operation(summary = "Interrumpir una administración en curso")
+  @Operation(
+      summary = "Interrumpir una administración en curso",
+      description = "Registra la interrupción de una administración en curso: motivo, "
+          + "dosis parcial administrada, medidas tomadas, condición del paciente y "
+          + "destino clínico. Queda pendiente de resolución.")
   Map<String, Object> administrationInterrupt(
       @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
@@ -279,7 +323,10 @@ public class InfusionApplicationWorkflowController {
   }
 
   @PostMapping(ROOT + "/administration/resolve")
-  @Operation(summary = "Resolver una administración interrumpida")
+  @Operation(
+      summary = "Resolver una administración interrumpida",
+      description = "Resuelve una administración previamente interrumpida: reanudar con "
+          + "dosis restante o cerrar según la decisión clínica registrada.")
   Map<String, Object> administrationResolve(
       @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId, @Parameter(description = "Id del tratamiento")
@@ -299,7 +346,11 @@ public class InfusionApplicationWorkflowController {
   }
 
   @PostMapping(ROOT + "/administration/complete")
-  @Operation(summary = "Cerrar la aplicación con datos reales")
+  @Operation(
+      summary = "Cerrar la aplicación con datos reales",
+      description = "Cierra la administración con la dosis real aplicada y la reacción "
+          + "observada (si la hubo), idempotente por `idempotencyKey` para que finalizar "
+          + "dos veces no duplique el acto clínico.")
   Map<String, Object> administrationComplete(
       @Parameter(description = "Id interno del paciente")
       @PathVariable long patientId, @Parameter(description = "Id del tratamiento")

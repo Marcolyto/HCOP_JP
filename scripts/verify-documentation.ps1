@@ -156,8 +156,8 @@ foreach ($operation in $operations) {
   }
 }
 
-if ($null -eq $openApi.components.securitySchemes.sessionCookie) {
-  throw "OpenAPI no publica el esquema de autenticación sessionCookie."
+if ($null -eq $openApi.components.securitySchemes.bearerAuth) {
+  throw "OpenAPI no publica el esquema de autenticación bearerAuth."
 }
 if ($null -eq $openApi.components.schemas.ApiError) {
   throw "OpenAPI no publica el esquema uniforme ApiError."

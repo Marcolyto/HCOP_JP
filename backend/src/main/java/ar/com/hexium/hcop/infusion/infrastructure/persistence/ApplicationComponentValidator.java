@@ -1,8 +1,8 @@
 package ar.com.hexium.hcop.infusion.infrastructure.persistence;
 
-import ar.com.hexium.hcop.common.ApiException;
 import ar.com.hexium.hcop.infusion.application.port.in.ApplicationWorkflowUseCase.PreparationInput;
 import ar.com.hexium.hcop.infusion.application.port.in.ApplicationWorkflowUseCase.StockComponentInput;
+import ar.com.hexium.hcop.infusion.application.service.InfusionFailure;
 import java.math.BigDecimal;
 import java.text.Normalizer;
 import java.util.ArrayList;
@@ -14,14 +14,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.springframework.http.HttpStatus;
 import tools.jackson.databind.JsonNode;
 
 /**
  * Pure safety checks that keep one prescribed application, its stock reservation and its
  * preparation trace in one-to-one correspondence. Movido verbatim de {@code infusion} —
  * infraestructura, no negocio puro (protocolo de datos no confiables, mismo criterio que
- * {@code media.FilesystemClinicalFileBlobStore}), así que sigue lanzando {@code ApiException}
+ * {@code media.FilesystemClinicalFileBlobStore}), así que sigue lanzando {@code InfusionFailure}
  * directo.
  */
 final class ApplicationComponentValidator {
@@ -279,12 +278,12 @@ final class ApplicationComponentValidator {
     return value == null ? "" : value.trim();
   }
 
-  private static ApiException badRequest(String message) {
-    return new ApiException(HttpStatus.BAD_REQUEST, message);
+  private static InfusionFailure badRequest(String message) {
+    return new InfusionFailure(InfusionFailure.Type.INVALID, message);
   }
 
-  private static ApiException conflict(String message, String code) {
-    return new ApiException(HttpStatus.CONFLICT, message, code);
+  private static InfusionFailure conflict(String message, String code) {
+    return new InfusionFailure(InfusionFailure.Type.CONFLICT, message, code);
   }
 
   private record ExpectedComponent(

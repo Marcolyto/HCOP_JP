@@ -1,20 +1,28 @@
-package ar.com.hexium.hcop.config;
+package ar.com.hexium.hcop.catalog.infrastructure.persistence;
 
 import ar.com.hexium.hcop.catalog.application.port.in.DiagnosisCatalogUseCase;
 import ar.com.hexium.hcop.catalog.domain.DiagnosisEquivalence;
+import ar.com.hexium.hcop.platform.BootstrapTask;
 import java.util.Map;
+import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
+/**
+ * Implementa {@link BootstrapTask} en vez de que {@code platform.BootstrapConfiguration} dependa
+ * de esta clase directamente — evita el ciclo {@code platform}↔{@code catalog} (F3.4, ver
+ * DECISIONES-F3.md). Orden 1: antes del seed de paciente demo ({@code patient}).
+ */
 @Component
-public class ClinicalCatalogBootstrap {
+@Order(1)
+public class ClinicalCatalogBootstrapTask implements BootstrapTask {
   private final JdbcTemplate jdbc;
   private final ObjectMapper mapper;
   private final DiagnosisCatalogUseCase diagnoses;
 
-  public ClinicalCatalogBootstrap(
+  public ClinicalCatalogBootstrapTask(
       JdbcTemplate jdbc,
       ObjectMapper mapper,
       DiagnosisCatalogUseCase diagnoses) {
@@ -23,8 +31,9 @@ public class ClinicalCatalogBootstrap {
     this.diagnoses = diagnoses;
   }
 
+  @Override
   @Transactional
-  public void seed() {
+  public void run() {
     Long actorId = jdbc.query("""
         SELECT id FROM local_users WHERE enabled = true ORDER BY id LIMIT 1
         """, result -> result.next() ? result.getLong(1) : null);

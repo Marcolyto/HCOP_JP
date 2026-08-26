@@ -1,9 +1,11 @@
 package ar.com.hexium.hcop.diagnosis.infrastructure.patient;
 
 import ar.com.hexium.hcop.diagnosis.application.port.out.PatientDiagnosisPort;
+import ar.com.hexium.hcop.diagnosis.application.service.DiagnosisFailure;
 import ar.com.hexium.hcop.diagnosis.domain.DiagnosisRecord;
 import ar.com.hexium.hcop.patient.application.port.in.PatientDocumentUseCase;
 import ar.com.hexium.hcop.patient.application.port.in.PatientUseCase;
+import ar.com.hexium.hcop.patient.application.service.PatientFailure;
 import ar.com.hexium.hcop.patient.domain.StoredDocument;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,9 +25,13 @@ public class PatientDiagnosisAdapter implements PatientDiagnosisPort {
 
   @Override
   public DiagnosisSnapshot snapshot(long patientId) {
-    patients.require(patientId);
-    StoredDocument stored = documents.require(patientId);
-    return new DiagnosisSnapshot(stored.revision(), diagnosisRecords((JsonNode) stored.document()));
+    try {
+      patients.require(patientId);
+      StoredDocument stored = documents.require(patientId);
+      return new DiagnosisSnapshot(stored.revision(), diagnosisRecords((JsonNode) stored.document()));
+    } catch (PatientFailure failure) {
+      throw new DiagnosisFailure(DiagnosisFailure.Type.NOT_FOUND, failure.getMessage());
+    }
   }
 
   private List<DiagnosisRecord> diagnosisRecords(JsonNode document) {

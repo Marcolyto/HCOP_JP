@@ -3,7 +3,7 @@ package ar.com.hexium.hcop.catalog.infrastructure.persistence;
 import ar.com.hexium.hcop.catalog.application.port.out.AjccCatalogStore;
 import ar.com.hexium.hcop.catalog.domain.AjccSite;
 import ar.com.hexium.hcop.catalog.domain.AjccStagingRule;
-import ar.com.hexium.hcop.config.HcopProperties;
+import ar.com.hexium.hcop.platform.HcopProperties;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;

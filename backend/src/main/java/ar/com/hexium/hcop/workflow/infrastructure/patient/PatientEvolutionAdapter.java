@@ -1,8 +1,10 @@
 package ar.com.hexium.hcop.workflow.infrastructure.patient;
 
 import ar.com.hexium.hcop.patient.application.port.in.PatientDocumentUseCase;
+import ar.com.hexium.hcop.patient.application.service.PatientFailure;
 import ar.com.hexium.hcop.patient.domain.EvolutionAppend;
 import ar.com.hexium.hcop.workflow.application.port.out.PatientEvolutionPort;
+import ar.com.hexium.hcop.workflow.application.service.WorkflowFailure;
 import ar.com.hexium.hcop.workflow.domain.EvolutionDraft;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -44,7 +46,14 @@ public class PatientEvolutionAdapter implements PatientEvolutionPort {
     source.put("treatmentId", draft.treatmentId());
     if (draft.requestId() != null) source.put("requestId", draft.requestId());
     if (draft.cycleNumber() != null) source.put("cycleNumber", draft.cycleNumber());
-    EvolutionAppend appended = documents.appendImmutableEvolution(patientId, evolution, actorId);
-    return new AppendedEvolution(appended.evolution(), appended.revision());
+    try {
+      EvolutionAppend appended = documents.appendImmutableEvolution(patientId, evolution, actorId);
+      return new AppendedEvolution(appended.evolution(), appended.revision());
+    } catch (PatientFailure failure) {
+      throw new WorkflowFailure(
+          failure.type() == PatientFailure.Type.CONFLICT
+              ? WorkflowFailure.Type.CONFLICT : WorkflowFailure.Type.NOT_FOUND,
+          failure.getMessage());
+    }
   }
 }

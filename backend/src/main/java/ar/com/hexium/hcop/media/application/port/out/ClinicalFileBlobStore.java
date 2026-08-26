@@ -6,7 +6,8 @@ import java.util.UUID;
 
 /**
  * Filesystem del contenido binario. Valida tamaño/firma de bytes no confiables (protocolo de
- * subida) — lanza {@code ApiException} directo, igual que antes, no es regla de negocio.
+ * subida) — lanza {@code MediaFailure} directo (F3.4: antes {@code ApiException}), no es regla de
+ * negocio.
  */
 public interface ClinicalFileBlobStore {
 

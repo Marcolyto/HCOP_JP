@@ -1,6 +1,6 @@
 package ar.com.hexium.hcop.integration.infrastructure.persistence;
 
-import ar.com.hexium.hcop.config.HcopProperties;
+import ar.com.hexium.hcop.platform.HcopProperties;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;

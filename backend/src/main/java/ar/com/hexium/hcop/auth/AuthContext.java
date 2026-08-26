@@ -1,6 +1,6 @@
 package ar.com.hexium.hcop.auth;
 
-import ar.com.hexium.hcop.common.ApiException;
+import ar.com.hexium.hcop.platform.web.ApiException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;

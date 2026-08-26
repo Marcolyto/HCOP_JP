@@ -8,9 +8,9 @@ import java.util.List;
  * {@code patient} en el sentido permitido del orden canónico (F3.3.0), así que este puerto no
  * rompe ningún ciclo: existe para que {@code DiagnosisApplicationService} no conozca
  * {@code patient.PatientService}/{@code PatientDocumentService} ni el parseo JSON de la historia.
- * La implementación deja pasar sin traducir el {@code ApiException} 404 de
- * {@code PatientService.require}/{@code PatientDocumentService.require} — mismo criterio que
- * {@code media.infrastructure.patient.PatientServiceLookupAdapter}.
+ * La implementación traduce el {@code PatientFailure} 404 de
+ * {@code PatientUseCase.require}/{@code PatientDocumentUseCase.require} a {@code DiagnosisFailure}
+ * (F3.4) — mismo criterio que {@code media.infrastructure.patient.PatientServiceLookupAdapter}.
  */
 public interface PatientDiagnosisPort {
 

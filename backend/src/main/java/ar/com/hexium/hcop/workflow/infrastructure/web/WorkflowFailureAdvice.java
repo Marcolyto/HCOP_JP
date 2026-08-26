@@ -1,6 +1,6 @@
 package ar.com.hexium.hcop.workflow.infrastructure.web;
 
-import ar.com.hexium.hcop.common.api.ApiErrorResponse;
+import ar.com.hexium.hcop.platform.web.api.ApiErrorResponse;
 import ar.com.hexium.hcop.workflow.application.service.WorkflowFailure;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;

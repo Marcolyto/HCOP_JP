@@ -8,7 +8,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import ar.com.hexium.hcop.auth.SessionPrincipal;
-import ar.com.hexium.hcop.common.ApiException;
+import ar.com.hexium.hcop.infusion.application.service.InfusionFailure;
 import ar.com.hexium.hcop.infusion.application.port.in.TreatmentApplicationLogisticsUseCase;
 import ar.com.hexium.hcop.infusion.application.port.out.InfusionStore;
 import ar.com.hexium.hcop.infusion.domain.Infusion;
@@ -41,7 +41,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -115,12 +114,12 @@ class HospitalDayConcurrencySafetyTest {
       List<Object> outcomes = attempts.stream().map(HospitalDayConcurrencySafetyTest::outcome).toList();
 
       assertThat(outcomes.stream().filter(Map.class::isInstance)).hasSize(1);
-      List<ApiException> conflicts = outcomes.stream()
-          .filter(ApiException.class::isInstance)
-          .map(ApiException.class::cast)
+      List<InfusionFailure> conflicts = outcomes.stream()
+          .filter(InfusionFailure.class::isInstance)
+          .map(InfusionFailure.class::cast)
           .toList();
       assertThat(conflicts).singleElement().satisfies(conflict -> {
-        assertThat(conflict.status()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(conflict.type()).isEqualTo(InfusionFailure.Type.CONFLICT);
         assertThat(conflict.code()).isEqualTo("CHAIR_SCHEDULE_CONFLICT");
         assertThat(conflict).hasMessageContaining("sillón");
       });
@@ -161,8 +160,8 @@ class HospitalDayConcurrencySafetyTest {
 
     assertThatThrownBy(() -> fixture.store.create(
         fixture.scheduleInput("2026-07-30T14:40:00Z", "1"), fixture.actor.userId(), fixture.actor.displayName()))
-        .isInstanceOfSatisfying(ApiException.class, conflict -> {
-          assertThat(conflict.status()).isEqualTo(HttpStatus.CONFLICT);
+        .isInstanceOfSatisfying(InfusionFailure.class, conflict -> {
+          assertThat(conflict.type()).isEqualTo(InfusionFailure.Type.CONFLICT);
           assertThat(conflict.code()).isEqualTo("OUTSIDE_DAY_HOSPITAL_HOURS");
         });
   }

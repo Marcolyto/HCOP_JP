@@ -9,7 +9,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import ar.com.hexium.hcop.common.ApiException;
 import ar.com.hexium.hcop.integration.application.port.in.AgentChatUseCase.AgentChatCommand;
 import ar.com.hexium.hcop.integration.application.port.in.AgentChatUseCase.HistoryEntry;
 import ar.com.hexium.hcop.integration.application.port.in.SystemConfigurationUseCase;
@@ -23,7 +22,6 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.http.HttpStatus;
 
 class AgentChatApplicationServiceTest {
   private final SystemConfigurationUseCase configuration = mock(SystemConfigurationUseCase.class);
@@ -150,8 +148,8 @@ class AgentChatApplicationServiceTest {
 
   @Test
   void propagaSinTraducirLosErroresExistentesDelPuertoLlm() {
-    ApiException upstream = new ApiException(
-        HttpStatus.SERVICE_UNAVAILABLE, "El servicio LLM está desactivado.", "LLM_DISABLED");
+    IntegrationFailure upstream = new IntegrationFailure(
+        IntegrationFailure.Type.UNAVAILABLE, "El servicio LLM está desactivado.", "LLM_DISABLED");
     when(llm.completeAgentChat(eq(config), anyList())).thenThrow(upstream);
 
     assertThatThrownBy(() -> service.chat(new AgentChatCommand("consulta", "", List.of())))

@@ -1,6 +1,6 @@
 package ar.com.hexium.hcop.patient.infrastructure.persistence;
 
-import ar.com.hexium.hcop.config.HcopProperties;
+import ar.com.hexium.hcop.platform.HcopProperties;
 import ar.com.hexium.hcop.patient.application.port.out.PatientDocumentStore;
 import ar.com.hexium.hcop.patient.application.service.PatientFailure;
 import ar.com.hexium.hcop.patient.domain.EvolutionAppend;

@@ -235,7 +235,7 @@ estable:
 |---|---|
 | `docs/00-inicio/` | instalación, primer ingreso y prueba del canal publicado |
 | `docs/01-uso/` | manual clínico, flujo de tratamiento, roles y videos |
-| `docs/02-arquitectura/` | MVC, OpenAPI, interoperabilidad y contratos técnicos |
+| `docs/02-arquitectura/` | Arquitectura hexagonal, OpenAPI, interoperabilidad y contratos técnicos |
 | `docs/03-base-de-datos/` | modelo, diccionario y relación campo → persistencia |
 | `docs/04-desarrollo/` | entorno local, estructura, pruebas y reconstrucción |
 | `docs/05-operacion/` | Docker, variables, red, actualización, backup y seguridad |
@@ -354,7 +354,7 @@ Todos viven en `scripts/`:
 
 | Archivo | Qué contiene |
 |---|---|
-| `docs/02-arquitectura/MVC.md` | Arquitectura vigente anterior y responsabilidades |
+| `docs/02-arquitectura/HEXAGONAL.md` | Arquitectura vigente y responsabilidades por módulo |
 | `docs/02-arquitectura/SWAGGER-OPENAPI.md` | Uso, convenciones y errores de Swagger |
 | `docs/02-arquitectura/ENDPOINTS.md` | Catálogo generado de los 111 endpoints |
 | `docs/02-arquitectura/INTEROPERABILIDAD.md` | Integraciones y contratos externos |

@@ -11,7 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import ar.com.hexium.hcop.auth.SessionPrincipal;
-import ar.com.hexium.hcop.common.ApiException;
+import ar.com.hexium.hcop.infusion.application.service.InfusionFailure;
 import ar.com.hexium.hcop.infusion.application.port.in.TreatmentApplicationLogisticsUseCase;
 import ar.com.hexium.hcop.infusion.application.port.out.InfusionStore;
 import ar.com.hexium.hcop.infusion.domain.ApplicationWorkflowPolicy.State;
@@ -158,7 +158,7 @@ class PostgresInfusionOperationsStoreSchedulingWorkflowTest {
     JsonNode input = scheduleInput("2026-07-30T13:00:00Z", "2", 80);
 
     assertThatThrownBy(() -> store.create(input, actor().userId(), actor().displayName()))
-        .isInstanceOfSatisfying(ApiException.class, error ->
+        .isInstanceOfSatisfying(InfusionFailure.class, error ->
             assertThat(error.code()).isEqualTo("SCHEDULE_DURATION_MISMATCH"));
 
     verify(infusions, never()).insert(any(), anyLong());
@@ -170,7 +170,7 @@ class PostgresInfusionOperationsStoreSchedulingWorkflowTest {
     JsonNode input = scheduleInput("2026-07-30T13:00:00Z", "Sillon 7", 90);
 
     assertThatThrownBy(() -> store.create(input, actor().userId(), actor().displayName()))
-        .isInstanceOf(ApiException.class)
+        .isInstanceOf(InfusionFailure.class)
         .hasMessageContaining("entre 1 y 6");
 
     verify(infusions, never()).insert(any(), anyLong());
@@ -182,7 +182,7 @@ class PostgresInfusionOperationsStoreSchedulingWorkflowTest {
     JsonNode input = scheduleInput("2026-07-30T15:00:00Z", "2", 90);
 
     assertThatThrownBy(() -> store.create(input, actor().userId(), actor().displayName()))
-        .isInstanceOfSatisfying(ApiException.class, error ->
+        .isInstanceOfSatisfying(InfusionFailure.class, error ->
             assertThat(error.code()).isEqualTo("OUTSIDE_DAY_HOSPITAL_HOURS"));
 
     verify(infusions, never()).insert(any(), anyLong());
@@ -194,7 +194,7 @@ class PostgresInfusionOperationsStoreSchedulingWorkflowTest {
     JsonNode input = scheduleInput("2026-07-30T13:05:00Z", "2", 90);
 
     assertThatThrownBy(() -> store.create(input, actor().userId(), actor().displayName()))
-        .isInstanceOfSatisfying(ApiException.class, error ->
+        .isInstanceOfSatisfying(InfusionFailure.class, error ->
             assertThat(error.code()).isEqualTo("SCHEDULE_SLOT_MISMATCH"));
 
     verify(infusions, never()).insert(any(), anyLong());
@@ -210,7 +210,7 @@ class PostgresInfusionOperationsStoreSchedulingWorkflowTest {
         "not_started", "not_started", "clinically_authorized", 5)));
 
     assertThatThrownBy(() -> store.requireScheduleGate(9, "tx-1", 2, 8))
-        .isInstanceOf(ApiException.class)
+        .isInstanceOf(InfusionFailure.class)
         .hasMessageContaining("etapa clínica");
   }
 

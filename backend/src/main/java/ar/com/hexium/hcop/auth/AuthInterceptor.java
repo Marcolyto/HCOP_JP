@@ -1,7 +1,7 @@
 package ar.com.hexium.hcop.auth;
 
-import ar.com.hexium.hcop.common.api.AuthenticationRequiredResponse;
-import ar.com.hexium.hcop.common.api.ApiErrorResponse;
+import ar.com.hexium.hcop.platform.web.api.AuthenticationRequiredResponse;
+import ar.com.hexium.hcop.platform.web.api.ApiErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Optional;

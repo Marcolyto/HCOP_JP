@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import ar.com.hexium.hcop.auth.SessionPrincipal;
-import ar.com.hexium.hcop.common.ApiException;
+import ar.com.hexium.hcop.platform.web.ApiException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;

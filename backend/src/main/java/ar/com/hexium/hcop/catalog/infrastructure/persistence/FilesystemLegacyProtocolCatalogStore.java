@@ -6,7 +6,7 @@ import ar.com.hexium.hcop.catalog.application.port.in.LegacyProtocolCatalogUseCa
 import ar.com.hexium.hcop.catalog.application.port.in.TreatmentCatalogUseCase;
 import ar.com.hexium.hcop.catalog.application.port.out.LegacyProtocolCatalogStore;
 import ar.com.hexium.hcop.catalog.application.service.CatalogFailure;
-import ar.com.hexium.hcop.config.HcopProperties;
+import ar.com.hexium.hcop.platform.HcopProperties;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

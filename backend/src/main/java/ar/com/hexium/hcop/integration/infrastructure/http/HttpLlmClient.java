@@ -1,7 +1,7 @@
 package ar.com.hexium.hcop.integration.infrastructure.http;
 
-import ar.com.hexium.hcop.common.ApiException;
 import ar.com.hexium.hcop.integration.application.port.out.LlmPort;
+import ar.com.hexium.hcop.integration.application.service.IntegrationFailure;
 import ar.com.hexium.hcop.integration.application.service.LlmProviders;
 import ar.com.hexium.hcop.integration.domain.AgentAnswer;
 import ar.com.hexium.hcop.integration.domain.ChartArtifact;
@@ -19,7 +19,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -61,7 +60,8 @@ public class HttpLlmClient implements LlmPort {
     JsonNode payload = send(config, messages, requireEnabled, null);
     String content = extractContent(payload, ollama(config));
     if (content.isBlank()) {
-      throw new ApiException(HttpStatus.BAD_GATEWAY, "El servicio LLM devolvió una respuesta vacía.", "LLM_EMPTY_RESPONSE");
+      throw new IntegrationFailure(
+          IntegrationFailure.Type.UPSTREAM_ERROR, "El servicio LLM devolvió una respuesta vacía.", "LLM_EMPTY_RESPONSE");
     }
     return new LlmCompletion(content, payload.path("model").asText(config.model()));
   }
@@ -71,14 +71,15 @@ public class HttpLlmClient implements LlmPort {
     JsonNode payload = send(config, messages, true, agentResponseSchema());
     boolean ollama = ollama(config);
     if (wasTruncated(payload, ollama)) {
-      throw new ApiException(
-          HttpStatus.BAD_GATEWAY,
+      throw new IntegrationFailure(
+          IntegrationFailure.Type.UPSTREAM_ERROR,
           "El servicio LLM truncó la respuesta estructurada. Intente nuevamente.",
           "LLM_STRUCTURED_RESPONSE_TRUNCATED");
     }
     String content = extractContent(payload, ollama);
     if (content.isBlank()) {
-      throw new ApiException(HttpStatus.BAD_GATEWAY, "El servicio LLM devolvió una respuesta vacía.", "LLM_EMPTY_RESPONSE");
+      throw new IntegrationFailure(
+          IntegrationFailure.Type.UPSTREAM_ERROR, "El servicio LLM devolvió una respuesta vacía.", "LLM_EMPTY_RESPONSE");
     }
     String model = safeModel(payload.path("model").asText(config.model()));
     return parseAgentResponse(content, model);
@@ -93,17 +94,20 @@ public class HttpLlmClient implements LlmPort {
     try {
       return mapper.convertValue(mapper.readTree(value), Object.class);
     } catch (Exception invalid) {
-      throw new ApiException(HttpStatus.BAD_GATEWAY, "El LLM no devolvió JSON válido.", "LLM_INVALID_JSON");
+      throw new IntegrationFailure(
+          IntegrationFailure.Type.UPSTREAM_ERROR, "El LLM no devolvió JSON válido.", "LLM_INVALID_JSON");
     }
   }
 
   private JsonNode send(LlmConfiguration config, List<ChatMessage> messages, boolean requireEnabled, JsonNode structuredSchema) {
     if (requireEnabled && !config.enabled()) {
-      throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "El servicio LLM está desactivado.", "LLM_DISABLED");
+      throw new IntegrationFailure(
+          IntegrationFailure.Type.UNAVAILABLE, "El servicio LLM está desactivado.", "LLM_DISABLED");
     }
     if (LlmProviders.requiresApiKey(config) && config.apiKey().isBlank()) {
-      throw new ApiException(
-          HttpStatus.SERVICE_UNAVAILABLE, "Falta configurar la API key de Gemini en Configuración.", "LLM_API_KEY_REQUIRED");
+      throw new IntegrationFailure(
+          IntegrationFailure.Type.UNAVAILABLE,
+          "Falta configurar la API key de Gemini en Configuración.", "LLM_API_KEY_REQUIRED");
     }
     boolean ollama = ollama(config);
     URI endpoint = URI.create(config.baseUrl() + (ollama ? "/api/chat" : "/chat/completions"));
@@ -118,23 +122,25 @@ public class HttpLlmClient implements LlmPort {
       HttpResponse<String> response = http.send(request.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
       JsonNode payload = mapper.readTree(response.body());
       if (response.statusCode() < 200 || response.statusCode() >= 300) {
-        throw new ApiException(
-            HttpStatus.BAD_GATEWAY,
+        throw new IntegrationFailure(
+            IntegrationFailure.Type.UPSTREAM_ERROR,
             "El servicio LLM respondió con error: " + upstreamErrorDetail(payload, response.statusCode()),
             "LLM_UPSTREAM_ERROR");
       }
       return payload;
-    } catch (ApiException exception) {
-      throw exception;
+    } catch (IntegrationFailure failure) {
+      throw failure;
     } catch (java.net.http.HttpTimeoutException timeout) {
-      throw new ApiException(HttpStatus.GATEWAY_TIMEOUT, "El servicio LLM excedió el tiempo de espera.", "LLM_TIMEOUT");
+      throw new IntegrationFailure(
+          IntegrationFailure.Type.TIMEOUT, "El servicio LLM excedió el tiempo de espera.", "LLM_TIMEOUT");
     } catch (InterruptedException interrupted) {
       Thread.currentThread().interrupt();
-      throw new ApiException(
-          HttpStatus.BAD_GATEWAY, "La conexión con el servicio LLM fue interrumpida.", "LLM_CONNECTION_INTERRUPTED");
+      throw new IntegrationFailure(
+          IntegrationFailure.Type.UPSTREAM_ERROR,
+          "La conexión con el servicio LLM fue interrumpida.", "LLM_CONNECTION_INTERRUPTED");
     } catch (Exception exception) {
-      throw new ApiException(
-          HttpStatus.BAD_GATEWAY,
+      throw new IntegrationFailure(
+          IntegrationFailure.Type.UPSTREAM_ERROR,
           "No se pudo conectar con el servicio LLM configurado: " + exception.getMessage(),
           "LLM_CONNECTION_ERROR");
     }
@@ -223,9 +229,9 @@ public class HttpLlmClient implements LlmPort {
         extractHighlights(structured.path("highlights")));
   }
 
-  private ApiException invalidStructuredResponse() {
-    return new ApiException(
-        HttpStatus.BAD_GATEWAY,
+  private IntegrationFailure invalidStructuredResponse() {
+    return new IntegrationFailure(
+        IntegrationFailure.Type.UPSTREAM_ERROR,
         "El servicio LLM devolvió una respuesta estructurada incompleta. Intente nuevamente.",
         "LLM_INVALID_STRUCTURED_RESPONSE");
   }

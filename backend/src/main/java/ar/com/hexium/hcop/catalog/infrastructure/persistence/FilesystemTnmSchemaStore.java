@@ -2,7 +2,7 @@ package ar.com.hexium.hcop.catalog.infrastructure.persistence;
 
 import ar.com.hexium.hcop.catalog.application.port.out.TnmSchemaStore;
 import ar.com.hexium.hcop.catalog.domain.TnmSchema;
-import ar.com.hexium.hcop.config.HcopProperties;
+import ar.com.hexium.hcop.platform.HcopProperties;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

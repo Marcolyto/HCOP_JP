@@ -13,7 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import ar.com.hexium.hcop.config.HcopProperties;
+import ar.com.hexium.hcop.platform.HcopProperties;
 import ar.com.hexium.hcop.patient.domain.NewPatient;
 import ar.com.hexium.hcop.patient.domain.Patient;
 import ar.com.hexium.hcop.patient.infrastructure.persistence.PatientDocumentStoreAdapter;

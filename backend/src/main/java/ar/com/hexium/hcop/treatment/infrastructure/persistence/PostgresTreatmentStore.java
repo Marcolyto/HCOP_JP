@@ -3,9 +3,11 @@ package ar.com.hexium.hcop.treatment.infrastructure.persistence;
 import ar.com.hexium.hcop.catalog.domain.TreatmentScheme;
 import ar.com.hexium.hcop.patient.domain.StoredDocument;
 import ar.com.hexium.hcop.patient.application.port.in.PatientDocumentUseCase;
+import ar.com.hexium.hcop.patient.application.service.PatientFailure;
 import ar.com.hexium.hcop.patient.domain.EvolutionAppend;
 import ar.com.hexium.hcop.treatment.application.port.out.TreatmentApplicationSyncPort;
 import ar.com.hexium.hcop.treatment.application.port.out.TreatmentStore;
+import ar.com.hexium.hcop.treatment.application.service.TreatmentFailure;
 import ar.com.hexium.hcop.treatment.domain.DrugLine;
 import ar.com.hexium.hcop.treatment.domain.Treatment;
 import ar.com.hexium.hcop.treatment.domain.WorkflowState;
@@ -252,7 +254,12 @@ public class PostgresTreatmentStore implements TreatmentStore {
       Treatment existing = findByClinicalEntryId(draft.patientId(), entryId)
           .orElseThrow(() -> new IllegalStateException(
               "No se pudo recuperar el tratamiento después de un reintento idempotente."));
-      StoredDocument currentDocument = documents.require(draft.patientId());
+      StoredDocument currentDocument;
+      try {
+        currentDocument = documents.require(draft.patientId());
+      } catch (PatientFailure failure) {
+        throw new TreatmentFailure(TreatmentFailure.Type.NOT_FOUND, failure.getMessage());
+      }
       ObjectNode existingEvolution = treatmentEvolutionFromDocument(
           (JsonNode) currentDocument.document(), existing.id(),
           payload.path("clinicalEntryId").asText(""));

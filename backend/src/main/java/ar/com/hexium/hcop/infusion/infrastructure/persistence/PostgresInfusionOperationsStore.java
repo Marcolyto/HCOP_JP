@@ -1,9 +1,9 @@
 package ar.com.hexium.hcop.infusion.infrastructure.persistence;
 
-import ar.com.hexium.hcop.common.ApiException;
+import ar.com.hexium.hcop.infusion.application.port.in.TreatmentApplicationLogisticsUseCase;
 import ar.com.hexium.hcop.infusion.application.port.out.InfusionOperationsStore;
 import ar.com.hexium.hcop.infusion.application.port.out.InfusionStore;
-import ar.com.hexium.hcop.infusion.application.port.in.TreatmentApplicationLogisticsUseCase;
+import ar.com.hexium.hcop.infusion.application.service.InfusionFailure;
 import ar.com.hexium.hcop.infusion.domain.ApplicationWorkflowPolicy;
 import ar.com.hexium.hcop.infusion.domain.Candidate;
 import ar.com.hexium.hcop.infusion.domain.Infusion;
@@ -15,6 +15,7 @@ import ar.com.hexium.hcop.infusion.domain.ScheduleSettings;
 import ar.com.hexium.hcop.infusion.infrastructure.persistence.PostgresApplicationWorkflowStore.Key;
 import ar.com.hexium.hcop.infusion.infrastructure.persistence.PostgresApplicationWorkflowStore.ScheduleGate;
 import ar.com.hexium.hcop.patient.application.port.in.PatientUseCase;
+import ar.com.hexium.hcop.patient.application.service.PatientFailure;
 import ar.com.hexium.hcop.treatment.application.port.out.TreatmentStore;
 import java.time.Clock;
 import java.time.Instant;
@@ -27,7 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
@@ -72,7 +72,7 @@ public class PostgresInfusionOperationsStore implements InfusionOperationsStore 
   @Override
   public List<Map<String, Object>> list(Long patientId, LocalDate date) {
     applicationLogistics.synchronizeExistingTreatments();
-    if (patientId != null) patients.require(patientId);
+    if (patientId != null) requirePatient(patientId);
     return infusions.list(patientId, date).stream().map(this::view).toList();
   }
 
@@ -95,18 +95,18 @@ public class PostgresInfusionOperationsStore implements InfusionOperationsStore 
     int applicationDay = boundedInt(
         input, 1, ar.com.hexium.hcop.treatment.domain.DayHospitalApplicationPolicy.MAX_APPLICATION_DAY, 1,
         "applicationDay", "diaAplicacion");
-    patients.require(patientId);
+    requirePatient(patientId);
     var treatment = treatments.find(patientId, treatmentId)
-        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tratamiento no encontrado."));
+        .orElseThrow(() -> new InfusionFailure(InfusionFailure.Type.NOT_FOUND, "Tratamiento no encontrado."));
     if (cycle < treatment.initialCycle() || cycle >= treatment.initialCycle() + treatment.cycleCount()) {
-      throw new ApiException(HttpStatus.BAD_REQUEST, "El ciclo no pertenece al tratamiento.");
+      throw new InfusionFailure(InfusionFailure.Type.INVALID, "El ciclo no pertenece al tratamiento.");
     }
     applicationLogistics.synchronizeTreatment(treatmentId);
     applicationWorkflows.ensureWorkflowRows();
     ScheduleGate scheduleGate = requireScheduleGate(patientId, treatmentId, cycle, applicationDay);
     Logistics logistics = infusions.logistics(patientId, treatmentId, cycle, applicationDay)
-        .orElseThrow(() -> new ApiException(
-            HttpStatus.BAD_REQUEST,
+        .orElseThrow(() -> new InfusionFailure(
+            InfusionFailure.Type.INVALID,
             "El día indicado no contiene una aplicación de medicación en Hospital de día."));
     Instant scheduled = instant(input, true, "scheduledAt", "fechaProgramada");
     ScheduleSettings scheduleSettings = infusions.scheduleSettings();
@@ -125,8 +125,8 @@ public class PostgresInfusionOperationsStore implements InfusionOperationsStore 
     String administrationStatus = enumValue(input, ADMINISTRATION, "not_started", "administrationStatus");
     if (!"planned".equals(clinicalStatus) || !"pending".equals(pharmacyStatus)
         || !"not_started".equals(administrationStatus)) {
-      throw new ApiException(
-          HttpStatus.CONFLICT,
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT,
           "Un turno nuevo siempre comienza planificado; los estados avanzan desde el circuito por aplicación.",
           "APPLICATION_WORKFLOW_REQUIRED");
     }
@@ -158,29 +158,29 @@ public class PostgresInfusionOperationsStore implements InfusionOperationsStore 
       cancellationReason = "Turno retirado de la agenda";
     }
     if (cancellationReason.length() > 500) {
-      throw new ApiException(HttpStatus.BAD_REQUEST, "El motivo para quitar el turno no puede superar 500 caracteres.");
+      throw new InfusionFailure(InfusionFailure.Type.INVALID, "El motivo para quitar el turno no puede superar 500 caracteres.");
     }
     if (!requestedClinicalStatus.isBlank()
         && !requestedClinicalStatus.equals(existing.clinicalStatus())
         && !"cancelled".equals(requestedClinicalStatus)) {
-      throw new ApiException(
-          HttpStatus.CONFLICT, "Los estados clínicos avanzan únicamente desde el circuito por aplicación.",
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT, "Los estados clínicos avanzan únicamente desde el circuito por aplicación.",
           "APPLICATION_WORKFLOW_REQUIRED");
     }
     String requestedPharmacyStatus = text(input, "pharmacyStatus");
     if (!requestedPharmacyStatus.isBlank()
         && !requestedPharmacyStatus.equals(existing.pharmacyStatus())
         && !(cancellingAppointment && "cancelled".equals(requestedPharmacyStatus))) {
-      throw new ApiException(
-          HttpStatus.CONFLICT, "El estado de Farmacia se modifica desde su cola operativa.",
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT, "El estado de Farmacia se modifica desde su cola operativa.",
           "APPLICATION_WORKFLOW_REQUIRED");
     }
     String requestedAdministrationStatus = text(input, "administrationStatus");
     if (!requestedAdministrationStatus.isBlank()
         && !requestedAdministrationStatus.equals(existing.administrationStatus())
         && !(cancellingAppointment && "cancelled".equals(requestedAdministrationStatus))) {
-      throw new ApiException(
-          HttpStatus.CONFLICT, "El estado de administración se modifica desde su circuito seguro.",
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT, "El estado de administración se modifica desde su circuito seguro.",
           "APPLICATION_WORKFLOW_REQUIRED");
     }
     if (cancellingAppointment) {
@@ -188,13 +188,13 @@ public class PostgresInfusionOperationsStore implements InfusionOperationsStore 
       applicationWorkflows.ensureWorkflowRows();
       var application = applicationWorkflows.lock(new Key(
               existing.patientId(), existing.treatmentId(), existing.cycleNumber(), existing.applicationDay()))
-          .orElseThrow(() -> new ApiException(
-              HttpStatus.CONFLICT, "La aplicación no ingresó al circuito seguro.", "APPLICATION_WORKFLOW_REQUIRED"));
+          .orElseThrow(() -> new InfusionFailure(
+              InfusionFailure.Type.CONFLICT, "La aplicación no ingresó al circuito seguro.", "APPLICATION_WORKFLOW_REQUIRED"));
       check(ApplicationWorkflowPolicy.cancelAppointment(application.policyState()));
       scheduleGate = applicationWorkflows.scheduleGate(new Key(
               existing.patientId(), existing.treatmentId(), existing.cycleNumber(), existing.applicationDay()))
-          .orElseThrow(() -> new ApiException(
-              HttpStatus.CONFLICT, "La aplicación dejó de estar disponible durante la cancelación.",
+          .orElseThrow(() -> new InfusionFailure(
+              InfusionFailure.Type.CONFLICT, "La aplicación dejó de estar disponible durante la cancelación.",
               "VERSION_CONFLICT"));
     } else if (changesSchedule) {
       applicationLogistics.synchronizeTreatment(existing.treatmentId());
@@ -218,7 +218,7 @@ public class PostgresInfusionOperationsStore implements InfusionOperationsStore 
     } else if (placementChanged || Boolean.TRUE.equals(requestedConfirmation)) {
       Logistics logistics = infusions.logistics(
               existing.patientId(), existing.treatmentId(), existing.cycleNumber(), existing.applicationDay())
-          .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "La aplicación ya no posee una planificación válida."));
+          .orElseThrow(() -> new InfusionFailure(InfusionFailure.Type.CONFLICT, "La aplicación ya no posee una planificación válida."));
       ScheduleSettings scheduleSettings = infusions.scheduleSettings();
       Instant effectiveScheduledAt = input.has("scheduledAt") ? requestedScheduledAt : existing.scheduledAt();
       String effectiveChair = normalizeChair(
@@ -246,7 +246,7 @@ public class PostgresInfusionOperationsStore implements InfusionOperationsStore 
         requestedSourceRef);
     try {
       Infusion updated = infusions.update(id, expected, patch, actorId)
-          .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "El turno fue modificado por otro usuario.", "VERSION_CONFLICT"));
+          .orElseThrow(() -> new InfusionFailure(InfusionFailure.Type.CONFLICT, "El turno fue modificado por otro usuario.", "VERSION_CONFLICT"));
       if (cancellingAppointment) {
         recordAppointmentRemoved(scheduleGate, updated, cancellationReason, actorId);
       } else if (changesSchedule) {
@@ -264,38 +264,38 @@ public class PostgresInfusionOperationsStore implements InfusionOperationsStore 
       long patientId, String treatmentId, int cycleNumber, int applicationDay, Object rawInput,
       long actorId, String actorDisplayName) {
     JsonNode input = (JsonNode) rawInput;
-    patients.require(patientId);
+    requirePatient(patientId);
     treatments.find(patientId, treatmentId)
-        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tratamiento no encontrado."));
+        .orElseThrow(() -> new InfusionFailure(InfusionFailure.Type.NOT_FOUND, "Tratamiento no encontrado."));
     long expected = input.path("expectedVersion").asLong(0);
     applicationLogistics.synchronizeTreatment(treatmentId);
     Logistics current = infusions.logistics(patientId, treatmentId, cycleNumber, applicationDay)
-        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Aplicación no encontrada."));
+        .orElseThrow(() -> new InfusionFailure(InfusionFailure.Type.NOT_FOUND, "Aplicación no encontrada."));
     if (expected == 0) expected = current.revision();
     String medication = text(input, "medicationState");
     if ("patient".equals(medication)) medication = "with_patient";
     String prescription = text(input, "prescriptionState");
     if (!medication.isBlank() || !prescription.isBlank()) {
-      throw new ApiException(
-          HttpStatus.CONFLICT, "Medicación y prescripción se actualizan desde el circuito auditable por aplicación.",
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT, "Medicación y prescripción se actualizan desde el circuito auditable por aplicación.",
           "APPLICATION_WORKFLOW_REQUIRED");
     }
     if (!medication.isBlank() && !Set.of("pending", "received", "with_patient").contains(medication)) {
-      throw new ApiException(HttpStatus.BAD_REQUEST, "El estado de medicación es inválido.");
+      throw new InfusionFailure(InfusionFailure.Type.INVALID, "El estado de medicación es inválido.");
     }
     if (!prescription.isBlank() && !Set.of("confirmed", "required", "requested", "rejected").contains(prescription)) {
-      throw new ApiException(HttpStatus.BAD_REQUEST, "El estado de prescripción es inválido.");
+      throw new InfusionFailure(InfusionFailure.Type.INVALID, "El estado de prescripción es inválido.");
     }
     LocalDate planned = localDate(input, "plannedDate");
     Logistics saved = infusions.updateLogistics(
         patientId, treatmentId, cycleNumber, applicationDay, expected, planned, medication, prescription,
         input.has("notes") ? input.path("notes").asText("") : null, actorId)
-        .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "La aplicación fue modificada por otro usuario.", "VERSION_CONFLICT"));
+        .orElseThrow(() -> new InfusionFailure(InfusionFailure.Type.CONFLICT, "La aplicación fue modificada por otro usuario.", "VERSION_CONFLICT"));
     return logisticsView(saved);
   }
 
   private Infusion require(long id) {
-    return infusions.find(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Turno no encontrado."));
+    return infusions.find(id).orElseThrow(() -> new InfusionFailure(InfusionFailure.Type.NOT_FOUND, "Turno no encontrado."));
   }
 
   @Override
@@ -447,14 +447,22 @@ public class PostgresInfusionOperationsStore implements InfusionOperationsStore 
     return result;
   }
 
-  private ApiException scheduleConflict() {
-    return new ApiException(HttpStatus.CONFLICT, "El sillón ya está ocupado en ese horario.", "CHAIR_SCHEDULE_CONFLICT");
+  private void requirePatient(long patientId) {
+    try {
+      patients.require(patientId);
+    } catch (PatientFailure failure) {
+      throw new InfusionFailure(InfusionFailure.Type.NOT_FOUND, failure.getMessage());
+    }
+  }
+
+  private InfusionFailure scheduleConflict() {
+    return new InfusionFailure(InfusionFailure.Type.CONFLICT, "El sillón ya está ocupado en ese horario.", "CHAIR_SCHEDULE_CONFLICT");
   }
 
   ScheduleGate requireScheduleGate(long patientId, String treatmentId, int cycleNumber, int applicationDay) {
     var gate = applicationWorkflows.scheduleGate(new Key(patientId, treatmentId, cycleNumber, applicationDay))
-        .orElseThrow(() -> new ApiException(
-            HttpStatus.CONFLICT, "La aplicación todavía no ingresó al circuito de Farmacia.", "PHARMACY_GATE_REQUIRED"));
+        .orElseThrow(() -> new InfusionFailure(
+            InfusionFailure.Type.CONFLICT, "La aplicación todavía no ingresó al circuito de Farmacia.", "PHARMACY_GATE_REQUIRED"));
     check(ApplicationWorkflowPolicy.schedule(
         gate.prescriptionStatus(), gate.continuityStatus(), gate.prescriptionRequired(),
         gate.pharmacyValidationStatus(), gate.medicationSource(),
@@ -467,11 +475,11 @@ public class PostgresInfusionOperationsStore implements InfusionOperationsStore 
     Key key = new Key(appointment.patientId(), appointment.treatmentId(), appointment.cycleNumber(), appointment.applicationDay());
     Instant now = clock.instant();
     if (!applicationWorkflows.markAppointmentScheduled(key, before.revision(), actorId, now)) {
-      throw new ApiException(HttpStatus.CONFLICT, "La aplicación fue modificada mientras se asignaba el turno.", "VERSION_CONFLICT");
+      throw new InfusionFailure(InfusionFailure.Type.CONFLICT, "La aplicación fue modificada mientras se asignaba el turno.", "VERSION_CONFLICT");
     }
     ScheduleGate after = applicationWorkflows.scheduleGate(key)
-        .orElseThrow(() -> new ApiException(
-            HttpStatus.CONFLICT, "La aplicación dejó de estar disponible durante el agendamiento.", "VERSION_CONFLICT"));
+        .orElseThrow(() -> new InfusionFailure(
+            InfusionFailure.Type.CONFLICT, "La aplicación dejó de estar disponible durante el agendamiento.", "VERSION_CONFLICT"));
     String auditedAction = "failed".equals(before.clinicalAuthorizationStatus())
         ? "appointment_rescheduled_after_clinical_fail" : action;
     String idempotencyKey = "appointment-" + appointment.id() + "-revision-" + appointment.revision();
@@ -484,12 +492,12 @@ public class PostgresInfusionOperationsStore implements InfusionOperationsStore 
     Key key = new Key(appointment.patientId(), appointment.treatmentId(), appointment.cycleNumber(), appointment.applicationDay());
     Instant now = clock.instant();
     if (!applicationWorkflows.markAppointmentRemoved(key, before.revision(), actorId, now)) {
-      throw new ApiException(
-          HttpStatus.CONFLICT, "La aplicación avanzó mientras se quitaba el turno. Recargue antes de continuar.", "VERSION_CONFLICT");
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT, "La aplicación avanzó mientras se quitaba el turno. Recargue antes de continuar.", "VERSION_CONFLICT");
     }
     ScheduleGate after = applicationWorkflows.scheduleGate(key)
-        .orElseThrow(() -> new ApiException(
-            HttpStatus.CONFLICT, "La aplicación dejó de estar disponible durante la cancelación.", "VERSION_CONFLICT"));
+        .orElseThrow(() -> new InfusionFailure(
+            InfusionFailure.Type.CONFLICT, "La aplicación dejó de estar disponible durante la cancelación.", "VERSION_CONFLICT"));
     ObjectNode command = appointmentCommand(appointment);
     command.put("reason", reason);
     applicationWorkflows.insertEvent(
@@ -532,28 +540,28 @@ public class PostgresInfusionOperationsStore implements InfusionOperationsStore 
     String value = raw == null ? "" : raw.trim();
     String number = value.replaceFirst("(?i)^sill[oó]n\\s*", "").trim();
     if (!number.matches("\\d+")) {
-      throw new ApiException(HttpStatus.BAD_REQUEST, "Seleccione un sillón válido entre 1 y " + settings.chairCount() + ".");
+      throw new InfusionFailure(InfusionFailure.Type.INVALID, "Seleccione un sillón válido entre 1 y " + settings.chairCount() + ".");
     }
     int chair = Integer.parseInt(number);
     if (chair < 1 || chair > settings.chairCount()) {
-      throw new ApiException(HttpStatus.BAD_REQUEST, "El sillón debe estar entre 1 y " + settings.chairCount() + ".");
+      throw new InfusionFailure(InfusionFailure.Type.INVALID, "El sillón debe estar entre 1 y " + settings.chairCount() + ".");
     }
     return Integer.toString(chair);
   }
 
   private void validateScheduling(
       Instant scheduledAt, String chair, int durationMinutes, int plannedDurationMinutes, ScheduleSettings settings) {
-    if (scheduledAt == null) throw new ApiException(HttpStatus.BAD_REQUEST, "Informe fecha y hora del turno.");
+    if (scheduledAt == null) throw new InfusionFailure(InfusionFailure.Type.INVALID, "Informe fecha y hora del turno.");
     normalizeChair(chair, settings);
     if (plannedDurationMinutes > 0 && durationMinutes != plannedDurationMinutes) {
-      throw new ApiException(
-          HttpStatus.CONFLICT,
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT,
           "La duración del turno debe ser la calculada para esta aplicación: " + plannedDurationMinutes + " minutos.",
           "SCHEDULE_DURATION_MISMATCH");
     }
     var local = scheduledAt.atZone(clock.getZone());
     if (local.toLocalDate().isBefore(LocalDate.now(clock))) {
-      throw new ApiException(HttpStatus.BAD_REQUEST, "No se puede asignar un turno en una fecha pasada.");
+      throw new InfusionFailure(InfusionFailure.Type.INVALID, "No se puede asignar un turno en una fecha pasada.");
     }
     LocalTime start;
     LocalTime end;
@@ -561,21 +569,21 @@ public class PostgresInfusionOperationsStore implements InfusionOperationsStore 
       start = LocalTime.parse(settings.startTime());
       end = LocalTime.parse(settings.endTime());
     } catch (DateTimeParseException invalidConfiguration) {
-      throw new ApiException(HttpStatus.CONFLICT, "La jornada de Hospital de día está mal configurada.", "INVALID_DAY_HOSPITAL_SETTINGS");
+      throw new InfusionFailure(InfusionFailure.Type.CONFLICT, "La jornada de Hospital de día está mal configurada.", "INVALID_DAY_HOSPITAL_SETTINGS");
     }
     int minute = local.getHour() * 60 + local.getMinute();
     int startMinute = start.getHour() * 60 + start.getMinute();
     int endMinute = end.getHour() * 60 + end.getMinute();
     int occupiedMinutes = ((durationMinutes + settings.slotMinutes() - 1) / settings.slotMinutes()) * settings.slotMinutes();
     if (endMinute <= startMinute || minute < startMinute || minute + occupiedMinutes > endMinute) {
-      throw new ApiException(
-          HttpStatus.CONFLICT,
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT,
           "El turno debe entrar completo dentro de la jornada " + settings.startTime() + "–" + settings.endTime() + ".",
           "OUTSIDE_DAY_HOSPITAL_HOURS");
     }
     if (local.getSecond() != 0 || local.getNano() != 0 || (minute - startMinute) % settings.slotMinutes() != 0) {
-      throw new ApiException(
-          HttpStatus.CONFLICT,
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT,
           "El horario debe coincidir con casilleros de " + settings.slotMinutes() + " minutos.",
           "SCHEDULE_SLOT_MISMATCH");
     }
@@ -596,7 +604,7 @@ public class PostgresInfusionOperationsStore implements InfusionOperationsStore 
   private String enumValue(JsonNode input, Set<String> allowed, String fallback, String key) {
     String value = text(input, key);
     if (value.isBlank()) return fallback;
-    if (!allowed.contains(value)) throw new ApiException(HttpStatus.BAD_REQUEST, "El estado informado es inválido.");
+    if (!allowed.contains(value)) throw new InfusionFailure(InfusionFailure.Type.INVALID, "El estado informado es inválido.");
     return value;
   }
 
@@ -618,7 +626,7 @@ public class PostgresInfusionOperationsStore implements InfusionOperationsStore 
       if (value < min || value > max) throw new NumberFormatException();
       return value;
     } catch (NumberFormatException invalid) {
-      throw new ApiException(HttpStatus.BAD_REQUEST, "Un valor numérico es inválido.");
+      throw new InfusionFailure(InfusionFailure.Type.INVALID, "Un valor numérico es inválido.");
     }
   }
 
@@ -629,7 +637,7 @@ public class PostgresInfusionOperationsStore implements InfusionOperationsStore 
       if (parsed < 1) throw new NumberFormatException();
       return parsed;
     } catch (NumberFormatException invalid) {
-      throw new ApiException(HttpStatus.BAD_REQUEST, "Falta un identificador válido.");
+      throw new InfusionFailure(InfusionFailure.Type.INVALID, "Falta un identificador válido.");
     }
   }
 
@@ -638,13 +646,13 @@ public class PostgresInfusionOperationsStore implements InfusionOperationsStore 
     for (String key : keys) explicitNull |= input.has(key) && input.path(key).isNull();
     String value = text(input, keys);
     if (value.isBlank()) {
-      if (required && !explicitNull) throw new ApiException(HttpStatus.BAD_REQUEST, "Informe fecha y hora.");
+      if (required && !explicitNull) throw new InfusionFailure(InfusionFailure.Type.INVALID, "Informe fecha y hora.");
       return null;
     }
     try {
       return Instant.parse(value);
     } catch (DateTimeParseException invalid) {
-      throw new ApiException(HttpStatus.BAD_REQUEST, "La fecha y hora son inválidas.");
+      throw new InfusionFailure(InfusionFailure.Type.INVALID, "La fecha y hora son inválidas.");
     }
   }
 
@@ -654,7 +662,7 @@ public class PostgresInfusionOperationsStore implements InfusionOperationsStore 
     try {
       return LocalDate.parse(value);
     } catch (DateTimeParseException invalid) {
-      throw new ApiException(HttpStatus.BAD_REQUEST, "La fecha planificada es inválida.");
+      throw new InfusionFailure(InfusionFailure.Type.INVALID, "La fecha planificada es inválida.");
     }
   }
 
@@ -671,9 +679,11 @@ public class PostgresInfusionOperationsStore implements InfusionOperationsStore 
 
   private void check(java.util.Optional<ApplicationWorkflowPolicy.Violation> violation) {
     violation.ifPresent(v -> {
-      HttpStatus status = v.type() == ApplicationWorkflowPolicy.Violation.Type.CONFLICT
-          ? HttpStatus.CONFLICT : HttpStatus.BAD_REQUEST;
-      throw v.code() == null ? new ApiException(status, v.message()) : new ApiException(status, v.message(), v.code());
+      InfusionFailure.Type type = v.type() == ApplicationWorkflowPolicy.Violation.Type.CONFLICT
+          ? InfusionFailure.Type.CONFLICT : InfusionFailure.Type.INVALID;
+      throw v.code() == null
+          ? new InfusionFailure(type, v.message())
+          : new InfusionFailure(type, v.message(), v.code());
     });
   }
 }

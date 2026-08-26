@@ -1,4 +1,4 @@
-package ar.com.hexium.hcop.common.api;
+package ar.com.hexium.hcop.platform.web.api;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.Objects;

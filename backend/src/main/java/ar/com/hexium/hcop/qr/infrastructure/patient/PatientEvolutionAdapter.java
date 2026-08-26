@@ -1,8 +1,10 @@
 package ar.com.hexium.hcop.qr.infrastructure.patient;
 
 import ar.com.hexium.hcop.patient.application.port.in.PatientDocumentUseCase;
+import ar.com.hexium.hcop.patient.application.service.PatientFailure;
 import ar.com.hexium.hcop.patient.domain.EvolutionAppend;
 import ar.com.hexium.hcop.qr.application.port.out.PatientEvolutionPort;
+import ar.com.hexium.hcop.qr.application.service.QrFailure;
 import ar.com.hexium.hcop.qr.domain.EvolutionDraft;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -41,7 +43,13 @@ public class PatientEvolutionAdapter implements PatientEvolutionPort {
     evolution.set("linkedStudyIds", mapper.createArrayNode());
     ObjectNode source = evolution.putObject("sourceRef");
     draft.sourceRef().forEach(source::put);
-    EvolutionAppend appended = documents.appendImmutableEvolution(patientId, evolution, actorId);
-    return new AppendedEvolution(appended.evolution(), appended.revision());
+    try {
+      EvolutionAppend appended = documents.appendImmutableEvolution(patientId, evolution, actorId);
+      return new AppendedEvolution(appended.evolution(), appended.revision());
+    } catch (PatientFailure failure) {
+      throw new QrFailure(
+          failure.type() == PatientFailure.Type.CONFLICT ? QrFailure.Type.CONFLICT : QrFailure.Type.NOT_FOUND,
+          failure.getMessage());
+    }
   }
 }

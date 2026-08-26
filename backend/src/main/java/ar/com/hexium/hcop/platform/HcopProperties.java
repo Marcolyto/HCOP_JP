@@ -1,4 +1,4 @@
-package ar.com.hexium.hcop.config;
+package ar.com.hexium.hcop.platform;
 
 import java.nio.file.Path;
 import org.springframework.boot.context.properties.ConfigurationProperties;

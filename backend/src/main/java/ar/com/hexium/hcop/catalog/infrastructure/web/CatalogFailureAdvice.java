@@ -1,7 +1,7 @@
 package ar.com.hexium.hcop.catalog.infrastructure.web;
 
 import ar.com.hexium.hcop.catalog.application.service.CatalogFailure;
-import ar.com.hexium.hcop.common.api.ApiErrorResponse;
+import ar.com.hexium.hcop.platform.web.api.ApiErrorResponse;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;

@@ -1,6 +1,6 @@
 package ar.com.hexium.hcop.guide.infrastructure.persistence;
 
-import ar.com.hexium.hcop.config.HcopProperties;
+import ar.com.hexium.hcop.platform.HcopProperties;
 import ar.com.hexium.hcop.guide.application.port.out.GuideFileStore;
 import ar.com.hexium.hcop.guide.application.port.out.GuideFileTooLargeException;
 import ar.com.hexium.hcop.guide.application.port.out.GuideStorageException;

@@ -1,6 +1,6 @@
 package ar.com.hexium.hcop.integration.infrastructure.web;
 
-import ar.com.hexium.hcop.common.api.ApiErrorResponse;
+import ar.com.hexium.hcop.platform.web.api.ApiErrorResponse;
 import ar.com.hexium.hcop.integration.application.service.IntegrationFailure;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -17,6 +17,9 @@ public class IntegrationFailureAdvice {
     HttpStatus status = switch (failure.type()) {
       case INVALID -> HttpStatus.BAD_REQUEST;
       case NOT_FOUND -> HttpStatus.NOT_FOUND;
+      case UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
+      case UPSTREAM_ERROR -> HttpStatus.BAD_GATEWAY;
+      case TIMEOUT -> HttpStatus.GATEWAY_TIMEOUT;
     };
     return ResponseEntity.status(status).body(ApiErrorResponse.of(status.value(), failure.getMessage(), failure.code()));
   }

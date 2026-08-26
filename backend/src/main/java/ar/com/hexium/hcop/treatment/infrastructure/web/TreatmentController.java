@@ -160,7 +160,7 @@ public class TreatmentController {
   Map<String, Object> duration(@PathVariable String id, HttpServletRequest request) {
     auth.requirePermission(request, "section.protocols.view");
     var scheme = catalog.scheme(id)
-        .orElseThrow(() -> new ar.com.hexium.hcop.common.ApiException(
+        .orElseThrow(() -> new ar.com.hexium.hcop.platform.web.ApiException(
             HttpStatus.NOT_FOUND, "Esquema no encontrado."));
     return Map.of(
         "ok", true,

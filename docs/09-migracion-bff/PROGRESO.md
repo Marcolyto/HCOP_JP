@@ -811,78 +811,73 @@ migrar en otro orden.
   Notas de ejecución). Siguiente: F3.4 — `common`→`sharedkernel`/`platform`,
   `config`→`platform` (NO hexagonal), eliminar `ApiException`.
 
+- [x] F3.4 — `common`+`config` → `platform` (fusionados, no dos paquetes separados — `common` no
+  tenía nada de dominio que mover a `sharedkernel`), `ApiException` acotado a `infrastructure.web`
+  (R6 lo exige — no "cero consumidores fuera de los 3 exentos" como decía el plan, ver
+  DECISIONES-F3.md), 2 hallazgos reales corregidos, 2+1 ciclos ArchUnit rotos.
+  `PERMANENTLY_EXEMPT_MODULES` pasa de `{auth,common,config}` a `{auth,platform}`.
+  **`ApiException` eliminado de `application`/`infrastructure.persistence`/`infrastructure.http`**
+  de los módulos hexagonales — `infusion` (sin `*Failure` desde F3.3, nuevo `InfusionFailure`+
+  `InfusionFailureAdvice`, ~50 sitios convertidos con un agente en background, mecánico) ·
+  `integration` (`IntegrationFailure` gana `UNAVAILABLE`/`UPSTREAM_ERROR`/`TIMEOUT`,
+  `HttpLlmClient` migrado completo) · `media` (`MediaFailure` gana `INTERNAL`,
+  `Filesystem{ClinicalFileBlobStore,StudyTemplateManifestStore}` migrados). Los `ApiException` de
+  `infrastructure.web` (media/patient/integration/treatment, 8 clases) quedan intactos — precondiciones
+  de forma HTTP, R6 prohíbe que el controller construya el `*Failure` propio (mismo criterio que
+  patient ya usaba desde F3.3).
+  **Hallazgo real (bug de propagación, 500 en vez de 404, sin test que lo cazara)**: 10 adapters
+  cruzados a `patient` (`diagnosis`/`qr`/`workflow`/`treatment`/`infusion`/`media`, javadocs
+  escritos antes de que `patient` se hexagonalizara en F3.3 5/6) dejaban propagar
+  `patient.PatientFailure` sin traducir — ningún `*FailureAdvice` ajeno lo captura, caía en el
+  handler genérico 500. Fix: cada adapter atrapa `PatientFailure` y relanza su `*Failure` propio
+  (`NOT_FOUND`/`CONFLICT`).
+  **Hallazgo real (ciclo no anticipado)**: al levantar el `@ArchIgnore` de
+  `r4_slicesAreFreeOfCycles` apareció `auth`↔`platform` (acoplamiento mutuo esperado entre los 2
+  módulos "pegamento", no un ciclo de negocio) — excluidos ambos del `@AnalyzeClasses` con un
+  `ImportOption` propio, seguro para las otras 17 reglas (ver DECISIONES-F3.md).
+  Los 2 ciclos documentados en F3.3.0 (`catalog`↔`config`, `config`↔`patient`) se rompieron con un
+  patrón plugin nuevo: `platform.BootstrapTask` (interfaz `run()`) — `catalog`/`patient` implementan
+  la suya con `@Order`, `platform.BootstrapConfiguration` inyecta `List<BootstrapTask>` sin conocer
+  ninguna clase concreta. `r4_slicesAreFreeOfCycles` sale de `@ArchIgnore` — **sin relajar nada**,
+  criterio de aceptación visible.
+  `docs/02-arquitectura/MVC.md` → `HEXAGONAL.md` (reescrito, describía MVC pre-F0). Texto de la API
+  en `OpenApiConfiguration` actualizado a "arquitectura hexagonal" — **cambia el
+  `openapi-snapshot.json`**, pendiente de regenerar contra Docker real antes de mergear (se suma a
+  la deuda de F3.3, un solo paso de Docker cubre ambas — ver punto 5 más abajo, actualizado).
+  `mvn -f backend/pom.xml verify` verde: 418 tests, **0 skips** (antes 1, el R4 genérico). Sin
+  Docker en este commit (cambia el contrato del spec vía el texto de `description`, no la forma de
+  ningún endpoint/schema — mismo criterio de F3.3, salvo la deuda de snapshot ya anotada).
+
+## F3 — CERRADA. Los ~14 módulos clínicos son hexagonales (`domain`/`application`/`infrastructure`,
+  R1-R9 + R4a/R4b en verde, **R4 genérico también en verde, sin `@ArchIgnore`**), `platform`
+  (fusión `common`+`config`) es la única infraestructura transversal permanentemente exenta junto
+  a `auth`, y `ApiException` quedó acotado a los casos que la arquitectura realmente permite
+  (borde `infrastructure.web` para precondiciones de forma HTTP, más `auth`/`platform`). Commits:
+  ver F3.0-F3.3 arriba + (F3.4, este). **Pendiente antes de mergear a `main`** (deuda acumulada,
+  no bloqueante para seguir trabajando en la rama): verificación Docker real de F3.3 + F3.4 juntas
+  (`docker compose up --build --wait`, `scripts/generate-openapi-snapshot.ps1 -Check` — ahora con
+  diff esperado por el texto nuevo de la API, regenerar —, `smoke-test.ps1`, los 3 contract-tests,
+  `integration-test.ps1`, `test-core-browser-e2e.ps1` 3/3, `test-clinical-conflict-e2e.ps1` 7/7
+  failed esperado). Siguiente fase: fuera del alcance de este plan (`fuzzy-waddling-galaxy.md`
+  termina en F3) — a definir con el usuario.
+
 ### Siguientes etapas (no arrancadas)
 
-- [ ] F3.4 — common→sharedkernel/platform, config→platform (NO hexagonal), eliminar ApiException
+(ninguna — F3 completo; ver "Pendiente antes de mergear a main" arriba)
 
-### Cómo continuar con F3.4 en una sesión nueva
+### Cómo continuar en una sesión nueva (F3 completo, pendiente solo la deuda de Docker)
 
-1. Releer este archivo (`PROGRESO.md`, especialmente el bloque "F3.3 — CERRADA" y las 8 entradas
-   de F3.3 arriba) y `DECISIONES-F3.md` completo (los hallazgos reales de F3.3 — en particular
-   "R4 sigue con `@ArchIgnore`" y "applicationDoesNotDependOnInfrastructure es incondicional entre
-   módulos" — van a ser relevantes para F3.4). `DECISIONES-F2.md` es solo para F2, ya no aporta a
-   F3.4.
-2. El plan completo (fila F3.4 de la tabla + "Riesgo principal de F3" con el inventario de
-   `ApiException`/status por módulo) está en `~/.claude/plans/fuzzy-waddling-galaxy.md`, sección
-   `## F3`. Texto literal de la fila F3.4: *"`common` → `sharedkernel`+`platform/web` ·
-   `config` → `platform/` | 1251 LOC | **`config` NO se hexagonaliza**: es infraestructura
-   transversal, no un feature. Eliminar `ApiException` (a esta altura el compilador delata a los
-   consumidores que queden). `docs/02-arquitectura/MVC.md` → `HEXAGONAL.md`"*.
-3. **Alcance real de F3.4 (3 tareas independientes, se pueden secuenciar o partir en commits
-   separados)**:
-   a. **Renombrar `common` → `sharedkernel` + `platform/web`**: `common` hoy tiene
-      `ApiException`, `ApiExceptionHandler`, `ApiErrorResponse`, `AuthenticationRequiredResponse`
-      (ver `backend/src/main/java/ar/com/hexium/hcop/common/`) — separar lo que es
-      "kernel compartido de dominio" (si lo hay) de lo que es "infraestructura web transversal"
-      (el `ApiExceptionHandler` global, las respuestas HTTP). Revisar primero qué hay realmente
-      en `common/` antes de asumir la forma exacta del split — el plan da el nombre destino, no
-      el contenido exacto de cada paquete.
-   b. **Renombrar `config` → `platform`**: mecánico (paquete + imports), `config` NO se
-      hexagonaliza (sigue sin `domain`/`application`/`infrastructure`) — es infraestructura
-      transversal (bootstrap, `HcopProperties`, `OpenApiConfiguration`, etc.), no un feature.
-   c. **Eliminar `ApiException`**: ahora que los ~14 módulos clínicos son hexagonales y cada uno
-      tiene su propio `*Failure` + `*FailureAdvice`, `ApiException` debería quedar sin
-      consumidores fuera de `auth`/`common`(→`platform/web`)/`config`(→`platform`) — los 3
-      módulos permanentemente exentos. Verificarlo con
-      `grep -rln "ApiException" backend/src/main/java` **antes** de tocar nada: cualquier hit
-      fuera de esos 3 paquetes es una regresión de una migración anterior (revisar cuál) o un
-      caso legítimo que el plan no anticipó. El "riesgo principal de F3" del plan avisa
-      específicamente de esto: los `new ApiException(HttpStatus.X, ...)` que no sean
-      400/404/409 necesitan un valor de enum `*Failure` que hoy podría no existir todavía —
-      revisar cada `*Failure` ya creado en F3.1-F3.3 antes de asumir que alcanza.
-4. **Los 2 ciclos ArchUnit que quedaron documentados y fuera de alcance en F3.3.0/DECISIONES-F3.md
-   son responsabilidad de F3.4**: `catalog` ↔ `config` (vía `HcopProperties.catalogRoot()`,
-   leído por los `*Store` de `catalog`) y `config` ↔ `patient` (`BootstrapConfiguration` llama a
-   `patient.DefaultDemoPatientBootstrap.seed()`, `patient.PatientDocumentService`/`PatientJsonMapper`
-   depende de `HcopProperties`). Con `config`→`platform` estos ciclos van a seguir existiendo con
-   otro nombre a menos que F3.4 los rompa explícitamente (puerto de salida desde `catalog`/`patient`
-   hacia `platform`, o extraer las propiedades que necesita cada módulo a su propia configuración) —
-   decidir el enfoque al arrancar, no está prescripto por el plan. Una vez rotos, sacar el
-   `@ArchIgnore` de `r4_slicesAreFreeOfCycles` en `HexagonalArchitectureTest.java` y confirmar
-   que pasa en verde — ese es el criterio de aceptación visible de haberlos roto.
-5. **Deuda pendiente de F3.3, no bloqueante pero hay que saldarla antes de mergear a `main`**:
-   ningún commit de F3.3 (8 commits: diagnosis/workflow/qr/treatment/patient/infusion×3) se
-   verificó contra el stack Docker real ni contra `scripts/generate-openapi-snapshot.ps1 -Check`
-   — se justificó en cada uno porque ningún path/método/permiso de controller cambió, pero es una
-   inferencia estática (revisar `@*Mapping` antes/después), no una verificación end-to-end real
-   como sí tuvieron F3.1/F3.2. Antes de mergear esta rama a `main`, correr — el usuario corre
-   Docker, no Claude, salvo que pida explícitamente lo contrario en esa sesión —:
-   `docker compose up --build --wait` (5 servicios healthy) · `scripts/generate-openapi-snapshot.ps1
-   -Check` (diff vacío, bloqueante) · `scripts/smoke-test.ps1` · los 3 contract-tests
-   (`configuration`/`protocol`/`guide`) · `scripts/integration-test.ps1` ·
-   `scripts/test-core-browser-e2e.ps1` (3/3) · `scripts/test-clinical-conflict-e2e.ps1` (7/7
-   failed esperado, bug preexistente de F0.5, sin relación). Si algo falla ahí, es señal de que
-   alguna de las inferencias estáticas de F3.3 estaba mal — investigar el commit específico.
-6. Antes de cada commit de F3.4: `mvn -f backend/pom.xml verify` (incluye `HexagonalArchitectureTest`
-   y `OpenApiDocumentationKeysTest`) tiene que quedar verde. `TRACKED_LEGACY_MODULES` ya está
-   vacío — no hay más módulos que sacar de ahí, F3.4 no toca esa lista salvo que agregue una regla
-   nueva relacionada al split de `common`/`config`.
-7. Estado del repo al cerrar esta sesión: working tree limpio, branch
-   `feature/migracion-bff-arquitectura`, último commit `6e8c6aa` (F3.3, PR 3/3 infusion — cierra
-   F3.3 completo). `mvn -f backend/pom.xml verify` verde: 612 tests, 1 skip (R4 genérico,
-   documentado). F3.0 a F3.3 completos. Siguiente paso concreto: arrancar F3.4 leyendo primero
-   `backend/src/main/java/ar/com/hexium/hcop/common/` y `.../config/` completos para dimensionar
-   el split real antes de tocar nada (punto 3 de arriba).
+1. Releer el bloque "F3 — CERRADA" y la entrada F3.4 arriba, más `DECISIONES-F3.md` (sección
+   "F3.4", los 4 hallazgos reales: fusión `common`+`config`→`platform` en vez de 2 paquetes, el
+   target real de `ApiException` reconciliado con R6, el bug de propagación `PatientFailure` en 10
+   adapters cruzados, y el ciclo `auth`↔`platform`).
+2. Único pendiente real: la verificación Docker de F3.3+F3.4 juntas — ver "Pendiente antes de
+   mergear a `main`" en el bloque "F3 — CERRADA" arriba. El usuario corre Docker, no Claude, salvo
+   que pida explícitamente lo contrario.
+3. Estado del repo al cerrar esta sesión: branch `feature/migracion-bff-arquitectura`,
+   `mvn -f backend/pom.xml verify` verde (418 tests, 0 skips). No hay siguiente fase definida en
+   el plan (`fuzzy-waddling-galaxy.md` termina en F3) — si el usuario pide seguir, preguntar el
+   alcance antes de asumir uno.
 
 ### Referencia — patrón de los 6 módulos de F3.3 (por si hace falta releer un ejemplo)
 

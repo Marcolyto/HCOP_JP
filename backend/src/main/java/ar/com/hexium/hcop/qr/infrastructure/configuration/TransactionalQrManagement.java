@@ -1,6 +1,6 @@
 package ar.com.hexium.hcop.qr.infrastructure.configuration;
 
-import ar.com.hexium.hcop.config.HcopProperties;
+import ar.com.hexium.hcop.platform.HcopProperties;
 import ar.com.hexium.hcop.qr.application.port.in.QrUseCase;
 import ar.com.hexium.hcop.qr.application.port.out.PatientEvolutionPort;
 import ar.com.hexium.hcop.qr.application.port.out.QrInfusionPort;

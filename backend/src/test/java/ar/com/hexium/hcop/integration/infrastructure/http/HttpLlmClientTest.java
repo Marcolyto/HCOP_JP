@@ -3,7 +3,7 @@ package ar.com.hexium.hcop.integration.infrastructure.http;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import ar.com.hexium.hcop.common.ApiException;
+import ar.com.hexium.hcop.integration.application.service.IntegrationFailure;
 import ar.com.hexium.hcop.integration.domain.AgentAnswer;
 import ar.com.hexium.hcop.integration.domain.ChartArtifact;
 import ar.com.hexium.hcop.integration.domain.ChatMessage;
@@ -19,7 +19,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -85,12 +84,12 @@ class HttpLlmClientTest {
         config("openai-compatible", localBaseUrl(), "secret"),
         List.of(new ChatMessage("user", "Prueba")),
         true))
-        .isInstanceOf(ApiException.class)
+        .isInstanceOf(IntegrationFailure.class)
         .satisfies(error -> {
-          ApiException api = (ApiException) error;
-          assertThat(api.status()).isEqualTo(HttpStatus.BAD_GATEWAY);
-          assertThat(api.code()).isEqualTo("LLM_UPSTREAM_ERROR");
-          assertThat(api.getMessage()).contains("Missing or invalid Authorization header.");
+          IntegrationFailure failure = (IntegrationFailure) error;
+          assertThat(failure.type()).isEqualTo(IntegrationFailure.Type.UPSTREAM_ERROR);
+          assertThat(failure.code()).isEqualTo("LLM_UPSTREAM_ERROR");
+          assertThat(failure.getMessage()).contains("Missing or invalid Authorization header.");
         });
   }
 
@@ -142,11 +141,11 @@ class HttpLlmClientTest {
     assertThatThrownBy(() -> client.completeAgentChat(
         config("openai-compatible", localBaseUrl(), ""),
         List.of(new ChatMessage("user", "Consulta"))))
-        .isInstanceOf(ApiException.class)
+        .isInstanceOf(IntegrationFailure.class)
         .satisfies(error -> {
-          ApiException api = (ApiException) error;
-          assertThat(api.code()).isEqualTo("LLM_STRUCTURED_RESPONSE_TRUNCATED");
-          assertThat(api.getMessage()).contains("truncó").doesNotContain("parcial");
+          IntegrationFailure failure = (IntegrationFailure) error;
+          assertThat(failure.code()).isEqualTo("LLM_STRUCTURED_RESPONSE_TRUNCATED");
+          assertThat(failure.getMessage()).contains("truncó").doesNotContain("parcial");
         });
   }
 
@@ -231,11 +230,11 @@ class HttpLlmClientTest {
     stubAgentContent("{\"artifacts\":[{\"type\":\"table\",\"columns\":[\"A\"],\"rows\":[]}]}", "modelo-proveedor");
     assertThatThrownBy(() -> client.completeAgentChat(
         config("openai-compatible", localBaseUrl(), ""), List.of(new ChatMessage("user", "otra"))))
-        .isInstanceOf(ApiException.class)
+        .isInstanceOf(IntegrationFailure.class)
         .satisfies(error -> {
-          ApiException api = (ApiException) error;
-          assertThat(api.code()).isEqualTo("LLM_INVALID_STRUCTURED_RESPONSE");
-          assertThat(api.getMessage())
+          IntegrationFailure failure = (IntegrationFailure) error;
+          assertThat(failure.code()).isEqualTo("LLM_INVALID_STRUCTURED_RESPONSE");
+          assertThat(failure.getMessage())
               .contains("respuesta estructurada incompleta")
               .doesNotContain("artifacts", "columns");
         });
@@ -278,11 +277,11 @@ class HttpLlmClientTest {
 
   private void assertApiKeyRequired(LlmConfiguration config) {
     assertThatThrownBy(() -> client.complete(config, List.of(new ChatMessage("user", "Prueba")), true))
-        .isInstanceOf(ApiException.class)
+        .isInstanceOf(IntegrationFailure.class)
         .satisfies(error -> {
-          ApiException api = (ApiException) error;
-          assertThat(api.status()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
-          assertThat(api.code()).isEqualTo("LLM_API_KEY_REQUIRED");
+          IntegrationFailure failure = (IntegrationFailure) error;
+          assertThat(failure.type()).isEqualTo(IntegrationFailure.Type.UNAVAILABLE);
+          assertThat(failure.code()).isEqualTo("LLM_API_KEY_REQUIRED");
         });
   }
 

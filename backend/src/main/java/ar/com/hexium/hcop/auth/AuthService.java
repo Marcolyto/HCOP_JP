@@ -1,6 +1,6 @@
 package ar.com.hexium.hcop.auth;
 
-import ar.com.hexium.hcop.common.ApiException;
+import ar.com.hexium.hcop.platform.web.ApiException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;

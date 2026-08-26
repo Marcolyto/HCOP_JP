@@ -1,9 +1,8 @@
 package ar.com.hexium.hcop.diagnosis.application.service;
 
 /**
- * Error funcional del módulo, independiente de HTTP. El 404 de paciente/historia inexistente no
- * es una regla de este módulo — sigue viajando como {@code ApiException} sin traducir desde
- * {@code PatientDiagnosisPort} (ver su javadoc).
+ * Error funcional del módulo, independiente de HTTP. El 404 de paciente/historia inexistente lo
+ * traduce {@code PatientDiagnosisAdapter} desde {@code PatientFailure} (F3.4, ver su javadoc).
  */
 public final class DiagnosisFailure extends RuntimeException {
   private final Type type;
@@ -28,6 +27,7 @@ public final class DiagnosisFailure extends RuntimeException {
   }
 
   public enum Type {
+    NOT_FOUND,
     CONFLICT,
     UNPROCESSABLE
   }

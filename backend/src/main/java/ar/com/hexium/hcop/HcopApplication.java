@@ -1,6 +1,6 @@
 package ar.com.hexium.hcop;
 
-import ar.com.hexium.hcop.config.HcopProperties;
+import ar.com.hexium.hcop.platform.HcopProperties;
 import java.time.Clock;
 import java.time.ZoneId;
 import org.springframework.boot.SpringApplication;

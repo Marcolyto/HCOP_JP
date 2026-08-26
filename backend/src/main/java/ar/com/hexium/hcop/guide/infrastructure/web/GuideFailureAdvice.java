@@ -1,6 +1,6 @@
 package ar.com.hexium.hcop.guide.infrastructure.web;
 
-import ar.com.hexium.hcop.common.api.ApiErrorResponse;
+import ar.com.hexium.hcop.platform.web.api.ApiErrorResponse;
 import ar.com.hexium.hcop.guide.application.service.GuideFailure;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;

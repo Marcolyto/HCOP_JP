@@ -1,6 +1,6 @@
 package ar.com.hexium.hcop.patient.infrastructure.web;
 
-import ar.com.hexium.hcop.common.ApiException;
+import ar.com.hexium.hcop.platform.web.ApiException;
 import java.math.BigDecimal;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;

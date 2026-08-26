@@ -15,8 +15,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import ar.com.hexium.hcop.auth.AuthContext;
 import ar.com.hexium.hcop.auth.SessionPrincipal;
-import ar.com.hexium.hcop.common.ApiExceptionHandler;
-import ar.com.hexium.hcop.config.HcopProperties;
+import ar.com.hexium.hcop.platform.web.ApiExceptionHandler;
+import ar.com.hexium.hcop.platform.HcopProperties;
 import ar.com.hexium.hcop.patient.application.service.PatientDocumentApplicationService;
 import ar.com.hexium.hcop.patient.infrastructure.persistence.PatientDocumentStoreAdapter;
 import ar.com.hexium.hcop.patient.infrastructure.persistence.PostgresPatientDocumentRepository;

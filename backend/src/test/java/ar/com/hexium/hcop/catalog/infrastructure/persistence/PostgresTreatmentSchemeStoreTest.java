@@ -2,7 +2,7 @@ package ar.com.hexium.hcop.catalog.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ar.com.hexium.hcop.config.HcopProperties;
+import ar.com.hexium.hcop.platform.HcopProperties;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;

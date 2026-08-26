@@ -1,7 +1,7 @@
 package ar.com.hexium.hcop.patient.infrastructure.web;
 
 import ar.com.hexium.hcop.auth.SessionPrincipal;
-import ar.com.hexium.hcop.common.ApiException;
+import ar.com.hexium.hcop.platform.web.ApiException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;

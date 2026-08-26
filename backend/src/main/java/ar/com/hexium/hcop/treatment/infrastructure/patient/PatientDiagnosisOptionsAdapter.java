@@ -1,8 +1,10 @@
 package ar.com.hexium.hcop.treatment.infrastructure.patient;
 
 import ar.com.hexium.hcop.patient.application.port.in.PatientDocumentUseCase;
+import ar.com.hexium.hcop.patient.application.service.PatientFailure;
 import ar.com.hexium.hcop.patient.domain.StoredDocument;
 import ar.com.hexium.hcop.treatment.application.port.out.PatientDiagnosisOptionsPort;
+import ar.com.hexium.hcop.treatment.application.service.TreatmentFailure;
 import ar.com.hexium.hcop.treatment.domain.DiagnosisOption;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,8 +27,12 @@ public class PatientDiagnosisOptionsAdapter implements PatientDiagnosisOptionsPo
 
   @Override
   public List<DiagnosisOption> diagnosisOptions(long patientId) {
-    StoredDocument stored = documents.require(patientId);
-    return diagnoses((JsonNode) stored.document());
+    try {
+      StoredDocument stored = documents.require(patientId);
+      return diagnoses((JsonNode) stored.document());
+    } catch (PatientFailure failure) {
+      throw new TreatmentFailure(TreatmentFailure.Type.NOT_FOUND, failure.getMessage());
+    }
   }
 
   private List<DiagnosisOption> diagnoses(JsonNode document) {

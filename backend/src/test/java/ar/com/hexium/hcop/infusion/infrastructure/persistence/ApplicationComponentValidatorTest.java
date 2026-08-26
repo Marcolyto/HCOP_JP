@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import ar.com.hexium.hcop.common.ApiException;
+import ar.com.hexium.hcop.infusion.application.service.InfusionFailure;
 import ar.com.hexium.hcop.infusion.application.port.in.ApplicationWorkflowUseCase.PreparationInput;
 import ar.com.hexium.hcop.infusion.application.port.in.ApplicationWorkflowUseCase.StockComponentInput;
 import java.math.BigDecimal;
@@ -68,14 +68,14 @@ class ApplicationComponentValidatorTest {
 
     assertThatThrownBy(() ->
         ApplicationComponentValidator.validateStockComponents(drugs, List.of(exact.getFirst())))
-        .isInstanceOf(ApiException.class)
+        .isInstanceOf(InfusionFailure.class)
         .hasMessageContaining("exactamente todos");
 
     List<StockComponentInput> withExtra = new ArrayList<>(exact);
     withExtra.add(component("extra-3", "other", "Otra", "1", "mg"));
     assertThatThrownBy(() ->
         ApplicationComponentValidator.validateStockComponents(drugs, withExtra))
-        .isInstanceOf(ApiException.class)
+        .isInstanceOf(InfusionFailure.class)
         .hasMessageContaining("exactamente todos");
 
     List<StockComponentInput> duplicate = List.of(
@@ -88,7 +88,7 @@ class ApplicationComponentValidatorTest {
             exact.getLast().unit()));
     assertThatThrownBy(() ->
         ApplicationComponentValidator.validateStockComponents(drugs, duplicate))
-        .isInstanceOf(ApiException.class)
+        .isInstanceOf(InfusionFailure.class)
         .hasMessageContaining("repite la clave");
   }
 
@@ -122,7 +122,7 @@ class ApplicationComponentValidatorTest {
     assertThatThrownBy(() ->
         ApplicationComponentValidator.resolvePreparations(
             drugs, List.of(preparation(null, "Paclitaxel", "10", "mg"))))
-        .isInstanceOf(ApiException.class)
+        .isInstanceOf(InfusionFailure.class)
         .hasMessageContaining("drogas repetidas");
     assertThatThrownBy(() ->
         ApplicationComponentValidator.resolvePreparations(
@@ -130,7 +130,7 @@ class ApplicationComponentValidatorTest {
                 preparation(null, "Paclitaxel", "10", "mg"),
                 preparation(null, "Paclitaxel", "20", "mg"),
                 preparation(null, "Ondansetron", "8", "mg"))))
-        .isInstanceOf(ApiException.class)
+        .isInstanceOf(InfusionFailure.class)
         .hasMessageContaining("exactamente una traza");
   }
 
@@ -159,7 +159,7 @@ class ApplicationComponentValidatorTest {
             List.of(
                 preparation("drug-7-1", "Paclitaxel", "20", "mg"),
                 preparation("drug-7-2", "Paclitaxel", "10", "mg"))))
-        .isInstanceOf(ApiException.class)
+        .isInstanceOf(InfusionFailure.class)
         .hasMessageContaining("cantidad preparada no coincide");
 
     assertThatThrownBy(() ->
@@ -168,7 +168,7 @@ class ApplicationComponentValidatorTest {
             List.of(
                 preparation("drug-7-1", "Paclitaxel", "10", "ml"),
                 preparation("drug-7-2", "Paclitaxel", "20", "mg"))))
-        .isInstanceOf(ApiException.class)
+        .isInstanceOf(InfusionFailure.class)
         .hasMessageContaining("unidad preparada no coincide");
   }
 
@@ -224,7 +224,7 @@ class ApplicationComponentValidatorTest {
         """);
 
     assertThatThrownBy(() -> ApplicationComponentValidator.componentsFromDrugs(drugs))
-        .isInstanceOf(ApiException.class)
+        .isInstanceOf(InfusionFailure.class)
         .hasMessageContaining("sourceItemRef único");
   }
 
@@ -250,7 +250,7 @@ class ApplicationComponentValidatorTest {
   private void assertMismatch(JsonNode drugs, StockComponentInput changed, StockComponentInput untouched) {
     assertThatThrownBy(() ->
         ApplicationComponentValidator.validateStockComponents(drugs, List.of(changed, untouched)))
-        .isInstanceOf(ApiException.class)
+        .isInstanceOf(InfusionFailure.class)
         .hasMessageContaining("no coincide");
   }
 

@@ -1,6 +1,6 @@
 package ar.com.hexium.hcop.patient.infrastructure.web;
 
-import ar.com.hexium.hcop.common.api.ApiErrorResponse;
+import ar.com.hexium.hcop.platform.web.api.ApiErrorResponse;
 import ar.com.hexium.hcop.patient.application.service.PatientFailure;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;

@@ -2,8 +2,9 @@ package ar.com.hexium.hcop.integration.application.service;
 
 /**
  * Error funcional del módulo, independiente de HTTP. Los errores de transporte/protocolo del LLM
- * (deshabilitado, timeout, upstream, JSON estructurado inválido) los sigue lanzando el adapter
- * como {@code ApiException} directo — igual que hoy, no son reglas de negocio de este módulo.
+ * (deshabilitado, timeout, upstream, JSON estructurado inválido) los traduce el adapter HTTP a
+ * {@code UNAVAILABLE}/{@code TIMEOUT}/{@code UPSTREAM_ERROR} (F3.4) — no son reglas de negocio de
+ * este módulo, pero tampoco HTTP.
  */
 public final class IntegrationFailure extends RuntimeException {
   private final Type type;
@@ -29,6 +30,9 @@ public final class IntegrationFailure extends RuntimeException {
 
   public enum Type {
     INVALID,
-    NOT_FOUND
+    NOT_FOUND,
+    UNAVAILABLE,
+    UPSTREAM_ERROR,
+    TIMEOUT
   }
 }

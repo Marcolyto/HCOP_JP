@@ -1,6 +1,6 @@
-package ar.com.hexium.hcop.common;
+package ar.com.hexium.hcop.platform.web;
 
-import ar.com.hexium.hcop.common.api.ApiErrorResponse;
+import ar.com.hexium.hcop.platform.web.api.ApiErrorResponse;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -1,4 +1,4 @@
-package ar.com.hexium.hcop.config;
+package ar.com.hexium.hcop.platform;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;

@@ -1,7 +1,7 @@
 package ar.com.hexium.hcop.media.infrastructure.web;
 
 import ar.com.hexium.hcop.auth.AuthContext;
-import ar.com.hexium.hcop.common.ApiException;
+import ar.com.hexium.hcop.platform.web.ApiException;
 import ar.com.hexium.hcop.media.application.port.in.ClinicalFileUseCase;
 import ar.com.hexium.hcop.media.application.port.in.ClinicalFileUseCase.StoreImageCommand;
 import ar.com.hexium.hcop.media.application.port.in.ClinicalFileUseCase.UploadStudyCommand;

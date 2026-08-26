@@ -1,4 +1,4 @@
-package ar.com.hexium.hcop.config;
+package ar.com.hexium.hcop.platform;
 
 import ar.com.hexium.hcop.auth.AuthInterceptor;
 import org.springframework.context.annotation.Configuration;

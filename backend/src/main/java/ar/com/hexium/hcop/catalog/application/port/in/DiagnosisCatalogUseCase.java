@@ -8,7 +8,8 @@ public interface DiagnosisCatalogUseCase {
 
   DiagnosisSearchResult search(String system, String query, int limit);
 
-  /** Usado por {@code config.ClinicalCatalogBootstrap} para sembrar las equivalencias iniciales. */
+  /** Usado por {@code catalog.infrastructure.persistence.ClinicalCatalogBootstrapTask} para
+   * sembrar las equivalencias iniciales (F3.4: antes vivía en {@code platform}). */
   List<DiagnosisEquivalence> equivalences();
 
   record DiagnosisSearchResult(String system, String query, List<CatalogSearchResult> items) {

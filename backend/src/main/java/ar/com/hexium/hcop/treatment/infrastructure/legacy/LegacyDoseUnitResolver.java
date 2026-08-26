@@ -1,6 +1,6 @@
 package ar.com.hexium.hcop.treatment.infrastructure.legacy;
 
-import ar.com.hexium.hcop.config.HcopProperties;
+import ar.com.hexium.hcop.platform.HcopProperties;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.text.Normalizer;

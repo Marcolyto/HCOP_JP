@@ -1,8 +1,8 @@
 package ar.com.hexium.hcop.media.infrastructure.persistence;
 
-import ar.com.hexium.hcop.common.ApiException;
-import ar.com.hexium.hcop.config.HcopProperties;
+import ar.com.hexium.hcop.platform.HcopProperties;
 import ar.com.hexium.hcop.media.application.port.out.StudyTemplateManifestStore;
+import ar.com.hexium.hcop.media.application.service.MediaFailure;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Repository;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -31,7 +30,7 @@ public class FilesystemStudyTemplateManifestStore implements StudyTemplateManife
     try {
       manifest = mapper.readTree(Files.newInputStream(manifestPath));
     } catch (IOException error) {
-      throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo abrir la biblioteca anatómica.");
+      throw new MediaFailure(MediaFailure.Type.INTERNAL, "No se pudo abrir la biblioteca anatómica.");
     }
     List<Object> templates = new ArrayList<>();
     for (JsonNode template : manifest.path("templates")) {

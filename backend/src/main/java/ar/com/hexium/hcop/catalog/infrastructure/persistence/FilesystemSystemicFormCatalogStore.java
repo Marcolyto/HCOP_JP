@@ -1,7 +1,7 @@
 package ar.com.hexium.hcop.catalog.infrastructure.persistence;
 
 import ar.com.hexium.hcop.catalog.application.port.out.SystemicFormCatalogStore;
-import ar.com.hexium.hcop.config.HcopProperties;
+import ar.com.hexium.hcop.platform.HcopProperties;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;

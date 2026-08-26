@@ -1,4 +1,4 @@
-package ar.com.hexium.hcop.common;
+package ar.com.hexium.hcop.platform.web;
 
 import org.springframework.http.HttpStatus;
 

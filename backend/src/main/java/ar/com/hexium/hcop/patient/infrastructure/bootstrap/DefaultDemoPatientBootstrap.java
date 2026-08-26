@@ -6,11 +6,13 @@ import ar.com.hexium.hcop.patient.infrastructure.persistence.PatientDocumentStor
 import ar.com.hexium.hcop.patient.infrastructure.persistence.PostgresPatientDocumentRepository;
 import ar.com.hexium.hcop.patient.infrastructure.persistence.PostgresPatientDocumentRepository.StoredDocument;
 import ar.com.hexium.hcop.patient.infrastructure.persistence.PostgresPatientStore;
+import ar.com.hexium.hcop.platform.BootstrapTask;
 import java.io.IOException;
 import java.time.LocalDate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.annotation.Order;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,8 +20,15 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
 
+/**
+ * Implementa {@link BootstrapTask} en vez de que {@code platform.BootstrapConfiguration} dependa
+ * de esta clase directamente — evita el ciclo {@code platform}↔{@code patient} (F3.4, ver
+ * DECISIONES-F3.md). Orden 2: después del seed de catálogos ({@code catalog}). {@code seed()} se
+ * conserva con ese nombre (los tests existentes lo llaman directo); {@code run()} solo delega.
+ */
 @Component
-public class DefaultDemoPatientBootstrap {
+@Order(2)
+public class DefaultDemoPatientBootstrap implements BootstrapTask {
   static final String SEED_KEY = "hcop-default-test-savatierra-v1";
   private static final Logger LOGGER = LoggerFactory.getLogger(DefaultDemoPatientBootstrap.class);
 
@@ -56,6 +65,11 @@ public class DefaultDemoPatientBootstrap {
     this.mapper = mapper;
     this.enabled = enabled;
     this.clinicalDocumentResource = clinicalDocumentResource;
+  }
+
+  @Override
+  public void run() {
+    seed();
   }
 
   @Transactional

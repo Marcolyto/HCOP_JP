@@ -6,9 +6,9 @@ operación y mantenimiento. Está organizada por recorridos clínicos, operativo
 y técnicos para localizar rápidamente la referencia correspondiente.
 
 La entrada operativa es `http://localhost:<puerto>/`: sirve el frontend Angular
-nativo sin iframe ni runtime JavaScript legacy. El mismo proceso Java 21/Spring
-MVC publica la API y Swagger; PostgreSQL conserva los datos y Flyway versiona
-el esquema.
+nativo sin iframe ni runtime JavaScript legacy. El backend Java 21/Spring
+(arquitectura hexagonal) publica la API y Swagger detrás de un BFF; PostgreSQL
+conserva los datos y Flyway versiona el esquema.
 
 ## Elegir un recorrido
 
@@ -21,7 +21,7 @@ el esquema.
 | Operar Hospital de día paso a paso | [Video detallado y guía de capítulos](01-uso/VIDEO-CIRCUITO-HOSPITAL-DIA-PASO-A-PASO.md), [circuito de 7 pasos](01-uso/CIRCUITO-HOSPITAL-DE-DIA-7-PASOS.md) y [guía por roles](01-uso/GUIA-POR-ROLES-HOSPITAL-DE-DIA.md) |
 | Revisar la auditoría de Hospital de día | [Reporte del 30/07/2026](08-auditoria/REPORTE-AUDITORIA-HOSPITAL-DIA-2026-07-30.md) y [matriz de 100 casos](08-auditoria/HOSPITAL-DIA-100-CASOS.md) |
 | Integrarse con la API | [Swagger / OpenAPI](02-arquitectura/SWAGGER-OPENAPI.md) y [endpoints](02-arquitectura/ENDPOINTS.md) |
-| Mantener el código | [Arquitectura MVC](02-arquitectura/MVC.md) y [mapa funcional](07-referencia/MAPA-FUNCIONAL.md) |
+| Mantener el código | [Arquitectura hexagonal](02-arquitectura/HEXAGONAL.md) y [mapa funcional](07-referencia/MAPA-FUNCIONAL.md) |
 | Encontrar un archivo o carpeta | [Estructura del repositorio](04-desarrollo/ESTRUCTURA-DEL-REPOSITORIO.md) |
 | Entender o respaldar PostgreSQL | [Modelo](03-base-de-datos/MODELO-DE-DATOS.md) y [diccionario](03-base-de-datos/DICCIONARIO-DE-DATOS.md) |
 | Configurar un servidor | [Variables de entorno](05-operacion/VARIABLES-DE-ENTORNO.md) y [seguridad](05-operacion/SEGURIDAD.md) |
@@ -47,7 +47,7 @@ Con el sistema iniciado también existe una versión navegable en
 
 ## 02 · Arquitectura
 
-- [MVC y módulos](02-arquitectura/MVC.md)
+- [Arquitectura hexagonal y módulos](02-arquitectura/HEXAGONAL.md)
 - [Swagger / OpenAPI](02-arquitectura/SWAGGER-OPENAPI.md)
 - [Catálogo completo de endpoints](02-arquitectura/ENDPOINTS.md)
 - [Contratos y convenciones de API](04-desarrollo/CONTRATOS-DE-API.md)

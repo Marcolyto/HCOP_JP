@@ -1,8 +1,8 @@
 package ar.com.hexium.hcop.media.infrastructure.web;
 
 import ar.com.hexium.hcop.auth.AuthContext;
-import ar.com.hexium.hcop.common.ApiException;
-import ar.com.hexium.hcop.config.HcopProperties;
+import ar.com.hexium.hcop.platform.web.ApiException;
+import ar.com.hexium.hcop.platform.HcopProperties;
 import ar.com.hexium.hcop.media.application.port.in.StudyTemplateUseCase;
 import ar.com.hexium.hcop.media.application.port.in.StudyTemplateUseCase.CreateStudyTemplateCommand;
 import ar.com.hexium.hcop.sharedkernel.domain.UserId;

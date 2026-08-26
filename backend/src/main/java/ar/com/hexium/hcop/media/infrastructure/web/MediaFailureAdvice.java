@@ -1,6 +1,6 @@
 package ar.com.hexium.hcop.media.infrastructure.web;
 
-import ar.com.hexium.hcop.common.api.ApiErrorResponse;
+import ar.com.hexium.hcop.platform.web.api.ApiErrorResponse;
 import ar.com.hexium.hcop.media.application.service.MediaFailure;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -21,6 +21,7 @@ public class MediaFailureAdvice {
       case UNSUPPORTED_FORMAT -> HttpStatus.UNSUPPORTED_MEDIA_TYPE;
       case FORBIDDEN -> HttpStatus.FORBIDDEN;
       case TOO_LARGE -> HttpStatus.PAYLOAD_TOO_LARGE;
+      case INTERNAL -> HttpStatus.INTERNAL_SERVER_ERROR;
     };
     return ResponseEntity.status(status).body(ApiErrorResponse.of(status.value(), failure.getMessage(), failure.code()));
   }

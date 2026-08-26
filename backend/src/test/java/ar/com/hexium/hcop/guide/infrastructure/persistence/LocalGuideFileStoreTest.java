@@ -2,7 +2,7 @@ package ar.com.hexium.hcop.guide.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ar.com.hexium.hcop.config.HcopProperties;
+import ar.com.hexium.hcop.platform.HcopProperties;
 import ar.com.hexium.hcop.guide.domain.GuideFileName;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;

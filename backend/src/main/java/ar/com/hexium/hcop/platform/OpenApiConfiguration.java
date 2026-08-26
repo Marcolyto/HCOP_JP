@@ -1,4 +1,4 @@
-package ar.com.hexium.hcop.config;
+package ar.com.hexium.hcop.platform;
 
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
@@ -46,8 +46,10 @@ import org.springframework.web.method.HandlerMethod;
         description = """
             API del sistema integrado de Historia Clínica Oncológica y Hospital de Día.
 
-            La aplicación sigue MVC: los controladores reciben y validan HTTP, los servicios
-            concentran reglas clínicas y transacciones, y los repositorios son la única capa
+            La aplicación sigue arquitectura hexagonal: cada módulo clínico expone su dominio
+            puro, sus casos de uso (puertos de entrada) y sus adaptadores (web, persistencia)
+            en capas separadas — los controladores solo traducen HTTP, los casos de uso
+            concentran reglas clínicas, y los adaptadores de persistencia son la única capa
             que accede a PostgreSQL. Los actos clínicos relevantes generan auditoría y
             evoluciones inmutables.
             """,

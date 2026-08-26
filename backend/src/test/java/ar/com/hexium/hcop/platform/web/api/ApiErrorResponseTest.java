@@ -1,4 +1,4 @@
-package ar.com.hexium.hcop.common.api;
+package ar.com.hexium.hcop.platform.web.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

@@ -10,7 +10,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import ar.com.hexium.hcop.auth.AuthContext;
-import ar.com.hexium.hcop.common.ApiException;
+import ar.com.hexium.hcop.platform.web.ApiException;
 import ar.com.hexium.hcop.integration.application.port.in.AgentChatUseCase;
 import ar.com.hexium.hcop.integration.application.port.in.AgentChatUseCase.AgentChatCommand;
 import ar.com.hexium.hcop.integration.application.port.in.ClinicalSummaryUseCase;

@@ -1,8 +1,8 @@
 package ar.com.hexium.hcop.media.infrastructure.persistence;
 
-import ar.com.hexium.hcop.common.ApiException;
-import ar.com.hexium.hcop.config.HcopProperties;
+import ar.com.hexium.hcop.platform.HcopProperties;
 import ar.com.hexium.hcop.media.application.port.out.ClinicalFileBlobStore;
+import ar.com.hexium.hcop.media.application.service.MediaFailure;
 import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.io.InputStream;
@@ -16,7 +16,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.UUID;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -49,7 +48,7 @@ public class FilesystemClinicalFileBlobStore implements ClinicalFileBlobStore {
       return new StoredBlob(storageKey, copied.size(), copied.sha256());
     } catch (IOException error) {
       deleteQuietly(temporary);
-      throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo guardar el archivo clínico.");
+      throw new MediaFailure(MediaFailure.Type.INTERNAL, "No se pudo guardar el archivo clínico.");
     } catch (RuntimeException error) {
       deleteQuietly(temporary);
       throw error;
@@ -59,7 +58,7 @@ public class FilesystemClinicalFileBlobStore implements ClinicalFileBlobStore {
   @Override
   public StoredBlob writeImage(UUID id, String extension, byte[] bytes) {
     if (bytes == null || bytes.length < 4 || bytes.length > properties.maxImageBytes()) {
-      throw new ApiException(HttpStatus.PAYLOAD_TOO_LARGE, "La imagen supera el límite permitido.");
+      throw new MediaFailure(MediaFailure.Type.TOO_LARGE, "La imagen supera el límite permitido.");
     }
     String storageKey = "images/" + id + extension;
     Path destination = resolve(imageRoot, id + extension);
@@ -69,7 +68,7 @@ public class FilesystemClinicalFileBlobStore implements ClinicalFileBlobStore {
       return new StoredBlob(storageKey, bytes.length, sha256(bytes));
     } catch (IOException error) {
       deleteQuietly(destination);
-      throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo guardar la imagen.");
+      throw new MediaFailure(MediaFailure.Type.INTERNAL, "No se pudo guardar la imagen.");
     } catch (RuntimeException error) {
       deleteQuietly(destination);
       throw error;
@@ -81,7 +80,7 @@ public class FilesystemClinicalFileBlobStore implements ClinicalFileBlobStore {
     Path root = storageKey.startsWith("images/") ? imageRoot : studyRoot;
     String name = storageKey.substring(storageKey.indexOf('/') + 1);
     Path path = resolve(root, name);
-    if (!Files.isRegularFile(path)) throw new ApiException(HttpStatus.NOT_FOUND, "Archivo no encontrado.");
+    if (!Files.isRegularFile(path)) throw new MediaFailure(MediaFailure.Type.NOT_FOUND, "Archivo no encontrado.");
     return path;
   }
 
@@ -101,11 +100,11 @@ public class FilesystemClinicalFileBlobStore implements ClinicalFileBlobStore {
       while ((read = input.read(buffer)) >= 0) {
         if (read == 0) continue;
         total += read;
-        if (total > limit) throw new ApiException(HttpStatus.PAYLOAD_TOO_LARGE, "El archivo supera el límite de 250 MB.");
+        if (total > limit) throw new MediaFailure(MediaFailure.Type.TOO_LARGE, "El archivo supera el límite de 250 MB.");
         output.write(buffer, 0, read);
       }
     }
-    if (total == 0) throw new ApiException(HttpStatus.BAD_REQUEST, "El archivo está vacío.");
+    if (total == 0) throw new MediaFailure(MediaFailure.Type.INVALID, "El archivo está vacío.");
     return new CopyResult(total, HexFormat.of().formatHex(digest.digest()));
   }
 
@@ -126,7 +125,9 @@ public class FilesystemClinicalFileBlobStore implements ClinicalFileBlobStore {
       case ".doc", ".ppt" -> starts(header, new byte[]{(byte) 0xd0, (byte) 0xcf, 0x11, (byte) 0xe0});
       default -> size > 8;
     };
-    if (!valid) throw new ApiException(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "El contenido no coincide con el formato del archivo.");
+    if (!valid) {
+      throw new MediaFailure(MediaFailure.Type.UNSUPPORTED_FORMAT, "El contenido no coincide con el formato del archivo.");
+    }
   }
 
   private boolean starts(byte[] value, byte[] prefix) {
@@ -145,7 +146,7 @@ public class FilesystemClinicalFileBlobStore implements ClinicalFileBlobStore {
 
   private Path resolve(Path root, String name) {
     Path resolved = root.resolve(name).normalize();
-    if (!resolved.getParent().equals(root)) throw new ApiException(HttpStatus.BAD_REQUEST, "Nombre de archivo inválido.");
+    if (!resolved.getParent().equals(root)) throw new MediaFailure(MediaFailure.Type.INVALID, "Nombre de archivo inválido.");
     return resolved;
   }
 

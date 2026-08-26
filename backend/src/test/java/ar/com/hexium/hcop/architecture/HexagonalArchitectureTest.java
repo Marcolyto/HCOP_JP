@@ -8,8 +8,8 @@ import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaModifier;
 import com.tngtech.archunit.core.importer.ImportOption;
+import com.tngtech.archunit.core.importer.Location;
 import com.tngtech.archunit.junit.AnalyzeClasses;
-import com.tngtech.archunit.junit.ArchIgnore;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.library.dependencies.SlicesRuleDefinition;
@@ -19,10 +19,29 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * {@code auth}/{@code platform} quedan fuera del escaneo completo (ver
+ * {@link ExcludeAuthAndPlatform}) — es seguro para las otras 17 reglas: todas ya exentan esos 2
+ * paquetes vía {@code allowListedPackages()}, o solo miran subpaquetes {@code domain}/
+ * {@code application}/{@code infrastructure} que ninguno de los dos tiene (son planos). Solo
+ * afecta a {@link #r4_slicesAreFreeOfCycles} — el motivo real, ver su javadoc.
+ */
 @AnalyzeClasses(
     packages = "ar.com.hexium.hcop",
-    importOptions = ImportOption.DoNotIncludeTests.class)
+    importOptions = {ImportOption.DoNotIncludeTests.class, HexagonalArchitectureTest.ExcludeAuthAndPlatform.class})
 class HexagonalArchitectureTest {
+
+  /** Excluye {@code auth}/{@code platform} — los dos módulos "pegamento" permanentemente exentos,
+   * cuyo acoplamiento mutuo (auth construye {@code platform.web.ApiException}; platform conecta
+   * los beans de auth en Spring Security/Web/Bootstrap) es esperado y no participa del grafo de
+   * módulos hexagonales que R4 verifica. Ver javadoc de {@link #r4_slicesAreFreeOfCycles}. */
+  static final class ExcludeAuthAndPlatform implements ImportOption {
+    @Override
+    public boolean includes(Location location) {
+      return !location.contains("/ar/com/hexium/hcop/auth/")
+          && !location.contains("/ar/com/hexium/hcop/platform/");
+    }
+  }
 
   private static final String[] FRAMEWORK_PACKAGES = {
       "org.springframework..",
@@ -47,11 +66,13 @@ class HexagonalArchitectureTest {
   /**
    * Módulos que el plan decide explícitamente NO hexagonalizar en F3 — {@code auth} lo absorbió
    * F2 (una reescritura completa es el momento de nacer hexagonal, no volver a tocarlo acá);
-   * {@code config}/{@code common} son infraestructura transversal (F3.4 los renombra a
-   * {@code platform}/{@code sharedkernel}, no los reorganiza en capas). Nunca se sacan de esta
-   * lista por un commit de "migración de módulo".
+   * {@code platform} (F3.4: fusión de los antiguos {@code common}+{@code config}) es
+   * infraestructura transversal — bootstrap, propiedades, OpenAPI, el manejador global de
+   * excepciones — no un feature, así que no se reorganiza en capas. Nunca se sacan de esta lista
+   * por un commit de "migración de módulo". {@code sharedkernel} (value objects de dominio
+   * compartidos, p. ej. {@code UserId}/{@code PatientId}) no necesita estar acá: ya es Java puro.
    */
-  private static final String[] PERMANENTLY_EXEMPT_MODULES = {"auth", "common", "config"};
+  private static final String[] PERMANENTLY_EXEMPT_MODULES = {"auth", "platform"};
 
   private static String[] allowListedPackages() {
     return Stream.concat(
@@ -129,23 +150,32 @@ class HexagonalArchitectureTest {
   @ArchTest
   static final ArchRule r3_applicationDoesNotDependOnApiException = noClasses()
       .that().resideInAPackage("..application..")
-      .should().dependOnClassesThat().haveFullyQualifiedName("ar.com.hexium.hcop.common.ApiException")
+      .should().dependOnClassesThat().haveFullyQualifiedName("ar.com.hexium.hcop.platform.web.ApiException")
       .because("R3: application no conoce HTTP — ApiException lleva un HttpStatus adentro; el "
           + "reemplazo es un *Failure funcional traducido en el borde web.");
 
   /**
-   * R4 (hallazgo 7 del plan): sigue con {@code @ArchIgnore} — F3.3.0 rompió el ciclo real
-   * {@code patient} ↔ {@code treatment} ↔ {@code infusion} (ver {@link #r4a_patientDoesNotDependOnTreatmentOrInfusion}
-   * / {@link #r4b_treatmentDoesNotDependOnInfusion}, el criterio de aceptación concreto de esa
-   * etapa), pero al levantar el {@code @ArchIgnore} genérico aparecieron dos ciclos más,
-   * preexistentes y fuera de alcance de F3.3.0: {@code catalog} ↔ {@code config} (vía
-   * {@code HcopProperties.catalogRoot()}, config leído por los *Store de catalog) y
-   * {@code config} ↔ {@code patient} (bootstrap de datos demo). {@code config} es
-   * PERMANENTLY_EXEMPT — nunca se hexagonaliza — así que romper esos dos ciclos es trabajo de
-   * F3.4 (config → platform), no de esta etapa.
+   * R4 (hallazgo 7 del plan): F3.3.0 rompió el ciclo real {@code patient} ↔ {@code treatment} ↔
+   * {@code infusion} (ver {@link #r4a_patientDoesNotDependOnTreatmentOrInfusion} /
+   * {@link #r4b_treatmentDoesNotDependOnInfusion}). Los otros dos ciclos que aparecían al levantar
+   * el {@code @ArchIgnore} genérico — {@code catalog} ↔ {@code config} (vía
+   * {@code ClinicalCatalogBootstrap} llamando a {@code catalog} desde {@code config}) y
+   * {@code config} ↔ {@code patient} (bootstrap de datos demo) — F3.4 los rompió moviendo cada
+   * seeder a su propio módulo como {@code platform.BootstrapTask} (ver DECISIONES-F3.md):
+   * {@code platform} ya no importa ninguna clase concreta de {@code catalog}/{@code patient}, solo
+   * la interfaz que ellos implementan.
+   *
+   * <p>Al sacar el {@code @ArchIgnore} genérico apareció un tercer ciclo, no anticipado por el
+   * plan: {@code auth} ↔ {@code platform} — {@code auth} construye {@code platform.web.ApiException}
+   * directo (permitido, ambos son PERMANENTLY_EXEMPT) y {@code platform.SecurityConfiguration}/
+   * {@code WebConfiguration}/{@code BootstrapConfiguration} conectan los beans de {@code auth}
+   * (es infraestructura de arranque de Spring, no un ciclo de dominio). Es acoplamiento mutuo
+   * esperado entre los dos únicos módulos "pegamento" que nunca se hexagonalizan — no el ciclo de
+   * negocio que R4 busca cazar. Se excluyen ambos del escaneo completo de la clase (ver
+   * {@link ExcludeAuthAndPlatform}) — el criterio de aceptación real de F3.4: cero ciclos entre
+   * los ~14 módulos clínicos hexagonales, sin {@code @ArchIgnore}.
    */
   @ArchTest
-  @ArchIgnore
   static final ArchRule r4_slicesAreFreeOfCycles = SlicesRuleDefinition.slices()
       .matching("ar.com.hexium.hcop.(*)..")
       .should().beFreeOfCycles();

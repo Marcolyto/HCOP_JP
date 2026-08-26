@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import ar.com.hexium.hcop.catalog.application.service.DrugCatalogApplicationService;
 import ar.com.hexium.hcop.catalog.application.service.LegacyProtocolCatalogApplicationService;
-import ar.com.hexium.hcop.config.HcopProperties;
+import ar.com.hexium.hcop.platform.HcopProperties;
 import java.nio.file.Path;
 import java.util.Map;
 import org.junit.jupiter.api.Test;

@@ -1,6 +1,5 @@
 package ar.com.hexium.hcop.infusion.infrastructure.persistence;
 
-import ar.com.hexium.hcop.common.ApiException;
 import ar.com.hexium.hcop.infusion.application.port.in.ApplicationWorkflowUseCase.AdministrationCompleteCommand;
 import ar.com.hexium.hcop.infusion.application.port.in.ApplicationWorkflowUseCase.AdministrationInterruptCommand;
 import ar.com.hexium.hcop.infusion.application.port.in.ApplicationWorkflowUseCase.AdministrationResolveCommand;
@@ -14,9 +13,11 @@ import ar.com.hexium.hcop.infusion.application.port.in.ApplicationWorkflowUseCas
 import ar.com.hexium.hcop.infusion.application.port.in.ApplicationWorkflowUseCase.StockComponentInput;
 import ar.com.hexium.hcop.infusion.application.port.in.ApplicationWorkflowUseCase.StockReservationCommand;
 import ar.com.hexium.hcop.infusion.application.port.out.ApplicationWorkflowStore;
+import ar.com.hexium.hcop.infusion.application.service.InfusionFailure;
 import ar.com.hexium.hcop.infusion.domain.ApplicationWorkflowPolicy;
 import ar.com.hexium.hcop.infusion.domain.ApplicationWorkflowPolicy.Violation;
 import ar.com.hexium.hcop.patient.application.port.in.PatientDocumentUseCase;
+import ar.com.hexium.hcop.patient.application.service.PatientFailure;
 import ar.com.hexium.hcop.patient.domain.EvolutionAppend;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
@@ -39,7 +40,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,7 +54,7 @@ import tools.jackson.databind.node.ObjectNode;
  * (orquestación) en un único adapter, mismo criterio que {@code treatment.PostgresTreatmentStore}
  * cuando la complejidad real está entrelazada con SQL. La validación pura vive en
  * {@code domain.ApplicationWorkflowPolicy} — este adapter la invoca y traduce cada
- * {@link Violation} a {@code ApiException} en el borde (infraestructura, no application).
+ * {@link Violation} a {@code InfusionFailure} en el borde (infraestructura, no application).
  */
 @Repository
 public class PostgresApplicationWorkflowStore implements ApplicationWorkflowStore {
@@ -82,7 +82,7 @@ public class PostgresApplicationWorkflowStore implements ApplicationWorkflowStor
       String queue, LocalDate date, String query, String medicationSource) {
     String normalizedQueue = queue == null ? "" : queue.trim().toLowerCase();
     if (!QUEUES.contains(normalizedQueue)) {
-      throw new ApiException(HttpStatus.BAD_REQUEST, "La cola operativa es inválida.");
+      throw new InfusionFailure(InfusionFailure.Type.INVALID, "La cola operativa es inválida.");
     }
     String source = normalizeSource(medicationSource, true);
     ensureWorkflowRows();
@@ -110,15 +110,15 @@ public class PostgresApplicationWorkflowStore implements ApplicationWorkflowStor
     Application application = require(key);
     if (!Set.of("prepared", "released").contains(application.preparationStatus())
         && !"completed".equals(application.administrationStatus())) {
-      throw new ApiException(
-          HttpStatus.CONFLICT,
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT,
           "La etiqueta se habilita después de registrar la preparación.",
           "PREPARATION_NOT_READY");
     }
     var lots = preparationLots(key);
     if (lots.isEmpty()) {
-      throw new ApiException(
-          HttpStatus.CONFLICT,
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT,
           "La preparación no posee lotes activos para imprimir.",
           "PREPARATION_TRACE_REQUIRED");
     }
@@ -274,8 +274,8 @@ public class PostgresApplicationWorkflowStore implements ApplicationWorkflowStor
     List<String> clinicalAlerts = passed
         ? triageSafetyAlerts(laboratory, vitalSigns, toxicity) : List.of();
     if (passed && !clinicalAlerts.isEmpty() && reason.length() < 10) {
-      throw new ApiException(
-          HttpStatus.CONFLICT,
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT,
           "Hay alertas clínicas (" + String.join(", ", clinicalAlerts)
               + "). Revise los datos y documente una justificación para emitir PASS.",
           "CLINICAL_OVERRIDE_REQUIRED");
@@ -383,8 +383,8 @@ public class PostgresApplicationWorkflowStore implements ApplicationWorkflowStor
           Instant now = clock.instant();
           if (current.preparationExpiresAt() == null
               || !current.preparationExpiresAt().isAfter(now)) {
-            throw new ApiException(
-                HttpStatus.CONFLICT, "La preparación venció y no puede liberarse.", "PREPARATION_EXPIRED");
+            throw new InfusionFailure(
+                InfusionFailure.Type.CONFLICT, "La preparación venció y no puede liberarse.", "PREPARATION_EXPIRED");
           }
           ObjectNode data = current.preparationData().isObject()
               ? (ObjectNode) current.preparationData().deepCopy()
@@ -460,8 +460,8 @@ public class PostgresApplicationWorkflowStore implements ApplicationWorkflowStor
               hasTraceablePreparation));
           if (current.preparationExpiresAt() == null
               || !current.preparationExpiresAt().isAfter(clock.instant())) {
-            throw new ApiException(
-                HttpStatus.CONFLICT,
+            throw new InfusionFailure(
+                InfusionFailure.Type.CONFLICT,
                 "La preparación está vencida y debe rehacerse antes de administrar.",
                 "PREPARATION_EXPIRED");
           }
@@ -664,8 +664,8 @@ public class PostgresApplicationWorkflowStore implements ApplicationWorkflowStor
                   && current.preparationExpiresAt().isAfter(clock.instant())));
           ObjectNode data = administrationData(current);
           if (!data.path("interruptionPending").asBoolean(false)) {
-            throw new ApiException(
-                HttpStatus.CONFLICT, "La interrupción ya fue resuelta.", "INTERRUPTION_ALREADY_RESOLVED");
+            throw new InfusionFailure(
+                InfusionFailure.Type.CONFLICT, "La interrupción ya fue resuelta.", "INTERRUPTION_ALREADY_RESOLVED");
           }
           Instant interruptedAt = parseInstant(data.path("interruptedAt").asText(""));
           if (interruptedAt != null && resolvedAt.isBefore(interruptedAt)) {
@@ -1870,8 +1870,8 @@ public class PostgresApplicationWorkflowStore implements ApplicationWorkflowStor
     String source = normalizeSource(command.medicationSource(), false);
     if (source.isBlank()) source = current.medicationSource();
     if (!source.equals(current.medicationSource())) {
-      throw new ApiException(
-          HttpStatus.CONFLICT,
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT,
           "La fuente de medicación cambió; vuelva a validar la orden en Farmacia.",
           "MEDICATION_SOURCE_CHANGED");
     }
@@ -1914,8 +1914,8 @@ public class PostgresApplicationWorkflowStore implements ApplicationWorkflowStor
             component.inventoryLotId(), trim(component.drugId()), drugName,
             quantity, unit, actorId, now);
         if (!available) {
-          throw new ApiException(
-              HttpStatus.CONFLICT,
+          throw new InfusionFailure(
+              InfusionFailure.Type.CONFLICT,
               "El lote no existe, está vencido o no posee cantidad disponible para " + drugName + ".",
               "INSUFFICIENT_STOCK");
         }
@@ -1942,8 +1942,8 @@ public class PostgresApplicationWorkflowStore implements ApplicationWorkflowStor
         .filter(item -> "reserved".equals(item.status()))
         .toList();
     if ("center_stock".equals(current.medicationSource()) && reservations.isEmpty()) {
-      throw new ApiException(
-          HttpStatus.CONFLICT,
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT,
           "No existe una reserva activa que respalde la preparación.",
           "STOCK_RESERVATION_REQUIRED");
     }
@@ -1979,8 +1979,8 @@ public class PostgresApplicationWorkflowStore implements ApplicationWorkflowStor
       }
       Reservation reservation = matchReservation(componentKey, item, reservations, usedReservations);
       if ("center_stock".equals(current.medicationSource()) && reservation == null) {
-        throw new ApiException(
-            HttpStatus.CONFLICT,
+        throw new InfusionFailure(
+            InfusionFailure.Type.CONFLICT,
             "La preparación de " + drugName + " no coincide con una reserva activa.",
             "PREPARATION_WITHOUT_RESERVATION");
       }
@@ -2007,8 +2007,8 @@ public class PostgresApplicationWorkflowStore implements ApplicationWorkflowStor
     }
     if ("center_stock".equals(current.medicationSource())
         && usedReservations.size() != reservations.size()) {
-      throw new ApiException(
-          HttpStatus.CONFLICT,
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT,
           "Todas las drogas reservadas deben quedar vinculadas a la preparación.",
           "INCOMPLETE_PREPARATION_TRACE");
     }
@@ -2057,22 +2057,22 @@ public class PostgresApplicationWorkflowStore implements ApplicationWorkflowStor
       String componentKey, Reservation reservation, PreparationInput preparation) {
     if (!componentKey.equals(reservation.componentKey())
         || !reservation.drugName().equalsIgnoreCase(trim(preparation.drugName()))) {
-      throw new ApiException(
-          HttpStatus.CONFLICT,
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT,
           "La preparación no coincide con la droga reservada para " + componentKey + ".",
           "PREPARATION_COMPONENT_MISMATCH");
     }
     if (reservation.requestedQuantity() == null
         || preparation.quantity() == null
         || preparation.quantity().compareTo(reservation.requestedQuantity()) != 0) {
-      throw new ApiException(
-          HttpStatus.CONFLICT,
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT,
           "La cantidad preparada no coincide con la cantidad reservada para " + componentKey + ".",
           "PREPARATION_COMPONENT_MISMATCH");
     }
     if (!trim(reservation.unit()).equalsIgnoreCase(trim(preparation.unit()))) {
-      throw new ApiException(
-          HttpStatus.CONFLICT,
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT,
           "La unidad preparada no coincide con la unidad reservada para " + componentKey + ".",
           "PREPARATION_COMPONENT_MISMATCH");
     }
@@ -2081,12 +2081,12 @@ public class PostgresApplicationWorkflowStore implements ApplicationWorkflowStor
   private void validateInventoryPreparation(
       long inventoryLotId, Reservation reservation, PreparationInput preparation) {
     InventoryLot lot = inventoryLot(inventoryLotId)
-        .orElseThrow(() -> new ApiException(
-            HttpStatus.CONFLICT, "El lote de inventario vinculado ya no existe.", "INVENTORY_LOT_MISMATCH"));
+        .orElseThrow(() -> new InfusionFailure(
+            InfusionFailure.Type.CONFLICT, "El lote de inventario vinculado ya no existe.", "INVENTORY_LOT_MISMATCH"));
     if (reservation == null || reservation.inventoryLotId() == null
         || reservation.inventoryLotId() != inventoryLotId) {
-      throw new ApiException(
-          HttpStatus.CONFLICT,
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT,
           "El lote preparado no está respaldado por la reserva de esta aplicación.",
           "INVENTORY_LOT_MISMATCH");
     }
@@ -2094,16 +2094,16 @@ public class PostgresApplicationWorkflowStore implements ApplicationWorkflowStor
         || !lot.expirationDate().equals(preparation.expiryDate())
         || !lot.unit().equalsIgnoreCase(trim(preparation.unit()))
         || !lot.drugName().equalsIgnoreCase(trim(preparation.drugName()))) {
-      throw new ApiException(
-          HttpStatus.CONFLICT,
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT,
           "Droga, lote, vencimiento y unidad deben coincidir con el inventario reservado.",
           "INVENTORY_LOT_MISMATCH");
     }
     if (preparation.quantity() == null || reservation.reservedQuantity() == null
         || preparation.quantity().compareTo(reservation.reservedQuantity()) != 0
         || lot.quantityReserved().compareTo(reservation.reservedQuantity()) < 0) {
-      throw new ApiException(
-          HttpStatus.CONFLICT,
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT,
           "La cantidad preparada debe coincidir con la cantidad reservada.",
           "INVENTORY_QUANTITY_MISMATCH");
     }
@@ -2114,12 +2114,12 @@ public class PostgresApplicationWorkflowStore implements ApplicationWorkflowStor
       Object command, long actorId, Mutation mutation) {
     ensureWorkflowRows();
     Application current = lock(key)
-        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "No existe esa aplicación del tratamiento."));
+        .orElseThrow(() -> new InfusionFailure(InfusionFailure.Type.NOT_FOUND, "No existe esa aplicación del tratamiento."));
     var previous = event(key, idempotencyKey).orElse(null);
     if (previous != null) {
       if (!action.equals(previous.action())) {
-        throw new ApiException(
-            HttpStatus.CONFLICT,
+        throw new InfusionFailure(
+            InfusionFailure.Type.CONFLICT,
             "La clave de idempotencia ya fue utilizada para otra acción.",
             "IDEMPOTENCY_KEY_REUSED");
       }
@@ -2128,8 +2128,8 @@ public class PostgresApplicationWorkflowStore implements ApplicationWorkflowStor
       return new CommandResult(replay, true, null, null);
     }
     if (current.revision() != expectedRevision) {
-      throw new ApiException(
-          HttpStatus.CONFLICT, "La aplicación fue modificada por otro usuario.", "VERSION_CONFLICT");
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT, "La aplicación fue modificada por otro usuario.", "VERSION_CONFLICT");
     }
     JsonNode before = mapper.valueToTree(view(current, true));
     mutation.apply(current);
@@ -2201,12 +2201,19 @@ public class PostgresApplicationWorkflowStore implements ApplicationWorkflowStor
     source.put("treatmentId", treatmentId);
     source.put("cycleNumber", cycle);
     source.put("applicationDay", day);
-    return documents.appendImmutableEvolution(patientId, evolution, actorId);
+    try {
+      return documents.appendImmutableEvolution(patientId, evolution, actorId);
+    } catch (PatientFailure failure) {
+      throw new InfusionFailure(
+          failure.type() == PatientFailure.Type.CONFLICT
+              ? InfusionFailure.Type.CONFLICT : InfusionFailure.Type.NOT_FOUND,
+          failure.getMessage());
+    }
   }
 
   private Application require(Key key) {
     return find(key)
-        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "No existe esa aplicación del tratamiento."));
+        .orElseThrow(() -> new InfusionFailure(InfusionFailure.Type.NOT_FOUND, "No existe esa aplicación del tratamiento."));
   }
 
   private Map<String, Object> view(Application item, boolean includeReservations) {
@@ -2426,8 +2433,8 @@ public class PostgresApplicationWorkflowStore implements ApplicationWorkflowStor
 
   private void validatePrescriptionDrugs(JsonNode drugs) {
     if (drugs == null || !drugs.isArray() || drugs.isEmpty()) {
-      throw new ApiException(
-          HttpStatus.CONFLICT, "La orden no contiene drogas para esta aplicación.", "INCOMPLETE_PHARMACY_ORDER");
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT, "La orden no contiene drogas para esta aplicación.", "INCOMPLETE_PHARMACY_ORDER");
     }
     List<String> incomplete = new ArrayList<>();
     for (JsonNode drug : drugs) {
@@ -2454,8 +2461,8 @@ public class PostgresApplicationWorkflowStore implements ApplicationWorkflowStor
       }
     }
     if (!incomplete.isEmpty()) {
-      throw new ApiException(
-          HttpStatus.CONFLICT,
+      throw new InfusionFailure(
+          InfusionFailure.Type.CONFLICT,
           "Complete dosis, unidad y vía antes de validar: " + String.join(", ", incomplete)
               + ". Corrija el protocolo desde Configuración > Protocolos.",
           "INCOMPLETE_PHARMACY_ORDER");
@@ -2522,20 +2529,21 @@ public class PostgresApplicationWorkflowStore implements ApplicationWorkflowStor
 
   private void changed(boolean changed) {
     if (!changed) {
-      throw new ApiException(HttpStatus.CONFLICT, "La aplicación fue modificada por otro usuario.", "VERSION_CONFLICT");
+      throw new InfusionFailure(InfusionFailure.Type.CONFLICT, "La aplicación fue modificada por otro usuario.", "VERSION_CONFLICT");
     }
   }
 
-  private ApiException badRequest(String message) {
-    return new ApiException(HttpStatus.BAD_REQUEST, message);
+  private InfusionFailure badRequest(String message) {
+    return new InfusionFailure(InfusionFailure.Type.INVALID, message);
   }
 
   private void check(Optional<Violation> violation) {
     violation.ifPresent(v -> {
-      HttpStatus status = v.type() == Violation.Type.CONFLICT ? HttpStatus.CONFLICT : HttpStatus.BAD_REQUEST;
+      InfusionFailure.Type type = v.type() == Violation.Type.CONFLICT
+          ? InfusionFailure.Type.CONFLICT : InfusionFailure.Type.INVALID;
       throw v.code() == null
-          ? new ApiException(status, v.message())
-          : new ApiException(status, v.message(), v.code());
+          ? new InfusionFailure(type, v.message())
+          : new InfusionFailure(type, v.message(), v.code());
     });
   }
 

@@ -1,7 +1,7 @@
 package ar.com.hexium.hcop.config;
 
 import ar.com.hexium.hcop.auth.AuthService;
-import ar.com.hexium.hcop.patient.DefaultDemoPatientBootstrap;
+import ar.com.hexium.hcop.patient.infrastructure.bootstrap.DefaultDemoPatientBootstrap;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

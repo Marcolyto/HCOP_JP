@@ -3,7 +3,7 @@ package ar.com.hexium.hcop.treatment.infrastructure.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
-import ar.com.hexium.hcop.patient.PatientDocumentService;
+import ar.com.hexium.hcop.patient.application.port.in.PatientDocumentUseCase;
 import ar.com.hexium.hcop.treatment.application.port.out.TreatmentApplicationSyncPort;
 import ar.com.hexium.hcop.treatment.domain.Treatment;
 import ar.com.hexium.hcop.treatment.domain.WorkflowState;
@@ -27,7 +27,7 @@ class PostgresTreatmentStoreViewTest {
       new LegacyDoseUnitResolver(
           Path.of("runtime/catalogs/protocolos-lira/indicacionAplicacion.json"), mapper),
       new TreatmentCycleTimeline(mapper),
-      mock(PatientDocumentService.class));
+      mock(PatientDocumentUseCase.class));
 
   @Test
   void listIncludesPersistedContinuityPrescriptionAndPendingRequests() {

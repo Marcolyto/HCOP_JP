@@ -5,7 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import ar.com.hexium.hcop.patient.PatientDocumentService;
+import ar.com.hexium.hcop.patient.application.port.in.PatientDocumentUseCase;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -21,7 +21,7 @@ class ApplicationWorkflowServiceQueueTest {
     when(workflows.list("applications", LocalDate.of(2026, 8, 5), "ruarte", ""))
         .thenReturn(List.of());
     var service = new ApplicationWorkflowService(
-        workflows, logistics, mock(PatientDocumentService.class), JsonMapper.builder().build(),
+        workflows, logistics, mock(PatientDocumentUseCase.class), JsonMapper.builder().build(),
         Clock.system(ZoneId.of("America/Argentina/Buenos_Aires")));
 
     var result = service.list("applications", LocalDate.of(2026, 8, 5), "ruarte", "");

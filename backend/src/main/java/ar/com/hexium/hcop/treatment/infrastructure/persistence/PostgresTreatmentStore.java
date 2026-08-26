@@ -1,9 +1,9 @@
 package ar.com.hexium.hcop.treatment.infrastructure.persistence;
 
 import ar.com.hexium.hcop.catalog.domain.TreatmentScheme;
-import ar.com.hexium.hcop.patient.PatientDocumentRepository.StoredDocument;
-import ar.com.hexium.hcop.patient.PatientDocumentService;
-import ar.com.hexium.hcop.patient.PatientDocumentService.EvolutionAppend;
+import ar.com.hexium.hcop.patient.domain.StoredDocument;
+import ar.com.hexium.hcop.patient.application.port.in.PatientDocumentUseCase;
+import ar.com.hexium.hcop.patient.domain.EvolutionAppend;
 import ar.com.hexium.hcop.treatment.application.port.out.TreatmentApplicationSyncPort;
 import ar.com.hexium.hcop.treatment.application.port.out.TreatmentStore;
 import ar.com.hexium.hcop.treatment.domain.DrugLine;
@@ -39,12 +39,12 @@ public class PostgresTreatmentStore implements TreatmentStore {
   private final TreatmentApplicationSyncPort applicationLogistics;
   private final LegacyDoseUnitResolver legacyDoseUnits;
   private final TreatmentCycleTimeline cycleTimeline;
-  private final PatientDocumentService documents;
+  private final PatientDocumentUseCase documents;
 
   public PostgresTreatmentStore(
       JdbcTemplate jdbc, ObjectMapper mapper, Clock clock,
       TreatmentApplicationSyncPort applicationLogistics, LegacyDoseUnitResolver legacyDoseUnits,
-      TreatmentCycleTimeline cycleTimeline, PatientDocumentService documents) {
+      TreatmentCycleTimeline cycleTimeline, PatientDocumentUseCase documents) {
     this.jdbc = jdbc;
     this.mapper = mapper;
     this.clock = clock;
@@ -254,7 +254,8 @@ public class PostgresTreatmentStore implements TreatmentStore {
               "No se pudo recuperar el tratamiento después de un reintento idempotente."));
       StoredDocument currentDocument = documents.require(draft.patientId());
       ObjectNode existingEvolution = treatmentEvolutionFromDocument(
-          currentDocument.document(), existing.id(), payload.path("clinicalEntryId").asText(""));
+          (JsonNode) currentDocument.document(), existing.id(),
+          payload.path("clinicalEntryId").asText(""));
       if (existingEvolution == null) {
         existingEvolution = treatmentEvolution(
             existing, (JsonNode) existing.payload(), draft.actorDisplayName());

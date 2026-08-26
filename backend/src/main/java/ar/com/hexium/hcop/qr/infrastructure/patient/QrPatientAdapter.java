@@ -1,16 +1,16 @@
 package ar.com.hexium.hcop.qr.infrastructure.patient;
 
-import ar.com.hexium.hcop.patient.PatientRepository.Patient;
-import ar.com.hexium.hcop.patient.PatientService;
+import ar.com.hexium.hcop.patient.application.port.in.PatientUseCase;
+import ar.com.hexium.hcop.patient.domain.Patient;
 import ar.com.hexium.hcop.qr.application.port.out.QrPatientPort;
 import ar.com.hexium.hcop.qr.domain.QrPatientView;
 import org.springframework.stereotype.Component;
 
 @Component
 public class QrPatientAdapter implements QrPatientPort {
-  private final PatientService patients;
+  private final PatientUseCase patients;
 
-  public QrPatientAdapter(PatientService patients) {
+  public QrPatientAdapter(PatientUseCase patients) {
     this.patients = patients;
   }
 

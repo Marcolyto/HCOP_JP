@@ -1,7 +1,7 @@
 package ar.com.hexium.hcop.workflow.infrastructure.patient;
 
-import ar.com.hexium.hcop.patient.PatientDocumentService;
-import ar.com.hexium.hcop.patient.PatientDocumentService.EvolutionAppend;
+import ar.com.hexium.hcop.patient.application.port.in.PatientDocumentUseCase;
+import ar.com.hexium.hcop.patient.domain.EvolutionAppend;
 import ar.com.hexium.hcop.workflow.application.port.out.PatientEvolutionPort;
 import ar.com.hexium.hcop.workflow.domain.EvolutionDraft;
 import java.time.Clock;
@@ -13,11 +13,11 @@ import tools.jackson.databind.node.ObjectNode;
 /** Único lugar del módulo que conoce el formato de evolución de la historia clínica. */
 @Component
 public class PatientEvolutionAdapter implements PatientEvolutionPort {
-  private final PatientDocumentService documents;
+  private final PatientDocumentUseCase documents;
   private final ObjectMapper mapper;
   private final Clock clock;
 
-  public PatientEvolutionAdapter(PatientDocumentService documents, ObjectMapper mapper, Clock clock) {
+  public PatientEvolutionAdapter(PatientDocumentUseCase documents, ObjectMapper mapper, Clock clock) {
     this.documents = documents;
     this.mapper = mapper;
     this.clock = clock;

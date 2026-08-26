@@ -1,7 +1,7 @@
 package ar.com.hexium.hcop.treatment.infrastructure.patient;
 
-import ar.com.hexium.hcop.patient.PatientDocumentRepository.StoredDocument;
-import ar.com.hexium.hcop.patient.PatientDocumentService;
+import ar.com.hexium.hcop.patient.application.port.in.PatientDocumentUseCase;
+import ar.com.hexium.hcop.patient.domain.StoredDocument;
 import ar.com.hexium.hcop.treatment.application.port.out.PatientDiagnosisOptionsPort;
 import ar.com.hexium.hcop.treatment.domain.DiagnosisOption;
 import java.util.ArrayList;
@@ -17,16 +17,16 @@ import tools.jackson.databind.JsonNode;
  */
 @Component
 public class PatientDiagnosisOptionsAdapter implements PatientDiagnosisOptionsPort {
-  private final PatientDocumentService documents;
+  private final PatientDocumentUseCase documents;
 
-  public PatientDiagnosisOptionsAdapter(PatientDocumentService documents) {
+  public PatientDiagnosisOptionsAdapter(PatientDocumentUseCase documents) {
     this.documents = documents;
   }
 
   @Override
   public List<DiagnosisOption> diagnosisOptions(long patientId) {
     StoredDocument stored = documents.require(patientId);
-    return diagnoses(stored.document());
+    return diagnoses((JsonNode) stored.document());
   }
 
   private List<DiagnosisOption> diagnoses(JsonNode document) {

@@ -14,7 +14,7 @@ import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.ScheduleGate;
 import ar.com.hexium.hcop.infusion.InfusionRepository.Infusion;
 import ar.com.hexium.hcop.infusion.InfusionRepository.Logistics;
 import ar.com.hexium.hcop.infusion.InfusionRepository.ScheduleSettings;
-import ar.com.hexium.hcop.patient.PatientService;
+import ar.com.hexium.hcop.patient.application.port.in.PatientUseCase;
 import ar.com.hexium.hcop.treatment.application.port.out.TreatmentStore;
 import ar.com.hexium.hcop.treatment.domain.Treatment;
 import java.math.BigDecimal;
@@ -251,7 +251,7 @@ class HospitalDayConcurrencySafetyTest {
     private final ApplicationWorkflowRepository workflows =
         mock(ApplicationWorkflowRepository.class);
     private final TreatmentStore treatments = mock(TreatmentStore.class);
-    private final PatientService patients = mock(PatientService.class);
+    private final PatientUseCase patients = mock(PatientUseCase.class);
     private final JsonMapper mapper = JsonMapper.builder().build();
     private final SessionPrincipal actor = new SessionPrincipal(
         22, "admisiones", "", "Admisiones", "", "",

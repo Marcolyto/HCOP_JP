@@ -2,9 +2,9 @@ package ar.com.hexium.hcop.diagnosis.infrastructure.patient;
 
 import ar.com.hexium.hcop.diagnosis.application.port.out.PatientDiagnosisPort;
 import ar.com.hexium.hcop.diagnosis.domain.DiagnosisRecord;
-import ar.com.hexium.hcop.patient.PatientDocumentRepository.StoredDocument;
-import ar.com.hexium.hcop.patient.PatientDocumentService;
-import ar.com.hexium.hcop.patient.PatientService;
+import ar.com.hexium.hcop.patient.application.port.in.PatientDocumentUseCase;
+import ar.com.hexium.hcop.patient.application.port.in.PatientUseCase;
+import ar.com.hexium.hcop.patient.domain.StoredDocument;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Component;
@@ -13,10 +13,10 @@ import tools.jackson.databind.JsonNode;
 /** Único lugar del módulo que conoce el árbol JSON de la historia clínica. */
 @Component
 public class PatientDiagnosisAdapter implements PatientDiagnosisPort {
-  private final PatientService patients;
-  private final PatientDocumentService documents;
+  private final PatientUseCase patients;
+  private final PatientDocumentUseCase documents;
 
-  public PatientDiagnosisAdapter(PatientService patients, PatientDocumentService documents) {
+  public PatientDiagnosisAdapter(PatientUseCase patients, PatientDocumentUseCase documents) {
     this.patients = patients;
     this.documents = documents;
   }
@@ -25,7 +25,7 @@ public class PatientDiagnosisAdapter implements PatientDiagnosisPort {
   public DiagnosisSnapshot snapshot(long patientId) {
     patients.require(patientId);
     StoredDocument stored = documents.require(patientId);
-    return new DiagnosisSnapshot(stored.revision(), diagnosisRecords(stored.document()));
+    return new DiagnosisSnapshot(stored.revision(), diagnosisRecords((JsonNode) stored.document()));
   }
 
   private List<DiagnosisRecord> diagnosisRecords(JsonNode document) {

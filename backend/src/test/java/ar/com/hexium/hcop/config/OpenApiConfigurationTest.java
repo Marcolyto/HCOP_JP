@@ -7,7 +7,7 @@ import ar.com.hexium.hcop.catalog.infrastructure.web.LegacyCatalogController;
 import ar.com.hexium.hcop.tools.infrastructure.web.CalculatorCatalogController;
 import ar.com.hexium.hcop.integration.infrastructure.web.LlmController;
 import ar.com.hexium.hcop.integration.infrastructure.web.LlmController.AgentChatRequest;
-import ar.com.hexium.hcop.patient.ClinicalDocumentController;
+import ar.com.hexium.hcop.patient.infrastructure.web.ClinicalDocumentController;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.responses.ApiResponse;

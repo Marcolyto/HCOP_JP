@@ -4,7 +4,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 
 import ar.com.hexium.hcop.auth.AuthService;
-import ar.com.hexium.hcop.patient.DefaultDemoPatientBootstrap;
+import ar.com.hexium.hcop.patient.infrastructure.bootstrap.DefaultDemoPatientBootstrap;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.springframework.boot.ApplicationArguments;

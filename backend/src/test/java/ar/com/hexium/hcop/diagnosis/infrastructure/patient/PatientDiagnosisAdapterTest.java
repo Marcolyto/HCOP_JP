@@ -7,9 +7,9 @@ import static org.mockito.Mockito.when;
 
 import ar.com.hexium.hcop.diagnosis.application.port.out.PatientDiagnosisPort.DiagnosisSnapshot;
 import ar.com.hexium.hcop.diagnosis.domain.DiagnosisRecord;
-import ar.com.hexium.hcop.patient.PatientDocumentRepository.StoredDocument;
-import ar.com.hexium.hcop.patient.PatientDocumentService;
-import ar.com.hexium.hcop.patient.PatientService;
+import ar.com.hexium.hcop.patient.application.port.in.PatientDocumentUseCase;
+import ar.com.hexium.hcop.patient.application.port.in.PatientUseCase;
+import ar.com.hexium.hcop.patient.domain.StoredDocument;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
@@ -17,8 +17,8 @@ import tools.jackson.databind.node.ObjectNode;
 
 class PatientDiagnosisAdapterTest {
   private final JsonMapper mapper = JsonMapper.builder().build();
-  private final PatientService patients = mock(PatientService.class);
-  private final PatientDocumentService documents = mock(PatientDocumentService.class);
+  private final PatientUseCase patients = mock(PatientUseCase.class);
+  private final PatientDocumentUseCase documents = mock(PatientDocumentUseCase.class);
   private final PatientDiagnosisAdapter adapter = new PatientDiagnosisAdapter(patients, documents);
 
   @Test

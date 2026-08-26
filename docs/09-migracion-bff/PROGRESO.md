@@ -700,6 +700,53 @@ migrar en otro orden.
   `TreatmentUseCase`). Tests viejos (6 archivos) migrados/adaptados sin cambiar aserciones.
   `treatment` sale de `TRACKED_LEGACY_MODULES`. `mvn -f backend/pom.xml verify` verde: 448 tests
   (428 + 20), 1 skip. Sin cambio de contrato HTTP — no requirió Docker.
+- [x] F3.3 (5/6) — `patient` migrado (2623 LOC, 16 archivos — el módulo BASE del orden canónico,
+  delegado a un agente en background, revisado y verificado antes de commitear).
+  `domain/{Patient,NewPatient,StoredDocument,EvolutionAppend}` ·
+  `application/port/in/{PatientUseCase,PatientDocumentUseCase}` (`PatientUseCase` con
+  `DuplicatePatientException` anidada) · `application/port/out/{PatientStore,PatientDocumentStore}` ·
+  `application/service/PatientFailure` (`INVALID`/`NOT_FOUND`/`CONFLICT`) +
+  `{PatientApplicationService,PatientDocumentApplicationService}` (el segundo sin lógica propia) ·
+  `infrastructure/persistence/{PostgresPatientStore,PostgresPatientDocumentRepository,
+  PatientDocumentStoreAdapter}` (**split JDBC/lógica JSON preservado a propósito** — no se fusionó
+  todo en un solo Store como en `treatment`, porque `ClinicalDocumentConflictContractTest` — 628
+  líneas, 13 tests — mockea el repositorio JDBC crudo y ejercita la lógica JSON real por encima;
+  fusionar hubiera obligado a reescribir esos tests contra JDBC mockeado, mucho más frágil) ·
+  `infrastructure/web/{ClinicalDocumentAccessPolicy,ClinicalDocumentChangeValidator,
+  ClinicalNarrativeSectionAuthority,Clinical{ChiefComplaint,CurrentIllness,PersonalHistory,
+  SummaryPlan,PhysicalExam}Authority}` (movidas **verbatim**, package nuevo nomás) +
+  `PatientJsonMapper` (nuevo) + `{PatientController,ClinicalDocumentController,
+  PatientWorkspaceController,PatientFailureAdvice}` · `infrastructure/bootstrap/DefaultDemoPatientBootstrap` ·
+  `infrastructure/configuration/{TransactionalPatientManagement,PatientDocumentModuleConfiguration}`
+  (variantes A y B). Multi-path preservados exactos: `{"/api/clinical/patients","/api/lira/patients"}`
+  y `{".../import",".../refresh"}`.
+  **Hallazgo real (contradice al plan)**: las 7 clases `Clinical*Authority` +
+  `ClinicalDocumentAccessPolicy`/`ChangeValidator` **no son dominio puro** — el plan decía que sí,
+  pero las 8 tocan `JsonNode` directo (`canonicalize(JsonNode,...)`) — quedaron en
+  `infrastructure.web`, no en `domain` (regla incondicional de Jackson).
+  **Otros hallazgos reales**: `PatientDocumentService.patients` (campo `PatientRepository`) estaba
+  muerto — se guardaba en el constructor pero ningún método lo usaba, no se arrastró · R2 real:
+  `DefaultDemoPatientBootstrap` usaba `JdbcTemplate` directo (persistencia fuera de
+  `infrastructure.persistence`) — fix: `PostgresPatientStore.findMinEnabledActorId()`, público
+  pero fuera de la interfaz `PatientStore` (mismo patrón que `applyPatient` del adapter de
+  documentos) · R6 real: `ClinicalDocumentController` lanzaba `PatientFailure` directo para 2
+  precondiciones web (paciente activo, revisión requerida) — no permitido (el controller solo
+  puede conocer el puerto de entrada); esas 2 quedaron como `ApiException` directo (`common`,
+  permanentemente exento), mismo criterio que ya usaban `ClinicalDocumentAccessPolicy`/`ChangeValidator`
+  · `EvolutionAppend.evolution()`/`StoredDocument.document()` pasaron a `Object` opaco — 3 casts
+  `(JsonNode)` nuevos en módulos ya hexagonales que los consumen directo
+  (`infusion.ApplicationWorkflowService.CommandResult`, adapters de `diagnosis`/`treatment`).
+  **Blast radius real fuera de `patient/`** (todo mecánico, imports/casts, sin rediseño):
+  `config/BootstrapConfiguration.java`+test · `diagnosis/infrastructure/patient/PatientDiagnosisAdapter.java`+test ·
+  `infusion/{InfusionService,ApplicationWorkflowService}.java`+3 tests · `media/infrastructure/patient/
+  PatientServiceLookupAdapter.java` · `qr/infrastructure/patient/{PatientEvolutionAdapter,QrPatientAdapter}.java` ·
+  `treatment/infrastructure/patient/{TreatmentPatientAdapter,PatientDiagnosisOptionsAdapter}.java` +
+  `treatment/infrastructure/persistence/PostgresTreatmentStore.java`+2 tests ·
+  `workflow/infrastructure/patient/PatientEvolutionAdapter.java` · `config/OpenApiConfigurationTest.java`.
+  `patient` sale de `TRACKED_LEGACY_MODULES` (queda solo `infusion`). `mvn -f backend/pom.xml
+  verify` verde: 550 tests (448 + 102, incluye los tests viejos del módulo — `patient` es el más
+  grande migrado hasta ahora en cantidad de tests propios). Sin cambio de contrato HTTP — no
+  requirió Docker.
 
 ### Siguientes etapas (no arrancadas)
 

@@ -18,8 +18,8 @@ import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.InventoryLot;
 import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.Key;
 import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.Reservation;
 import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.WorkflowEvent;
-import ar.com.hexium.hcop.patient.PatientDocumentService;
-import ar.com.hexium.hcop.patient.PatientDocumentService.EvolutionAppend;
+import ar.com.hexium.hcop.patient.application.port.in.PatientDocumentUseCase;
+import ar.com.hexium.hcop.patient.domain.EvolutionAppend;
 import ar.com.hexium.hcop.treatment.domain.DayHospitalApplicationPolicy;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
@@ -50,14 +50,14 @@ public class ApplicationWorkflowService {
 
   private final ApplicationWorkflowRepository workflows;
   private final TreatmentApplicationLogisticsService logistics;
-  private final PatientDocumentService documents;
+  private final PatientDocumentUseCase documents;
   private final ObjectMapper mapper;
   private final Clock clock;
 
   public ApplicationWorkflowService(
       ApplicationWorkflowRepository workflows,
       TreatmentApplicationLogisticsService logistics,
-      PatientDocumentService documents,
+      PatientDocumentUseCase documents,
       ObjectMapper mapper,
       Clock clock) {
     this.workflows = workflows;
@@ -1574,7 +1574,7 @@ public class ApplicationWorkflowService {
       Long documentRevision) {
     CommandResult withEvolution(EvolutionAppend appended) {
       return new CommandResult(
-          workflow, idempotentReplay, appended.evolution(), appended.revision());
+          workflow, idempotentReplay, (JsonNode) appended.evolution(), appended.revision());
     }
   }
 

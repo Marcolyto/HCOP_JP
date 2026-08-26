@@ -1,0 +1,109 @@
+%%{init: {"theme":"neutral"}}%%
+erDiagram
+    %% Identidad y acceso
+    local_users ||--o{ local_user_roles : asigna
+    local_roles ||--o{ local_user_roles : asigna
+    local_roles ||--o{ local_role_permissions : otorga
+    local_permissions ||--o{ local_role_permissions : otorga
+    local_users ||--o{ local_session_state : "sesión JWT"
+    local_session_state ||--o{ local_refresh_tokens : renueva
+    local_users ||--o| local_security_settings : configura
+
+    %% Paciente e historia
+    patients ||--o{ local_session_state : "paciente activo"
+    patients ||--|| hcop_patient_documents : "hoja clínica JSON"
+    patients ||--o{ patient_records : tiene
+    patients ||--o{ local_patient_record_overlays : tiene
+    reference_records ||--o{ local_reference_record_overlays : tiene
+
+    local_users {
+        bigint id PK
+        string username
+        string email
+        string display_name
+        boolean enabled
+    }
+
+    local_roles {
+        bigint id PK
+        string role_key
+        string display_name
+        boolean system_role
+    }
+
+    local_permissions {
+        bigint id PK
+        string permission_key
+        string display_name
+    }
+
+    local_user_roles {
+        bigint user_id PK
+        bigint role_id PK
+    }
+
+    local_role_permissions {
+        bigint role_id PK
+        bigint permission_id PK
+    }
+
+    local_session_state {
+        uuid sid PK
+        bigint user_id FK
+        bigint active_patient_id FK
+        boolean revoked
+    }
+
+    local_refresh_tokens {
+        uuid jti PK
+        uuid sid FK
+        bigint user_id FK
+        timestamp expires_at
+        boolean revoked
+    }
+
+    local_security_settings {
+        smallint id PK
+        boolean login_required
+        bigint auto_user_id FK
+        int session_duration_minutes
+    }
+
+    patients {
+        bigint source_id PK
+        string document_number
+        string medical_record_number
+        string first_name
+        string last_name
+        date birth_date
+        string health_insurance
+    }
+
+    hcop_patient_documents {
+        bigint patient_id PK
+        bigint revision
+    }
+
+    patient_records {
+        bigint id PK
+        bigint patient_id FK
+        string category
+    }
+
+    local_patient_record_overlays {
+        bigint id PK
+        bigint patient_id FK
+        string category
+        string operation
+    }
+
+    reference_records {
+        bigint id PK
+        string category
+    }
+
+    local_reference_record_overlays {
+        bigint id PK
+        string category
+        string operation
+    }

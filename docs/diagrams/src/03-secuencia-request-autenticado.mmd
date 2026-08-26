@@ -1,0 +1,20 @@
+%%{init: {"theme":"neutral"}}%%
+sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant F as frontend (nginx)
+    participant BFF as bff (Token Handler)
+    participant R as Redis
+    participant BE as backend
+    participant DB as PostgreSQL
+
+    B->>F: GET /api/patients/123 (cookie BFF_SESSION)
+    F->>BFF: proxy_pass
+    BFF->>R: lee sesión por sid
+    R-->>BFF: access JWT
+    BFF->>BE: GET /patients/123 (Authorization: Bearer)
+    BE->>DB: SELECT ...
+    DB-->>BE: filas
+    BE-->>BFF: 200 JSON
+    BFF-->>F: 200 JSON
+    F-->>B: 200 JSON

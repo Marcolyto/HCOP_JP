@@ -6,6 +6,11 @@ tres servicios Docker (`backend`, `bff`, `frontend`) detrás de nginx (ver
 arquitectura hexagonal (puertos y adaptadores): dominio puro, casos de uso
 aislados de HTTP/SQL/JSON, y adaptadores intercambiables.
 
+Vista de contenedores (los 5 servicios Docker, redes, comunicación) y
+secuencias de login/request autenticado: `docs/diagrams/`
+(`01-arquitectura-contenedores`, `02-secuencia-login`,
+`03-secuencia-request-autenticado`).
+
 ```mermaid
 flowchart LR
     C["Controller (infrastructure.web)"] --> UC["UseCase (application.port.in)"]

@@ -8,6 +8,10 @@ La definición exacta está en `backend/src/main/resources/db/migration` —
 Redis como caché de sesión). El [diccionario de datos](DICCIONARIO-DE-DATOS.md)
 explica las 35 tablas y sus relaciones sin reemplazar esas migraciones.
 
+Diagramas ER (relaciones entre tablas, divididas por dominio para que se
+puedan leer): `docs/diagrams/` — `04-modelo-datos-identidad-paciente`,
+`05-modelo-datos-tratamiento`, `06-modelo-datos-circuito-farmacia`.
+
 El esquema actual se construye con **14 migraciones**, de `V001` a `V014`.
 `V012__patient_seed_identity.sql` no agrega tablas: incorpora la garantía de
 unicidad usada por el paciente demostrativo. `V013__jwt_auth.sql` agrega la

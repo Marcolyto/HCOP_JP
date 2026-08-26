@@ -1,0 +1,148 @@
+%%{init: {"theme":"neutral"}}%%
+erDiagram
+    %% Tratamiento y Hospital de Día
+    patients ||--o{ clinical_treatments : tiene
+    clinical_treatments ||--|| treatment_details : detalla
+    patients ||--o{ treatment_cycle_logistics : tiene
+    clinical_treatments ||--o{ treatment_cycle_logistics : genera
+    patients ||--o{ treatment_application_logistics : tiene
+    clinical_treatments ||--o{ treatment_application_logistics : genera
+    patients ||--o{ treatment_management_states : tiene
+    clinical_treatments ||--o{ treatment_management_states : tiene
+    patients ||--o{ treatment_workflow_requests : solicita
+    clinical_treatments ||--o{ treatment_workflow_requests : sobre
+    treatment_workflow_requests ||--o{ clinical_workflow_events : genera
+    patients ||--o{ clinical_workflow_events : sobre
+    clinical_treatments ||--o{ clinical_workflow_events : sobre
+    patients ||--o{ unified_infusion_sessions : agenda
+    clinical_treatments ||--o{ unified_infusion_sessions : agenda
+    unified_infusion_sessions ||--o{ unified_infusion_medications : incluye
+    patients ||--o{ clinical_qr_scan_events : escanea
+    clinical_treatments ||--o{ clinical_qr_scan_events : sobre
+    unified_infusion_sessions ||--o{ clinical_qr_scan_events : valida
+
+    %% Configuración, archivos y auditoría
+    clinical_configuration_items ||--o{ clinical_configuration_versions : versiona
+    patients ||--o{ clinical_files : adjunta
+    clinical_treatments ||--o{ clinical_files : adjunta
+    patients ||--o{ unified_clinical_audit : audita
+
+    clinical_treatments {
+        string id PK
+        bigint patient_id FK
+        string treatment_type
+        string scheme_name
+        string treatment_status
+        string consent_status
+    }
+
+    treatment_details {
+        string treatment_id PK
+    }
+
+    treatment_cycle_logistics {
+        bigint patient_id PK
+        string treatment_id PK
+        smallint cycle_number PK
+        date planned_date
+        string medication_state
+    }
+
+    treatment_application_logistics {
+        bigint patient_id PK
+        string treatment_id PK
+        smallint cycle_number PK
+        smallint application_day PK
+        date planned_date
+        string medication_state
+    }
+
+    treatment_management_states {
+        bigint patient_id PK
+        string treatment_id PK
+        string continuity_status
+    }
+
+    treatment_workflow_requests {
+        bigint id PK
+        string request_type
+        string status
+        bigint patient_id FK
+        string treatment_id FK
+        bigint requested_by_user_id FK
+        bigint assigned_to_user_id FK
+    }
+
+    clinical_workflow_events {
+        uuid id PK
+        bigint workflow_request_id FK
+        bigint patient_id FK
+        string treatment_id FK
+        string event_type
+        bigint actor_user_id FK
+    }
+
+    unified_infusion_sessions {
+        bigint id PK
+        bigint patient_id FK
+        string treatment_id FK
+        timestamp scheduled_at
+        string chair
+        string clinical_status
+    }
+
+    unified_infusion_medications {
+        bigint id PK
+        bigint infusion_session_id FK
+        string drug_name
+        string administration_status
+    }
+
+    clinical_qr_scan_events {
+        uuid id PK
+        bigint patient_id FK
+        string treatment_id FK
+        bigint infusion_session_id FK
+        bigint actor_user_id FK
+        timestamp scanned_at
+    }
+
+    clinical_configuration_items {
+        bigint id PK
+        string item_kind
+        string item_key
+        boolean active
+    }
+
+    clinical_configuration_versions {
+        bigint id PK
+        bigint configuration_item_id FK
+        bigint revision
+    }
+
+    clinical_files {
+        uuid id PK
+        bigint patient_id FK
+        string treatment_id FK
+        string file_kind
+        string original_filename
+    }
+
+    unified_clinical_audit {
+        bigint id PK
+        bigint actor_user_id FK
+        bigint patient_id FK
+        string entity_type
+        string action
+    }
+
+    scheme_duration_estimates {
+        string scheme_id PK
+        string scheme_name
+        smallint duration_minutes
+    }
+
+    system_settings {
+        string setting_key PK
+        jsonb setting_value
+    }

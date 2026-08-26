@@ -1,0 +1,18 @@
+%%{init: {"theme":"neutral"}}%%
+sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant F as frontend (nginx)
+    participant BFF as bff (Token Handler)
+    participant BE as backend
+    participant R as Redis
+
+    B->>F: POST /api/auth/login (credenciales)
+    F->>BFF: proxy_pass
+    BFF->>BE: POST /auth/login
+    BE-->>BFF: access JWT + refresh JWT
+    BFF->>R: guarda tokens bajo sid
+    BFF-->>F: Set-Cookie BFF_SESSION (opaca)
+    F-->>B: 200 OK + cookie
+
+    Note over B,BE: el navegador nunca recibe ni ve el JWT

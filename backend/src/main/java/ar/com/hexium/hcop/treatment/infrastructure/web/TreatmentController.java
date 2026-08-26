@@ -1,10 +1,12 @@
-package ar.com.hexium.hcop.treatment;
+package ar.com.hexium.hcop.treatment.infrastructure.web;
 
 import ar.com.hexium.hcop.auth.AuthContext;
 import ar.com.hexium.hcop.auth.SessionPrincipal;
 import ar.com.hexium.hcop.catalog.application.port.in.TreatmentCatalogUseCase;
 import ar.com.hexium.hcop.catalog.domain.TreatmentScheme;
-import ar.com.hexium.hcop.treatment.TreatmentService.Creation;
+import ar.com.hexium.hcop.treatment.application.port.in.TreatmentUseCase;
+import ar.com.hexium.hcop.treatment.application.port.in.TreatmentUseCase.CreateTreatmentCommand;
+import ar.com.hexium.hcop.treatment.application.port.in.TreatmentUseCase.CreationResult;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -21,12 +23,12 @@ import tools.jackson.databind.JsonNode;
 
 @RestController
 public class TreatmentController {
-  private final TreatmentService treatments;
+  private final TreatmentUseCase treatments;
   private final TreatmentCatalogUseCase catalog;
   private final AuthContext auth;
 
   public TreatmentController(
-      TreatmentService treatments,
+      TreatmentUseCase treatments,
       TreatmentCatalogUseCase catalog,
       AuthContext auth) {
     this.treatments = treatments;
@@ -56,7 +58,34 @@ public class TreatmentController {
       HttpServletRequest request) {
     auth.requirePermission(request, "section.prescriptions.edit");
     SessionPrincipal actor = auth.require(request);
-    Creation creation = treatments.create(patientId, body, actor);
+    CreationResult creation = treatments.create(new CreateTreatmentCommand(
+        patientId,
+        text(body, "diagnostico", "diagnosis", "diagnosisId"),
+        text(body, "esquema", "scheme", "schemeId"),
+        text(body, "cantidadCiclos", "cycles", "cycleCount"),
+        text(body, "cicloInicial", "initialCycle"),
+        text(body, "duracionCiclo", "cycleDays"),
+        text(body, "fechaCreacion", "date", "createdDate"),
+        text(body, "fechaPrimerCiclo", "firstCycleDate"),
+        text(body, "tipoOncologico", "treatmentType", "type"),
+        text(body, "caracter", "character", "intent"),
+        text(body, "oncologo", "oncologist"),
+        text(body, "estadoConsentimiento", "consent", "consentStatus"),
+        body.path("consentAvailable").asBoolean(false),
+        body.path("protocolMismatchConfirmed").asBoolean(false),
+        text(body, "protocolMismatchReason"),
+        body.path("requirementsConfirmed").asBoolean(false),
+        numericText(body, "peso", "weight"),
+        numericText(body, "talla", "height"),
+        numericText(body, "creatinina", "creatinine"),
+        numericText(body, "tfg", "gfr"),
+        numericText(body, "targetAUC", "targetAuc"),
+        numericText(body, "calcio", "calcium"),
+        numericText(body, "albumina", "albumin"),
+        text(body, "clinicalEntryId", "treatmentEntryId"),
+        body,
+        actor.userId(),
+        actor.displayName()));
     Map<String, Object> result = new LinkedHashMap<>();
     result.put("ok", true);
     result.put("id", creation.treatment().get("id"));
@@ -139,5 +168,26 @@ public class TreatmentController {
         "schemeName", scheme.name(),
         "durationMinutes", scheme.durationMinutes() == null ? 0 : scheme.durationMinutes(),
         "estimatedDurationMinutes", scheme.durationMinutes() == null ? 0 : scheme.durationMinutes());
+  }
+
+  private String text(JsonNode node, String... keys) {
+    for (String key : keys) {
+      JsonNode value = node.path(key);
+      if (!value.isMissingNode() && !value.isNull()) {
+        String text = value.asText("").trim();
+        if (!text.isBlank()) return text;
+      }
+    }
+    return "";
+  }
+
+  /** Mismo criterio que el {@code number()} original: usa la primera clave PRESENTE (aunque esté
+   * vacía o no sea numérica), solo prueba la siguiente alias si la clave falta por completo. */
+  private String numericText(JsonNode node, String... keys) {
+    for (String key : keys) {
+      JsonNode value = node.path(key);
+      if (!value.isMissingNode() && !value.isNull()) return value.asText("");
+    }
+    return "";
   }
 }

@@ -2,15 +2,15 @@ package ar.com.hexium.hcop.qr.infrastructure.treatment;
 
 import ar.com.hexium.hcop.qr.application.port.out.QrTreatmentPort;
 import ar.com.hexium.hcop.qr.domain.QrTreatmentView;
-import ar.com.hexium.hcop.treatment.TreatmentRepository;
+import ar.com.hexium.hcop.treatment.application.port.out.TreatmentStore;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 @Component
 public class QrTreatmentAdapter implements QrTreatmentPort {
-  private final TreatmentRepository treatments;
+  private final TreatmentStore treatments;
 
-  public QrTreatmentAdapter(TreatmentRepository treatments) {
+  public QrTreatmentAdapter(TreatmentStore treatments) {
     this.treatments = treatments;
   }
 

@@ -1,10 +1,9 @@
-package ar.com.hexium.hcop.treatment;
+package ar.com.hexium.hcop.treatment.domain;
 
 import java.text.Normalizer;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
-import org.springframework.stereotype.Component;
 
 /**
  * Conservative clinical guardrail for detecting an obvious mismatch between a
@@ -14,8 +13,7 @@ import org.springframework.stereotype.Component;
  * result is a warning that can be overridden with a documented reason, not a
  * substitute for clinical judgement.</p>
  */
-@Component
-public class TreatmentProtocolCompatibility {
+public final class TreatmentProtocolCompatibility {
   private static final Map<String, String> LABELS = labels();
 
   public Assessment assess(String diagnosis, String schemeName) {

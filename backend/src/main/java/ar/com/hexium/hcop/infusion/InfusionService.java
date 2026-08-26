@@ -12,8 +12,8 @@ import ar.com.hexium.hcop.infusion.InfusionRepository.ScheduleSettings;
 import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.Key;
 import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.ScheduleGate;
 import ar.com.hexium.hcop.patient.PatientService;
-import ar.com.hexium.hcop.treatment.DayHospitalApplicationPolicy;
-import ar.com.hexium.hcop.treatment.TreatmentRepository;
+import ar.com.hexium.hcop.treatment.domain.DayHospitalApplicationPolicy;
+import ar.com.hexium.hcop.treatment.application.port.out.TreatmentStore;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -43,7 +43,7 @@ public class InfusionService {
   private final InfusionRepository infusions;
   private final TreatmentApplicationLogisticsService applicationLogistics;
   private final ApplicationWorkflowRepository applicationWorkflows;
-  private final TreatmentRepository treatments;
+  private final TreatmentStore treatments;
   private final PatientService patients;
   private final ObjectMapper mapper;
   private final Clock clock;
@@ -52,7 +52,7 @@ public class InfusionService {
       InfusionRepository infusions,
       TreatmentApplicationLogisticsService applicationLogistics,
       ApplicationWorkflowRepository applicationWorkflows,
-      TreatmentRepository treatments,
+      TreatmentStore treatments,
       PatientService patients,
       ObjectMapper mapper,
       Clock clock) {

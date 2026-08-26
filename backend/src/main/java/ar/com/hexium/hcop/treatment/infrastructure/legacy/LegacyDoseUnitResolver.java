@@ -1,4 +1,4 @@
-package ar.com.hexium.hcop.treatment;
+package ar.com.hexium.hcop.treatment.infrastructure.legacy;
 
 import ar.com.hexium.hcop.config.HcopProperties;
 import java.io.IOException;
@@ -109,7 +109,7 @@ public class LegacyDoseUnitResolver {
         .resolve("indicacionAplicacion.json"), mapper);
   }
 
-  LegacyDoseUnitResolver(java.nio.file.Path source, ObjectMapper mapper) {
+  public LegacyDoseUnitResolver(java.nio.file.Path source, ObjectMapper mapper) {
     UnitIndex index = load(source, mapper);
     this.byDrugId = index.byDrugId();
     this.byDrugName = index.byDrugName();

@@ -21,8 +21,8 @@ import ar.com.hexium.hcop.infusion.InfusionRepository.Logistics;
 import ar.com.hexium.hcop.infusion.InfusionRepository.Patch;
 import ar.com.hexium.hcop.infusion.InfusionRepository.ScheduleSettings;
 import ar.com.hexium.hcop.patient.PatientService;
-import ar.com.hexium.hcop.treatment.TreatmentRepository;
-import ar.com.hexium.hcop.treatment.TreatmentRepository.Treatment;
+import ar.com.hexium.hcop.treatment.application.port.out.TreatmentStore;
+import ar.com.hexium.hcop.treatment.domain.Treatment;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -42,7 +42,7 @@ class InfusionServiceSchedulingWorkflowTest {
       mock(TreatmentApplicationLogisticsService.class);
   private final ApplicationWorkflowRepository workflows =
       mock(ApplicationWorkflowRepository.class);
-  private final TreatmentRepository treatments = mock(TreatmentRepository.class);
+  private final TreatmentStore treatments = mock(TreatmentStore.class);
   private final PatientService patients = mock(PatientService.class);
   private final JsonMapper mapper = JsonMapper.builder().build();
   private final InfusionService service = new InfusionService(

@@ -1,5 +1,6 @@
-package ar.com.hexium.hcop.treatment;
+package ar.com.hexium.hcop.treatment.infrastructure.legacy;
 
+import ar.com.hexium.hcop.treatment.domain.DayHospitalApplicationPolicy;
 import java.text.Normalizer;
 import java.util.LinkedHashSet;
 import java.util.Locale;
@@ -9,18 +10,15 @@ import java.util.regex.Pattern;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Shared clinical rules for deciding which protocol components become operational
- * Hospital de Dia applications.
+ * Reglas clínicas para decidir qué componentes de protocolo se vuelven aplicaciones operativas
+ * de Hospital de Día — la mitad de {@code DayHospitalApplicationPolicy} original que navega
+ * JSON, separada de {@link DayHospitalApplicationPolicy} (dominio puro, sin Jackson) porque
+ * {@code domain}/{@code application} nunca pueden importar {@code tools.jackson}.
  */
-public final class DayHospitalApplicationPolicy {
-  public static final int MAX_APPLICATION_DAY = 3650;
+public final class DayHospitalProtocolRules {
   private static final Pattern DAY_NUMBER = Pattern.compile("\\d+");
 
-  private DayHospitalApplicationPolicy() {
-  }
-
-  public static boolean isValidApplicationDay(int day) {
-    return day >= 1 && day <= MAX_APPLICATION_DAY;
+  private DayHospitalProtocolRules() {
   }
 
   public static Set<Integer> applicationDays(JsonNode component) {
@@ -33,7 +31,7 @@ public final class DayHospitalApplicationPolicy {
     while (matcher.find()) {
       try {
         int day = Integer.parseInt(matcher.group());
-        if (isValidApplicationDay(day)) result.add(day);
+        if (DayHospitalApplicationPolicy.isValidApplicationDay(day)) result.add(day);
       } catch (NumberFormatException ignored) {
         // Preserve valid fragments when a legacy schedule contains malformed text.
       }

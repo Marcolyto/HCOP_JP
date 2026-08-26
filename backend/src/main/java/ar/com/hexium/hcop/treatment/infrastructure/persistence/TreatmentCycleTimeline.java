@@ -1,5 +1,7 @@
-package ar.com.hexium.hcop.treatment;
+package ar.com.hexium.hcop.treatment.infrastructure.persistence;
 
+import ar.com.hexium.hcop.treatment.domain.DayHospitalApplicationPolicy;
+import ar.com.hexium.hcop.treatment.infrastructure.legacy.DayHospitalProtocolRules;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -117,8 +119,8 @@ public class TreatmentCycleTimeline {
     TreeSet<Integer> result = new TreeSet<>();
     if (!drugs.isArray()) return result;
     for (JsonNode drug : drugs) {
-      if (!DayHospitalApplicationPolicy.requiresDayHospital(drug)) continue;
-      result.addAll(DayHospitalApplicationPolicy.applicationDays(drug));
+      if (!DayHospitalProtocolRules.requiresDayHospital(drug)) continue;
+      result.addAll(DayHospitalProtocolRules.applicationDays(drug));
     }
     return result;
   }
@@ -127,7 +129,7 @@ public class TreatmentCycleTimeline {
     ArrayNode result = mapper.createArrayNode();
     if (!drugs.isArray()) return result;
     for (JsonNode drug : drugs) {
-      if (DayHospitalApplicationPolicy.requiresDayHospital(drug)) continue;
+      if (DayHospitalProtocolRules.requiresDayHospital(drug)) continue;
       if (!(drug instanceof ObjectNode source)) continue;
       ObjectNode medication = source.deepCopy();
       medication.put("careSetting", "home");
@@ -219,8 +221,8 @@ public class TreatmentCycleTimeline {
     ArrayNode planned = mapper.createArrayNode();
     if (!drugs.isArray()) return planned;
     for (JsonNode drug : drugs) {
-      if (!DayHospitalApplicationPolicy.requiresDayHospital(drug)) continue;
-      Set<Integer> days = DayHospitalApplicationPolicy.applicationDays(drug);
+      if (!DayHospitalProtocolRules.requiresDayHospital(drug)) continue;
+      Set<Integer> days = DayHospitalProtocolRules.applicationDays(drug);
       if (!days.isEmpty() && !days.contains(dayNumber)) continue;
       ObjectNode medication = planned.addObject();
       medication.put("drugName", drug.path("drugName").asText("Droga"));

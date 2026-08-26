@@ -1,4 +1,4 @@
-package ar.com.hexium.hcop.treatment;
+package ar.com.hexium.hcop.treatment.infrastructure.patient;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-class TreatmentServiceDiagnosisTest {
+class PatientDiagnosisOptionsAdapterDiagnosisDisplayTest {
   private final JsonMapper mapper = JsonMapper.builder().build();
 
   @Test
@@ -24,7 +24,7 @@ class TreatmentServiceDiagnosisTest {
         }
         """);
 
-    assertThat(TreatmentService.diagnosisDisplay(record))
+    assertThat(PatientDiagnosisOptionsAdapter.diagnosisDisplay(record))
         .isEqualTo("Tumor maligno de los bronquios y del pulmón · CIE-10 C34.90 · Estadio IV");
   }
 
@@ -48,7 +48,7 @@ class TreatmentServiceDiagnosisTest {
         }
         """);
 
-    assertThat(TreatmentService.diagnosisDisplay(record))
+    assertThat(PatientDiagnosisOptionsAdapter.diagnosisDisplay(record))
         .isEqualTo("Carcinoma pulmonar · CIE-10 C34.90 · Estadio IVA");
   }
 
@@ -60,6 +60,6 @@ class TreatmentServiceDiagnosisTest {
         }
         """);
 
-    assertThat(TreatmentService.diagnosisDisplay(record)).isEmpty();
+    assertThat(PatientDiagnosisOptionsAdapter.diagnosisDisplay(record)).isEmpty();
   }
 }

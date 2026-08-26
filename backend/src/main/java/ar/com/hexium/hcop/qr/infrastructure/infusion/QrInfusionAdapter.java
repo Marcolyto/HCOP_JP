@@ -5,7 +5,7 @@ import ar.com.hexium.hcop.infusion.InfusionRepository.Infusion;
 import ar.com.hexium.hcop.infusion.InfusionService;
 import ar.com.hexium.hcop.qr.application.port.out.QrInfusionPort;
 import ar.com.hexium.hcop.qr.domain.QrInfusionRef;
-import ar.com.hexium.hcop.treatment.DayHospitalApplicationPolicy;
+import ar.com.hexium.hcop.treatment.infrastructure.legacy.DayHospitalProtocolRules;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
@@ -41,7 +41,7 @@ public class QrInfusionAdapter implements QrInfusionPort {
         .map(logistics -> {
           JsonNode components = logistics.applicationDrugs();
           return components.isArray() && !components.isEmpty()
-              && components.valueStream().anyMatch(DayHospitalApplicationPolicy::requiresDayHospital);
+              && components.valueStream().anyMatch(DayHospitalProtocolRules::requiresDayHospital);
         });
   }
 

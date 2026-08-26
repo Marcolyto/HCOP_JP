@@ -1,7 +1,7 @@
 package ar.com.hexium.hcop.treatment.infrastructure.patient;
 
 import ar.com.hexium.hcop.patient.application.port.out.TreatmentSummaryPort;
-import ar.com.hexium.hcop.treatment.TreatmentService;
+import ar.com.hexium.hcop.treatment.application.port.in.TreatmentUseCase;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
@@ -9,9 +9,9 @@ import org.springframework.stereotype.Component;
 /** F3.3.0: único lugar que implementa el puerto cruzado {@code patient} → {@code treatment}. */
 @Component
 public class TreatmentSummaryAdapter implements TreatmentSummaryPort {
-  private final TreatmentService treatments;
+  private final TreatmentUseCase treatments;
 
-  public TreatmentSummaryAdapter(TreatmentService treatments) {
+  public TreatmentSummaryAdapter(TreatmentUseCase treatments) {
     this.treatments = treatments;
   }
 

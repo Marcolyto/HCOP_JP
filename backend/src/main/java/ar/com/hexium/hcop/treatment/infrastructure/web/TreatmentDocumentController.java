@@ -1,8 +1,9 @@
-package ar.com.hexium.hcop.treatment;
+package ar.com.hexium.hcop.treatment.infrastructure.web;
 
 import ar.com.hexium.hcop.auth.AuthContext;
 import ar.com.hexium.hcop.media.application.port.in.ClinicalFileUseCase;
 import ar.com.hexium.hcop.media.domain.ClinicalFile;
+import ar.com.hexium.hcop.treatment.application.port.in.TreatmentDocumentUseCase;
 import jakarta.servlet.http.HttpServletRequest;
 import java.nio.file.Path;
 import org.springframework.core.io.FileSystemResource;
@@ -19,12 +20,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class TreatmentDocumentController {
-  private final TreatmentDocumentService documents;
+  private final TreatmentDocumentUseCase documents;
   private final ClinicalFileUseCase files;
   private final AuthContext auth;
 
   public TreatmentDocumentController(
-      TreatmentDocumentService documents,
+      TreatmentDocumentUseCase documents,
       ClinicalFileUseCase files,
       AuthContext auth) {
     this.documents = documents;

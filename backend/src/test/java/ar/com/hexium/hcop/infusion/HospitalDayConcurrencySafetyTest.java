@@ -15,8 +15,8 @@ import ar.com.hexium.hcop.infusion.InfusionRepository.Infusion;
 import ar.com.hexium.hcop.infusion.InfusionRepository.Logistics;
 import ar.com.hexium.hcop.infusion.InfusionRepository.ScheduleSettings;
 import ar.com.hexium.hcop.patient.PatientService;
-import ar.com.hexium.hcop.treatment.TreatmentRepository;
-import ar.com.hexium.hcop.treatment.TreatmentRepository.Treatment;
+import ar.com.hexium.hcop.treatment.application.port.out.TreatmentStore;
+import ar.com.hexium.hcop.treatment.domain.Treatment;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -250,7 +250,7 @@ class HospitalDayConcurrencySafetyTest {
         mock(TreatmentApplicationLogisticsService.class);
     private final ApplicationWorkflowRepository workflows =
         mock(ApplicationWorkflowRepository.class);
-    private final TreatmentRepository treatments = mock(TreatmentRepository.class);
+    private final TreatmentStore treatments = mock(TreatmentStore.class);
     private final PatientService patients = mock(PatientService.class);
     private final JsonMapper mapper = JsonMapper.builder().build();
     private final SessionPrincipal actor = new SessionPrincipal(

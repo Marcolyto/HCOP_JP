@@ -1,32 +1,30 @@
-package ar.com.hexium.hcop.treatment;
+package ar.com.hexium.hcop.treatment.application.service;
 
-import ar.com.hexium.hcop.common.ApiException;
 import ar.com.hexium.hcop.media.application.port.in.ClinicalFileUseCase;
 import ar.com.hexium.hcop.media.domain.ClinicalFile;
-import ar.com.hexium.hcop.patient.PatientService;
+import ar.com.hexium.hcop.treatment.application.port.in.TreatmentDocumentUseCase;
 import ar.com.hexium.hcop.treatment.application.port.out.InfusionAppointmentPort;
 import ar.com.hexium.hcop.treatment.application.port.out.InfusionAppointmentPort.InfusionAppointment;
+import ar.com.hexium.hcop.treatment.application.port.out.TreatmentPatientPort;
+import ar.com.hexium.hcop.treatment.application.port.out.TreatmentStore;
+import ar.com.hexium.hcop.treatment.domain.DrugLine;
+import ar.com.hexium.hcop.treatment.domain.Treatment;
+import ar.com.hexium.hcop.treatment.domain.TreatmentPatientView;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import tools.jackson.databind.JsonNode;
 
-@Service
-public class TreatmentDocumentService {
+public final class TreatmentDocumentApplicationService implements TreatmentDocumentUseCase {
   private static final ZoneId ARGENTINA = ZoneId.of("America/Argentina/Buenos_Aires");
   private static final DateTimeFormatter DATE_TIME =
       DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ARGENTINA);
-  private final TreatmentRepository treatments;
-  private final PatientService patients;
+  private final TreatmentStore treatments;
+  private final TreatmentPatientPort patients;
   private final InfusionAppointmentPort infusions;
   private final ClinicalFileUseCase files;
 
-  public TreatmentDocumentService(
-      TreatmentRepository treatments,
-      PatientService patients,
-      InfusionAppointmentPort infusions,
+  public TreatmentDocumentApplicationService(
+      TreatmentStore treatments, TreatmentPatientPort patients, InfusionAppointmentPort infusions,
       ClinicalFileUseCase files) {
     this.treatments = treatments;
     this.patients = patients;
@@ -34,42 +32,37 @@ public class TreatmentDocumentService {
     this.files = files;
   }
 
+  @Override
   public ClinicalFile stored(String treatmentId, String kind) {
     treatments.find(treatmentId)
-        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tratamiento no encontrado."));
+        .orElseThrow(() -> new TreatmentFailure(TreatmentFailure.Type.NOT_FOUND, "Tratamiento no encontrado."));
     return files.findLatestByTreatment(treatmentId, kind)
-        .orElseThrow(() -> new ApiException(
-            HttpStatus.NOT_FOUND, "El documento todavía no está disponible en la base clínica local."));
+        .orElseThrow(() -> new TreatmentFailure(
+            TreatmentFailure.Type.NOT_FOUND, "El documento todavía no está disponible en la base clínica local."));
   }
 
+  @Override
   public ClinicalFile stored(long patientId, String treatmentId, String kind) {
     treatments.find(patientId, treatmentId)
-        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tratamiento no encontrado."));
+        .orElseThrow(() -> new TreatmentFailure(TreatmentFailure.Type.NOT_FOUND, "Tratamiento no encontrado."));
     return files.findLatestByTreatment(treatmentId, kind)
-        .orElseThrow(() -> new ApiException(
-            HttpStatus.NOT_FOUND, "El documento todavía no está disponible en la base clínica local."));
+        .orElseThrow(() -> new TreatmentFailure(
+            TreatmentFailure.Type.NOT_FOUND, "El documento todavía no está disponible en la base clínica local."));
   }
 
+  @Override
   public String treatmentSheet(long patientId, String treatmentId, int cycle) {
     if (cycle < 1 || cycle > 500) {
-      throw new ApiException(HttpStatus.BAD_REQUEST, "Ciclo inválido.");
+      throw new TreatmentFailure(TreatmentFailure.Type.INVALID, "Ciclo inválido.");
     }
-    var patient = patients.require(patientId);
-    var treatment = treatments.find(patientId, treatmentId)
-        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tratamiento no encontrado."));
-    JsonNode detail = treatments.detail(treatmentId);
-    JsonNode cycleNode = null;
-    for (JsonNode item : detail.path("cycles")) {
-      if (item.path("number").asInt() == cycle) {
-        cycleNode = item;
-        break;
-      }
-    }
-    if (cycleNode == null) {
-      throw new ApiException(HttpStatus.NOT_FOUND, "El ciclo no pertenece al tratamiento.");
-    }
+    TreatmentPatientView patient = patients.requirePatient(patientId);
+    Treatment treatment = treatments.find(patientId, treatmentId)
+        .orElseThrow(() -> new TreatmentFailure(TreatmentFailure.Type.NOT_FOUND, "Tratamiento no encontrado."));
+    List<DrugLine> drugs = treatments.cycleDrugs(treatmentId, cycle)
+        .orElseThrow(() -> new TreatmentFailure(
+            TreatmentFailure.Type.NOT_FOUND, "El ciclo no pertenece al tratamiento."));
     List<InfusionAppointment> appointments = infusions.forCycle(patientId, treatmentId, cycle);
-    String rows = drugRows(cycleNode.path("drugs"));
+    String rows = drugRows(drugs);
     String appointmentsHtml = appointments.isEmpty()
         ? "<p>Sin turno asignado.</p>"
         : appointments.stream().map(this::appointment).reduce("", String::concat);
@@ -116,19 +109,19 @@ public class TreatmentDocumentService {
         appointmentsHtml);
   }
 
-  private String drugRows(JsonNode drugs) {
-    if (!drugs.isArray() || drugs.isEmpty()) {
+  private String drugRows(List<DrugLine> drugs) {
+    if (drugs.isEmpty()) {
       return "<tr><td colspan=\"4\">El protocolo no tiene drogas detalladas.</td></tr>";
     }
     StringBuilder html = new StringBuilder();
-    for (JsonNode drug : drugs) {
-      String dose = text(drug, "prescribedDoseText", "dose", "dosis");
-      String unit = text(drug, "doseUnit", "unidadDosis", "unidad");
-      html.append("<tr><td>").append(escape(text(drug, "drugName", "name", "nombre")))
+    for (DrugLine drug : drugs) {
+      String dose = drug.doseText();
+      String unit = drug.doseUnit();
+      html.append("<tr><td>").append(escape(drug.drugName()))
           .append("</td><td>").append(escape(
               dose + (unit.isBlank() || dose.matches(".*[A-Za-z%].*") ? "" : " " + unit)))
-          .append("</td><td>").append(escape(text(drug, "route", "via")))
-          .append("</td><td>").append(escape(text(drug, "administrationTime", "time")))
+          .append("</td><td>").append(escape(drug.route()))
+          .append("</td><td>").append(escape(drug.administrationTime()))
           .append("</td></tr>");
     }
     return html.toString();
@@ -141,14 +134,6 @@ public class TreatmentDocumentService {
         escape(appointment.chair()) + "<br>Estado: " + escape(appointment.clinicalStatus()) +
         " · Farmacia: " + escape(appointment.pharmacyStatus()) +
         " · Administración: " + escape(appointment.administrationStatus()) + "</div>";
-  }
-
-  private String text(JsonNode node, String... keys) {
-    for (String key : keys) {
-      String value = node.path(key).asText("").trim();
-      if (!value.isBlank()) return value;
-    }
-    return "";
   }
 
   static String escape(String value) {

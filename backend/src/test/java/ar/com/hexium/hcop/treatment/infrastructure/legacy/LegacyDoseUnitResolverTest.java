@@ -1,4 +1,4 @@
-package ar.com.hexium.hcop.treatment;
+package ar.com.hexium.hcop.treatment.infrastructure.legacy;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

@@ -1,4 +1,4 @@
-package ar.com.hexium.hcop.treatment;
+package ar.com.hexium.hcop.treatment.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

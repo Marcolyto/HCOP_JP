@@ -20,7 +20,7 @@ import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.Reservation;
 import ar.com.hexium.hcop.infusion.ApplicationWorkflowRepository.WorkflowEvent;
 import ar.com.hexium.hcop.patient.PatientDocumentService;
 import ar.com.hexium.hcop.patient.PatientDocumentService.EvolutionAppend;
-import ar.com.hexium.hcop.treatment.DayHospitalApplicationPolicy;
+import ar.com.hexium.hcop.treatment.domain.DayHospitalApplicationPolicy;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;

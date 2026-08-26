@@ -68,3 +68,27 @@ Verificado: `mvn -f backend/pom.xml verify` verde, 390 tests (388 + R4a/R4b nuev
 (R4 genérico). No se corrió Docker en esta etapa (F3.3.0 no toca ningún endpoint HTTP ni el
 comportamiento observable — es reorganización interna pura, sin cambio de contrato; el
 guardián de OpenAPI no aplica).
+
+## F3.3 (treatment) — `applicationDoesNotDependOnInfrastructure` es incondicional ENTRE módulos
+
+Hallazgo real, no anticipado en el plan ni en las etapas anteriores de F3.3: la regla ArchUnit
+`applicationDoesNotDependOnInfrastructure` ("ningún `..application..` depende de
+`..infrastructure..`") no es solo una regla intra-módulo — aplica **entre módulos distintos**
+también, y es incondicional (no la relaja `TRACKED_LEGACY_MODULES`). Al mover
+`DayHospitalApplicationPolicy` de `treatment` (legacy, paquete raíz) a
+`treatment.infrastructure.legacy.DayHospitalProtocolRules`, se rompió porque
+`qr.application.service.QrApplicationService` (ya hexagonal desde F3.3 3/6) llama a
+`DayHospitalApplicationPolicy.isValidApplicationDay(int)` — un método puro sin `JsonNode` — y esa
+llamada ahora cruzaba `application` → `infrastructure` de otro módulo.
+
+Fix: partir la clase original en dos fragmentos según si tocan `JsonNode` o no:
+- `treatment.domain.DayHospitalApplicationPolicy` — `MAX_APPLICATION_DAY` + `isValidApplicationDay(int)`,
+  Java puro, sin Jackson. Es lo que consume `qr.application.service.QrApplicationService`.
+- `treatment.infrastructure.legacy.DayHospitalProtocolRules` — `requiresDayHospital(JsonNode)` +
+  `applicationDays(JsonNode)`, con Jackson. Es lo que consume `qr.infrastructure.infusion.QrInfusionAdapter`
+  (ya en infraestructura, sin restricción).
+
+Patrón reutilizable: cuando una "regla de negocio pura" legacy mezcla métodos sin I/O con métodos
+que reciben `JsonNode`, y **otro módulo ya hexagonal** consume el fragmento puro directo (no a
+través de un puerto), hay que partir la clase en el momento de hexagonalizar el módulo dueño —
+no alcanza con mover todo a `infrastructure` así el resto del módulo original conviva ahí.

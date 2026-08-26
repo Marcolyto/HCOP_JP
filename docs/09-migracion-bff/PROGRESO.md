@@ -648,6 +648,58 @@ migrar en otro orden.
   **los 6 módulos de menor LOC de F3.3 completos** (`treatment`/`patient`/`infusion` de 2165+2623+
   5813 LOC siguen). `mvn -f backend/pom.xml verify` verde: 428 tests (418 + 10), 1 skip. Sin
   cambio de contrato HTTP — no requirió Docker.
+- [x] F3.3 (4/6) — `treatment` migrado (2204 LOC, 9 archivos: `DayHospitalApplicationPolicy`,
+  `LegacyDoseUnitResolver`, `TreatmentController`, `TreatmentCycleTimeline`,
+  `TreatmentDocumentController`, `TreatmentDocumentService`, `TreatmentProtocolCompatibility`,
+  `TreatmentRepository`, `TreatmentService` — delegado a un agente en background con el patrón ya
+  calibrado en diagnosis/workflow/qr, revisado y verificado antes de commitear).
+  `domain/{Treatment,WorkflowState,DiagnosisOption,TreatmentPatientView,DrugLine,
+  TreatmentProtocolCompatibility,DayHospitalApplicationPolicy}` (el último es un **fragmento**:
+  solo `MAX_APPLICATION_DAY`+`isValidApplicationDay`, sin JsonNode) ·
+  `application/port/in/{TreatmentUseCase,TreatmentDocumentUseCase}` ·
+  `application/port/out/{TreatmentStore,TreatmentPatientPort,PatientDiagnosisOptionsPort}` ·
+  `application/service/TreatmentFailure` (`INVALID`/`NOT_FOUND`/`UNPROCESSABLE`) +
+  `{TreatmentApplicationService,TreatmentDocumentApplicationService}` ·
+  `infrastructure/legacy/{LegacyDoseUnitResolver,DayHospitalProtocolRules}` (`DayHospitalProtocolRules`
+  es el otro fragmento de la política original: `requiresDayHospital`/`applicationDays`, con
+  JsonNode — separado del fragmento de dominio) ·
+  `infrastructure/persistence/{TreatmentCycleTimeline,PostgresTreatmentStore}` ·
+  `infrastructure/patient/{TreatmentPatientAdapter,PatientDiagnosisOptionsAdapter}` ·
+  `infrastructure/configuration/{TransactionalTreatmentManagement,TreatmentDocumentModuleConfiguration}`
+  (variantes A y B respectivamente) ·
+  `infrastructure/web/{TreatmentController,TreatmentDocumentController,TreatmentFailureAdvice}`
+  (mismos endpoints/paths/permisos, sin mappings multi-path que conservar en este módulo).
+  **Hallazgo real más importante de F3.3 hasta ahora**: `applicationDoesNotDependOnInfrastructure`
+  es una regla ArchUnit **incondicional entre módulos distintos**, no solo intra-módulo — al mover
+  `DayHospitalApplicationPolicy` a `treatment.infrastructure.legacy`,
+  `qr.application.service.QrApplicationService` (ya hexagonal, F3.3 3/6) rompió esa regla porque
+  llamaba a `isValidApplicationDay` directo. Se resolvió partiendo la clase original en dos: el
+  fragmento sin Jackson queda en `treatment.domain.DayHospitalApplicationPolicy` (lo que `qr`
+  consume), el fragmento con `JsonNode` en `treatment.infrastructure.legacy.DayHospitalProtocolRules`
+  (lo que consume `QrInfusionAdapter`, ya en infraestructura). Patrón reutilizable para cualquier
+  próxima "regla pura con métodos JsonNode mezclados" consumida por otro módulo ya hexagonal.
+  **Decisiones de diseño**: `create()` no se modeló 100% puro — el armado del JSON de detalle
+  (deep-copy + overlay + extracción de drogas + evolución inmutable + replay idempotente) queda
+  consolidado en `PostgresTreatmentStore.insert()`, que además necesita `patient.PatientDocumentService`
+  directo para el camino idempotente; la aplicación valida todo con primitivos
+  (`CreateTreatmentCommand`, ~20 campos) y arma un `NewTreatmentDraft` opaco. El controller replica
+  EXACTO las dos semánticas de alias del original (`text()` salta claves vacías, `numericText()`
+  usa la primera clave que EXISTE aunque esté vacía) — los 7 campos de dosis
+  (peso/talla/creatinina/tfg/targetAUC/calcio/albumina) siguen validándose como obligatorios pero
+  **nunca se persisten** (comportamiento preexistente, preservado tal cual).
+  `PatientDiagnosisOptionsPort` es propio de `treatment` (no reusa `diagnosis.application.port.in.DiagnosisUseCase`
+  aunque lean la misma fuente JSON) porque el rótulo de `treatment` agrega código CIE-10 y estadio
+  — unificarlos habría sido una regresión de comportamiento, no una limpieza.
+  **Blast radius real fuera de `treatment/`**: `qr/application/service/QrApplicationService.java`
+  + `qr/infrastructure/{infusion/QrInfusionAdapter,treatment/QrTreatmentAdapter}.java` (imports al
+  nuevo split) · `infusion/{InfusionService,ApplicationWorkflowService,TreatmentApplicationPlanner}.java`
+  (mismo ajuste de imports, `infusion` sigue legacy sin restricción real) ·
+  `infusion/{HospitalDayConcurrencySafetyTest,InfusionServiceSchedulingWorkflowTest}.java`
+  (`TreatmentRepository`→`TreatmentStore`, `Treatment` ahora en `treatment.domain`) ·
+  `treatment/infrastructure/patient/TreatmentSummaryAdapter.java` (de F3.3.0, `TreatmentService`→
+  `TreatmentUseCase`). Tests viejos (6 archivos) migrados/adaptados sin cambiar aserciones.
+  `treatment` sale de `TRACKED_LEGACY_MODULES`. `mvn -f backend/pom.xml verify` verde: 448 tests
+  (428 + 20), 1 skip. Sin cambio de contrato HTTP — no requirió Docker.
 
 ### Siguientes etapas (no arrancadas)
 

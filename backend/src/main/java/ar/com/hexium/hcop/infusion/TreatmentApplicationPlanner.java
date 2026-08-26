@@ -1,6 +1,6 @@
 package ar.com.hexium.hcop.infusion;
 
-import ar.com.hexium.hcop.treatment.DayHospitalApplicationPolicy;
+import ar.com.hexium.hcop.treatment.infrastructure.legacy.DayHospitalProtocolRules;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -76,8 +76,8 @@ public class TreatmentApplicationPlanner {
       }
       TreeMap<Integer, ArrayNode> drugsByDay = new TreeMap<>();
       for (JsonNode drug : cycleDrugs) {
-        if (!DayHospitalApplicationPolicy.requiresDayHospital(drug)) continue;
-        Set<Integer> applicationDays = DayHospitalApplicationPolicy.applicationDays(drug);
+        if (!DayHospitalProtocolRules.requiresDayHospital(drug)) continue;
+        Set<Integer> applicationDays = DayHospitalProtocolRules.applicationDays(drug);
         for (int applicationDay : applicationDays) {
           drugsByDay.computeIfAbsent(
               applicationDay, ignored -> JsonNodeFactory.instance.arrayNode()).add(drug.deepCopy());

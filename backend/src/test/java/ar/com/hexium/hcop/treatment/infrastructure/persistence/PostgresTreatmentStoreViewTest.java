@@ -1,30 +1,36 @@
-package ar.com.hexium.hcop.treatment;
+package ar.com.hexium.hcop.treatment.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
-import ar.com.hexium.hcop.catalog.application.port.in.TreatmentCatalogUseCase;
 import ar.com.hexium.hcop.patient.PatientDocumentService;
-import ar.com.hexium.hcop.patient.PatientService;
-import ar.com.hexium.hcop.treatment.application.port.out.InfusionSummaryPort;
-import ar.com.hexium.hcop.treatment.TreatmentRepository.Treatment;
-import ar.com.hexium.hcop.treatment.TreatmentRepository.WorkflowState;
+import ar.com.hexium.hcop.treatment.application.port.out.TreatmentApplicationSyncPort;
+import ar.com.hexium.hcop.treatment.domain.Treatment;
+import ar.com.hexium.hcop.treatment.domain.WorkflowState;
+import ar.com.hexium.hcop.treatment.infrastructure.legacy.LegacyDoseUnitResolver;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.json.JsonMapper;
 
-class TreatmentServiceWorkflowStateTest {
+class PostgresTreatmentStoreViewTest {
+  private final JsonMapper mapper = JsonMapper.builder().build();
+  private final PostgresTreatmentStore store = new PostgresTreatmentStore(
+      mock(JdbcTemplate.class),
+      mapper,
+      Clock.systemUTC(),
+      mock(TreatmentApplicationSyncPort.class),
+      new LegacyDoseUnitResolver(
+          Path.of("runtime/catalogs/protocolos-lira/indicacionAplicacion.json"), mapper),
+      new TreatmentCycleTimeline(mapper),
+      mock(PatientDocumentService.class));
+
   @Test
   void listIncludesPersistedContinuityPrescriptionAndPendingRequests() {
-    var mapper = JsonMapper.builder().build();
-    var repository = mock(TreatmentRepository.class);
-    var patients = mock(PatientService.class);
     var treatment = new Treatment(
         "trt-1", 10L, "dx-1", LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 5),
         1, 6, 21, "Quimioterapia", "Paliativo", "Pulmón", "scheme-1",
@@ -35,16 +41,8 @@ class TreatmentServiceWorkflowStateTest {
         "temporary_hold", 2, "Neutropenia", LocalDate.of(2026, 8, 20), true, 4L,
         Map.of(1, "confirmed", 2, "requested"),
         Map.of(2, Map.of("prescription_request", 91L)));
-    when(repository.list(10L)).thenReturn(List.of(treatment));
-    when(repository.workflowStates(10L)).thenReturn(Map.of("trt-1", workflow));
-    var service = new TreatmentService(
-        repository, mock(TreatmentCatalogUseCase.class), patients,
-        mock(PatientDocumentService.class), mapper, Clock.systemUTC(),
-        mock(InfusionSummaryPort.class), mock(TreatmentProtocolCompatibility.class),
-        mock(TreatmentCycleTimeline.class),
-        new LegacyDoseUnitResolver(Path.of("runtime/catalogs/protocolos-lira/indicacionAplicacion.json"), mapper));
 
-    var item = service.list(10L).getFirst();
+    var item = store.view(treatment, workflow, 120);
 
     assertThat(item).containsEntry("workflowStatus", "temporary_hold")
         .containsEntry("effectiveFromCycle", 2)

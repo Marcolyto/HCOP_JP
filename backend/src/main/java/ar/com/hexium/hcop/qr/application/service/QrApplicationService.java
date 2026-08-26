@@ -12,7 +12,7 @@ import ar.com.hexium.hcop.qr.domain.QrInfusionRef;
 import ar.com.hexium.hcop.qr.domain.QrPatientView;
 import ar.com.hexium.hcop.qr.domain.QrScan;
 import ar.com.hexium.hcop.qr.domain.QrTreatmentView;
-import ar.com.hexium.hcop.treatment.DayHospitalApplicationPolicy;
+import ar.com.hexium.hcop.treatment.domain.DayHospitalApplicationPolicy;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.WriterException;
 import com.google.zxing.common.BitMatrix;

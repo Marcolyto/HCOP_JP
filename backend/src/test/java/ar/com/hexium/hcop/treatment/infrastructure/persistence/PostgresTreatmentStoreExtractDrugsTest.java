@@ -1,35 +1,31 @@
-package ar.com.hexium.hcop.treatment;
+package ar.com.hexium.hcop.treatment.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
-import ar.com.hexium.hcop.catalog.application.port.in.TreatmentCatalogUseCase;
 import ar.com.hexium.hcop.patient.PatientDocumentService;
-import ar.com.hexium.hcop.patient.PatientService;
-import ar.com.hexium.hcop.treatment.application.port.out.InfusionSummaryPort;
+import ar.com.hexium.hcop.treatment.application.port.out.TreatmentApplicationSyncPort;
+import ar.com.hexium.hcop.treatment.infrastructure.legacy.LegacyDoseUnitResolver;
 import java.lang.reflect.Method;
-import java.time.Clock;
 import java.nio.file.Path;
+import java.time.Clock;
 import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ArrayNode;
 
-class TreatmentServiceDoseUnitTest {
+class PostgresTreatmentStoreExtractDrugsTest {
   private final JsonMapper mapper = JsonMapper.builder().build();
-  private final TreatmentService service = new TreatmentService(
-      mock(TreatmentRepository.class),
-      mock(TreatmentCatalogUseCase.class),
-      mock(PatientService.class),
-      mock(PatientDocumentService.class),
+  private final PostgresTreatmentStore store = new PostgresTreatmentStore(
+      mock(JdbcTemplate.class),
       mapper,
       Clock.systemUTC(),
-      mock(InfusionSummaryPort.class),
-      mock(TreatmentProtocolCompatibility.class),
-      mock(TreatmentCycleTimeline.class),
+      mock(TreatmentApplicationSyncPort.class),
       new LegacyDoseUnitResolver(
-          Path.of("runtime/catalogs/protocolos-lira/indicacionAplicacion.json"),
-          mapper));
+          Path.of("runtime/catalogs/protocolos-lira/indicacionAplicacion.json"), mapper),
+      new TreatmentCycleTimeline(mapper),
+      mock(PatientDocumentService.class));
 
   @Test
   void preservesAnExplicitDoseUnit() throws Exception {
@@ -144,9 +140,9 @@ class TreatmentServiceDoseUnitTest {
   }
 
   private ArrayNode extractDrugs(String definition) throws Exception {
-    Method extract = TreatmentService.class
+    Method extract = PostgresTreatmentStore.class
         .getDeclaredMethod("extractDrugs", JsonNode.class, int.class);
     extract.setAccessible(true);
-    return (ArrayNode) extract.invoke(service, mapper.readTree(definition), 1);
+    return (ArrayNode) extract.invoke(store, mapper.readTree(definition), 1);
   }
 }

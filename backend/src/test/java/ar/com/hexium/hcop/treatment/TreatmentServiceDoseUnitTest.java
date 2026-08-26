@@ -4,9 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import ar.com.hexium.hcop.catalog.application.port.in.TreatmentCatalogUseCase;
-import ar.com.hexium.hcop.infusion.InfusionService;
 import ar.com.hexium.hcop.patient.PatientDocumentService;
 import ar.com.hexium.hcop.patient.PatientService;
+import ar.com.hexium.hcop.treatment.application.port.out.InfusionSummaryPort;
 import java.lang.reflect.Method;
 import java.time.Clock;
 import java.nio.file.Path;
@@ -24,7 +24,7 @@ class TreatmentServiceDoseUnitTest {
       mock(PatientDocumentService.class),
       mapper,
       Clock.systemUTC(),
-      mock(InfusionService.class),
+      mock(InfusionSummaryPort.class),
       mock(TreatmentProtocolCompatibility.class),
       mock(TreatmentCycleTimeline.class),
       new LegacyDoseUnitResolver(

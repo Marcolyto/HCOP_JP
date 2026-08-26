@@ -5,9 +5,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import ar.com.hexium.hcop.catalog.application.port.in.TreatmentCatalogUseCase;
-import ar.com.hexium.hcop.infusion.InfusionService;
 import ar.com.hexium.hcop.patient.PatientDocumentService;
 import ar.com.hexium.hcop.patient.PatientService;
+import ar.com.hexium.hcop.treatment.application.port.out.InfusionSummaryPort;
 import ar.com.hexium.hcop.treatment.TreatmentRepository.Treatment;
 import ar.com.hexium.hcop.treatment.TreatmentRepository.WorkflowState;
 import java.nio.file.Path;
@@ -40,7 +40,7 @@ class TreatmentServiceWorkflowStateTest {
     var service = new TreatmentService(
         repository, mock(TreatmentCatalogUseCase.class), patients,
         mock(PatientDocumentService.class), mapper, Clock.systemUTC(),
-        mock(InfusionService.class), mock(TreatmentProtocolCompatibility.class),
+        mock(InfusionSummaryPort.class), mock(TreatmentProtocolCompatibility.class),
         mock(TreatmentCycleTimeline.class),
         new LegacyDoseUnitResolver(Path.of("runtime/catalogs/protocolos-lira/indicacionAplicacion.json"), mapper));
 

@@ -1,6 +1,6 @@
 package ar.com.hexium.hcop.treatment;
 
-import ar.com.hexium.hcop.infusion.TreatmentApplicationLogisticsService;
+import ar.com.hexium.hcop.treatment.application.port.out.TreatmentApplicationSyncPort;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -21,13 +21,13 @@ public class TreatmentRepository {
   private final JdbcTemplate jdbc;
   private final ObjectMapper mapper;
   private final Clock clock;
-  private final TreatmentApplicationLogisticsService applicationLogistics;
+  private final TreatmentApplicationSyncPort applicationLogistics;
 
   public TreatmentRepository(
       JdbcTemplate jdbc,
       ObjectMapper mapper,
       Clock clock,
-      TreatmentApplicationLogisticsService applicationLogistics) {
+      TreatmentApplicationSyncPort applicationLogistics) {
     this.jdbc = jdbc;
     this.mapper = mapper;
     this.clock = clock;
@@ -156,7 +156,7 @@ public class TreatmentRepository {
           planned == null ? null : Date.valueOf(planned), actorId,
            java.sql.Timestamp.from(now), java.sql.Timestamp.from(now));
     }
-    applicationLogistics.synchronizeTreatment(input.id());
+    applicationLogistics.synchronize(input.id());
     return new InsertResult(find(input.patientId(), input.id()).orElseThrow(), true);
   }
 

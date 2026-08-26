@@ -136,15 +136,46 @@ class HexagonalArchitectureTest {
           + "reemplazo es un *Failure funcional traducido en el borde web.");
 
   /**
-   * R4 (hallazgo 7 del plan): hoy hay un ciclo real entre módulos — @ArchIgnore a propósito hasta
-   * que F3.3.0 (puertos cruzados) lo rompa. Es la meta visible de esa etapa: sacar el
-   * {@code @ArchIgnore} y ver la regla pasar es el criterio de aceptación.
+   * R4 (hallazgo 7 del plan): sigue con {@code @ArchIgnore} — F3.3.0 rompió el ciclo real
+   * {@code patient} ↔ {@code treatment} ↔ {@code infusion} (ver {@link #r4a_patientDoesNotDependOnTreatmentOrInfusion}
+   * / {@link #r4b_treatmentDoesNotDependOnInfusion}, el criterio de aceptación concreto de esa
+   * etapa), pero al levantar el {@code @ArchIgnore} genérico aparecieron dos ciclos más,
+   * preexistentes y fuera de alcance de F3.3.0: {@code catalog} ↔ {@code config} (vía
+   * {@code HcopProperties.catalogRoot()}, config leído por los *Store de catalog) y
+   * {@code config} ↔ {@code patient} (bootstrap de datos demo). {@code config} es
+   * PERMANENTLY_EXEMPT — nunca se hexagonaliza — así que romper esos dos ciclos es trabajo de
+   * F3.4 (config → platform), no de esta etapa.
    */
   @ArchTest
   @ArchIgnore
   static final ArchRule r4_slicesAreFreeOfCycles = SlicesRuleDefinition.slices()
       .matching("ar.com.hexium.hcop.(*)..")
       .should().beFreeOfCycles();
+
+  /**
+   * R4a (F3.3.0, puertos cruzados): {@code patient} es la base del orden canónico
+   * {@code patient} ← {@code treatment} ← {@code infusion} — nunca depende de los otros dos.
+   * {@code PatientWorkspaceController} llega a ellos vía
+   * {@code patient.application.port.out.{TreatmentSummaryPort,InfusionSummaryPort}}.
+   */
+  @ArchTest
+  static final ArchRule r4a_patientDoesNotDependOnTreatmentOrInfusion = noClasses()
+      .that().resideInAPackage("ar.com.hexium.hcop.patient..")
+      .should().dependOnClassesThat().resideInAnyPackage(
+          "ar.com.hexium.hcop.treatment..", "ar.com.hexium.hcop.infusion..")
+      .because("R4a: orden canónico patient (base) ← treatment ← infusion, ver DECISIONES-F3.md");
+
+  /**
+   * R4b (F3.3.0, puertos cruzados): {@code treatment} nunca depende "hacia abajo" de
+   * {@code infusion} — llega a él vía
+   * {@code treatment.application.port.out.{InfusionSummaryPort,InfusionAppointmentPort,
+   * TreatmentApplicationSyncPort}}, implementados por adapters que viven en {@code infusion}.
+   */
+  @ArchTest
+  static final ArchRule r4b_treatmentDoesNotDependOnInfusion = noClasses()
+      .that().resideInAPackage("ar.com.hexium.hcop.treatment..")
+      .should().dependOnClassesThat().resideInAPackage("ar.com.hexium.hcop.infusion..")
+      .because("R4b: orden canónico patient (base) ← treatment ← infusion, ver DECISIONES-F3.md");
 
   @ArchTest
   static final ArchRule r5_restControllersOnlyInInfrastructureWeb = classes()

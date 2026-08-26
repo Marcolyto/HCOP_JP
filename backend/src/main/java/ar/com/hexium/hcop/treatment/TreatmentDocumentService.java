@@ -1,11 +1,11 @@
 package ar.com.hexium.hcop.treatment;
 
 import ar.com.hexium.hcop.common.ApiException;
-import ar.com.hexium.hcop.infusion.InfusionRepository;
-import ar.com.hexium.hcop.infusion.InfusionRepository.Infusion;
 import ar.com.hexium.hcop.media.application.port.in.ClinicalFileUseCase;
 import ar.com.hexium.hcop.media.domain.ClinicalFile;
 import ar.com.hexium.hcop.patient.PatientService;
+import ar.com.hexium.hcop.treatment.application.port.out.InfusionAppointmentPort;
+import ar.com.hexium.hcop.treatment.application.port.out.InfusionAppointmentPort.InfusionAppointment;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -20,13 +20,13 @@ public class TreatmentDocumentService {
       DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ARGENTINA);
   private final TreatmentRepository treatments;
   private final PatientService patients;
-  private final InfusionRepository infusions;
+  private final InfusionAppointmentPort infusions;
   private final ClinicalFileUseCase files;
 
   public TreatmentDocumentService(
       TreatmentRepository treatments,
       PatientService patients,
-      InfusionRepository infusions,
+      InfusionAppointmentPort infusions,
       ClinicalFileUseCase files) {
     this.treatments = treatments;
     this.patients = patients;
@@ -68,9 +68,7 @@ public class TreatmentDocumentService {
     if (cycleNode == null) {
       throw new ApiException(HttpStatus.NOT_FOUND, "El ciclo no pertenece al tratamiento.");
     }
-    List<Infusion> appointments = infusions.list(patientId, null).stream()
-        .filter(item -> treatmentId.equals(item.treatmentId()) && item.cycleNumber() == cycle)
-        .toList();
+    List<InfusionAppointment> appointments = infusions.forCycle(patientId, treatmentId, cycle);
     String rows = drugRows(cycleNode.path("drugs"));
     String appointmentsHtml = appointments.isEmpty()
         ? "<p>Sin turno asignado.</p>"
@@ -136,12 +134,13 @@ public class TreatmentDocumentService {
     return html.toString();
   }
 
-  private String appointment(Infusion infusion) {
-    String when = infusion.scheduledAt() == null ? "Sin fecha" : DATE_TIME.format(infusion.scheduledAt());
+  private String appointment(InfusionAppointment appointment) {
+    String when = appointment.scheduledAt() == null
+        ? "Sin fecha" : DATE_TIME.format(appointment.scheduledAt());
     return "<div class=\"appointment\"><strong>" + escape(when) + "</strong> · Sillón " +
-        escape(infusion.chair()) + "<br>Estado: " + escape(infusion.clinicalStatus()) +
-        " · Farmacia: " + escape(infusion.pharmacyStatus()) +
-        " · Administración: " + escape(infusion.administrationStatus()) + "</div>";
+        escape(appointment.chair()) + "<br>Estado: " + escape(appointment.clinicalStatus()) +
+        " · Farmacia: " + escape(appointment.pharmacyStatus()) +
+        " · Administración: " + escape(appointment.administrationStatus()) + "</div>";
   }
 
   private String text(JsonNode node, String... keys) {

@@ -535,16 +535,39 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
   ahora (3550 LOC originales). Commits: `c8111e3` (1/3 catalog) · `3563566` (2/3 integration) ·
   (3/3 media, este). Siguiente: F3.3.0 — puertos cruzados (patient/treatment/infusion).
 
+- [x] F3.3.0 — Puertos cruzados (patient/treatment/infusion), commit propio, sin mover nada.
+  Ciclo real mapeado (14 dependencias cruzadas, ver nota de ejecución más abajo): orden canónico
+  elegido `patient` (base) ← `treatment` ← `infusion` — solo 5 de las 14 iban "hacia abajo" y
+  necesitaron puerto, las otras 9 ya respetaban el orden y quedaron como llamada directa.
+  `patient.application.port.out.{TreatmentSummaryPort,InfusionSummaryPort}` (adapters en
+  `treatment.infrastructure.patient`/`infusion.infrastructure.patient`) ·
+  `treatment.application.port.out.{InfusionSummaryPort,InfusionAppointmentPort,
+  TreatmentApplicationSyncPort}` (adapters en `infusion.infrastructure.treatment` —
+  `InfusionAppointmentPort` con DTO propio de 5 campos para no leakear el record `Infusion` de
+  `infusion` hacia `treatment`). **Hallazgo real** (no en el plan): al sacar el `@ArchIgnore` de
+  R4 aparecieron dos ciclos más, preexistentes y ajenos a esta etapa —
+  `catalog`↔`config` y `config`↔`patient` (`config` es `PERMANENTLY_EXEMPT`, romperlos es F3.4).
+  R4 se dejó con `@ArchIgnore` (javadoc actualizado documentando ambos) y se agregaron R4a/R4b,
+  acotadas a `patient`/`treatment`/`infusion`, como criterio de aceptación real de esta etapa —
+  ambas verdes. Detalle completo en `DECISIONES-F3.md`. 3 tests viejos (`PatientWorkspaceControllerPermissionTest`,
+  `TreatmentServiceWorkflowStateTest`, `TreatmentServiceDoseUnitTest`) adaptados a los nuevos
+  tipos de puerto en sus mocks, sin cambiar ninguna aserción. `mvn -f backend/pom.xml verify`
+  verde: 390 tests (388 + R4a/R4b), 1 skip (R4 genérico). Sin cambio de contrato HTTP (reorganización
+  interna pura) — no requirió verificación en Docker ni snapshot de OpenAPI.
+
+## F3.3.0 — CERRADA. Ciclo real patient/treatment/infusion roto con 5 puertos cruzados, orden
+  canónico documentado. Commit: (este). Siguiente: F3.3 — patient, diagnosis,
+  workflow, treatment, infusion (3 PRs), qr.
+
 ### Siguientes etapas (no arrancadas)
 
-- [ ] F3.3.0 — Puertos cruzados (patient/treatment/infusion) — commit propio
 - [ ] F3.3 — patient, diagnosis, workflow, treatment, infusion (3 PRs), qr
 - [ ] F3.4 — common→sharedkernel/platform, config→platform (NO hexagonal), eliminar ApiException
 
 ### Cómo continuar F3 en una sesión nueva
 
-1. Releer este archivo (`PROGRESO.md`) y `DECISIONES-F2.md` (para F2; F3 todavía no tiene su
-   propio doc de decisiones — crearlo si aparecen desvíos del plan literal, mismo criterio que F2).
+1. Releer este archivo (`PROGRESO.md`), `DECISIONES-F2.md` (para F2) y `DECISIONES-F3.md`
+   (desvíos de F3, incl. F3.3.0 — seguir agregando ahí los que surjan).
 2. El plan completo con el detalle de las 7 piezas del patrón, el orden de migración y los
    riesgos está en `~/.claude/plans/fuzzy-waddling-galaxy.md`, sección `## F3`.
 3. Ejemplos reales ya migrados y verificados, del más simple al más rico en patrones:
@@ -558,13 +581,14 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
    `media/` (blob store separado del store de metadatos, `PatientLookupPort` real). Más
    `configuration/`, `guide/` y `protocol/` (ya hexagonales antes de F3).
    `guide/infrastructure/configuration/ConfigurationGuideMetadataAdapter` es la referencia
-   concreta del patrón #7 (puertos cruzados). **Antes de diseñar un puerto nuevo en F3.3.0,
-   revisar si ya existe** — `PatientLookupPort` (en `media/application/port/out/`) y
-   `DrugCatalogUseCase`/`TreatmentCatalogUseCase` (en `catalog/application/port/in/`) ya se
-   crearon durante F3.2 para otros módulos; F3.3.0 probablemente solo necesita
-   `TreatmentSummaryPort`/`TreatmentCyclePort`/`ClinicalFilePort` (este último quizás ya cubierto
-   por `media/application/port/in/ClinicalFileUseCase.findLatestByTreatment`, usado por
-   `treatment` desde F3.2 (3/3) — confirmar antes de crear uno nuevo).
+   concreta del patrón #7 (puertos cruzados). `F3.3.0` (patient/treatment/infusion) es el ejemplo
+   de puertos cruzados **bidireccionales** (a diferencia de los anteriores, unidireccionales):
+   orden canónico `patient` ← `treatment` ← `infusion`, puerto dueño del módulo upstream,
+   adapter físicamente en el módulo downstream — ver `DECISIONES-F3.md`. `PatientLookupPort` (en
+   `media/application/port/out/`) y `DrugCatalogUseCase`/`TreatmentCatalogUseCase` (en
+   `catalog/application/port/in/`) siguen disponibles para lo que falte de F3.3.
+   `media/application/port/in/ClinicalFileUseCase.findLatestByTreatment` sigue siendo el puerto
+   cruzado real `treatment`→`media`, sin cambios en F3.3.0.
 4. Antes de cada commit de módulo: correr `mvn -f backend/pom.xml verify` (incluye
    `HexagonalArchitectureTest` y `OpenApiDocumentationKeysTest`), levantar el stack Docker real
    y correr `scripts/generate-openapi-snapshot.ps1 -Check` — **diff vacío es criterio de
@@ -573,12 +597,17 @@ seguir con la próxima. Si el contexto se compacta, releer este archivo primero.
 5. Al terminar un módulo: sacarlo de `TRACKED_LEGACY_MODULES` en
    `backend/src/test/java/ar/com/hexium/hcop/architecture/HexagonalArchitectureTest.java` (esa
    lista ES el tracker ejecutable) y marcarlo `[x]` acá con el hash del commit.
-6. Próximo paso concreto: **F3.3.0 — puertos cruzados** (patient/treatment/infusion, commit propio,
-   sin mover nada — investigar primero el ciclo real entre los tres módulos, todavía no leídos en
-   esta migración; definir los puertos que falten con adapters que delegan a los services legacy).
+6. Próximo paso concreto: **F3.3 — patient** (primer módulo de la etapa grande: 2623 LOC, incl.
+   las 7 clases `Clinical*Authority` que el plan dice que ya son dominio puro con tests —
+   candidatas a mudanza casi directa a `domain/`). Ojo con `PatientController.java` — mappings
+   multi-path (`{"/api/clinical/patients","/api/lira/patients"}` y `.../import`/`.../refresh`):
+   conservar los arrays exactos. `PatientWorkspaceController` ya depende de
+   `TreatmentSummaryPort`/`InfusionSummaryPort` (F3.3.0) — al migrar `patient` a
+   `infrastructure/web`, esos puertos viajan con el controller.
 7. Estado del repo al cerrar esta sesión: working tree limpio, branch
-   `feature/migracion-bff-arquitectura`, último commit `84749ee` (F3.2 3/3 media). F3.1 y F3.2
-   completas y verificadas end-to-end en Docker real (incl. binarios reales en `media`).
+   `feature/migracion-bff-arquitectura`, último commit F3.3.0 (puertos cruzados
+   patient/treatment/infusion). F3.1, F3.2 y F3.3.0 completos y verificados (`mvn verify` verde,
+   390 tests; F3.3.0 no toca contrato HTTP, no requirió Docker).
 
 ## Decisiones ya tomadas (no volver a preguntar)
 - Layout: backend/ bff/ frontend/ en raíz · Auth: JWT completo · Alcance: hexagonal completo

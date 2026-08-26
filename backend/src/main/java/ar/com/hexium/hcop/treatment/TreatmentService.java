@@ -8,7 +8,7 @@ import ar.com.hexium.hcop.patient.PatientDocumentRepository.StoredDocument;
 import ar.com.hexium.hcop.patient.PatientDocumentService;
 import ar.com.hexium.hcop.patient.PatientDocumentService.EvolutionAppend;
 import ar.com.hexium.hcop.patient.PatientService;
-import ar.com.hexium.hcop.infusion.InfusionService;
+import ar.com.hexium.hcop.treatment.application.port.out.InfusionSummaryPort;
 import ar.com.hexium.hcop.treatment.TreatmentRepository.NewTreatment;
 import ar.com.hexium.hcop.treatment.TreatmentRepository.Treatment;
 import ar.com.hexium.hcop.treatment.TreatmentRepository.WorkflowState;
@@ -42,7 +42,7 @@ public class TreatmentService {
   private final PatientDocumentService documents;
   private final ObjectMapper mapper;
   private final Clock clock;
-  private final InfusionService infusions;
+  private final InfusionSummaryPort infusions;
   private final TreatmentProtocolCompatibility compatibility;
   private final TreatmentCycleTimeline cycleTimeline;
   private final LegacyDoseUnitResolver legacyDoseUnits;
@@ -54,7 +54,7 @@ public class TreatmentService {
       PatientDocumentService documents,
       ObjectMapper mapper,
       Clock clock,
-      InfusionService infusions,
+      InfusionSummaryPort infusions,
       TreatmentProtocolCompatibility compatibility,
       TreatmentCycleTimeline cycleTimeline,
       LegacyDoseUnitResolver legacyDoseUnits) {
@@ -244,7 +244,7 @@ public class TreatmentService {
       object.put("localRecord", true);
       object.put("origin", "local");
       object.put("schemeFound", scheme != null);
-      List<Map<String, Object>> sessions = infusions.list(patientId, null).stream()
+      List<Map<String, Object>> sessions = infusions.list(patientId).stream()
           .filter(item -> treatmentId.equals(String.valueOf(item.get("treatmentId"))))
           .toList();
       for (JsonNode value : object.path("cycles")) {

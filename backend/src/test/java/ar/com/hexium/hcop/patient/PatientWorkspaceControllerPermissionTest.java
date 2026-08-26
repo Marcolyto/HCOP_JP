@@ -7,10 +7,10 @@ import static org.mockito.Mockito.when;
 import ar.com.hexium.hcop.auth.AuthContext;
 import ar.com.hexium.hcop.auth.AuthService;
 import ar.com.hexium.hcop.auth.SessionPrincipal;
-import ar.com.hexium.hcop.infusion.InfusionService;
 import ar.com.hexium.hcop.patient.PatientDocumentRepository.StoredDocument;
 import ar.com.hexium.hcop.patient.PatientRepository.Patient;
-import ar.com.hexium.hcop.treatment.TreatmentService;
+import ar.com.hexium.hcop.patient.application.port.out.InfusionSummaryPort;
+import ar.com.hexium.hcop.patient.application.port.out.TreatmentSummaryPort;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -31,8 +31,8 @@ class PatientWorkspaceControllerPermissionTest {
   void noExponePrescripcionesYMarcaElWorkspaceComoNoAlmacenable() {
     PatientService patients = mock(PatientService.class);
     PatientDocumentService documents = mock(PatientDocumentService.class);
-    TreatmentService treatments = mock(TreatmentService.class);
-    InfusionService infusions = mock(InfusionService.class);
+    TreatmentSummaryPort treatments = mock(TreatmentSummaryPort.class);
+    InfusionSummaryPort infusions = mock(InfusionSummaryPort.class);
     AuthService authService = mock(AuthService.class);
     AuthContext auth = mock(AuthContext.class);
     HttpServletRequest request = mock(HttpServletRequest.class);
@@ -52,7 +52,7 @@ class PatientWorkspaceControllerPermissionTest {
     when(documents.require(42L)).thenReturn(stored);
     when(documents.state(stored)).thenReturn(storedState.deepCopy());
     when(treatments.list(42L)).thenReturn(List.of());
-    when(infusions.list(42L, null)).thenReturn(List.of());
+    when(infusions.list(42L)).thenReturn(List.of());
     when(patients.patientView(patient)).thenReturn(Map.of("fullName", patient.fullName()));
     when(patients.counts(org.mockito.ArgumentMatchers.any(JsonNode.class))).thenReturn(Map.of());
     when(patients.completeness()).thenReturn(Map.of("available", true));

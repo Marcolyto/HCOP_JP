@@ -3,10 +3,10 @@ package ar.com.hexium.hcop.patient;
 import ar.com.hexium.hcop.auth.AuthContext;
 import ar.com.hexium.hcop.auth.AuthService;
 import ar.com.hexium.hcop.auth.SessionPrincipal;
-import ar.com.hexium.hcop.infusion.InfusionService;
 import ar.com.hexium.hcop.patient.PatientDocumentRepository.StoredDocument;
 import ar.com.hexium.hcop.patient.PatientRepository.Patient;
-import ar.com.hexium.hcop.treatment.TreatmentService;
+import ar.com.hexium.hcop.patient.application.port.out.InfusionSummaryPort;
+import ar.com.hexium.hcop.patient.application.port.out.TreatmentSummaryPort;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,8 +24,8 @@ import tools.jackson.databind.JsonNode;
 public class PatientWorkspaceController {
   private final PatientService patients;
   private final PatientDocumentService documents;
-  private final TreatmentService treatments;
-  private final InfusionService infusions;
+  private final TreatmentSummaryPort treatments;
+  private final InfusionSummaryPort infusions;
   private final AuthService authService;
   private final AuthContext auth;
   private final ClinicalDocumentAccessPolicy accessPolicy;
@@ -33,8 +33,8 @@ public class PatientWorkspaceController {
   public PatientWorkspaceController(
       PatientService patients,
       PatientDocumentService documents,
-      TreatmentService treatments,
-      InfusionService infusions,
+      TreatmentSummaryPort treatments,
+      InfusionSummaryPort infusions,
       AuthService authService,
       AuthContext auth,
       ClinicalDocumentAccessPolicy accessPolicy) {
@@ -71,7 +71,7 @@ public class PatientWorkspaceController {
     StoredDocument stored = documents.require(patientId);
     JsonNode state = accessPolicy.visibleState(documents.state(stored), principal);
     List<Map<String, Object>> treatmentRows = treatments.list(patientId);
-    List<Map<String, Object>> infusionRows = infusions.list(patientId, null);
+    List<Map<String, Object>> infusionRows = infusions.list(patientId);
     Map<String, Object> document = new LinkedHashMap<>();
     document.put("patientId", Long.toString(patientId));
     document.put("document", state);

@@ -1,0 +1,66 @@
+<section class="repositories" aria-label="Repositorio de estudios" [attr.aria-busy]="loading || saving">
+  <header class="repository-heading">
+    <div><span class="eyebrow">Estudios externos</span><h1>Repositorio</h1><p>Direcciones y datos de acceso de los sitios de estudios.</p></div>
+    <span class="source-count">{{ items.length }} sitios</span>
+  </header>
+
+  @if (error) { <div class="message error" role="alert">{{ error }}</div> }
+  @if (notice) { <div class="message success" role="status">{{ notice }}</div> }
+
+  @if (loading) {
+    <div class="repository-empty" role="status"><span class="loading-dot"></span><p>Cargando sitios…</p></div>
+  } @else if (!items.length) {
+    <div class="repository-empty"><h2>No hay sitios disponibles</h2><p>Actualice para volver a consultar la configuración.</p><button type="button" (click)="reload()">Actualizar</button></div>
+  } @else {
+    <div class="repository-workspace">
+      <nav class="repository-list" aria-label="Sitios de estudios">
+        @for (item of items; track item.id) {
+          <button type="button" [class.selected]="selected?.id === item.id" [attr.aria-current]="selected?.id === item.id ? 'true' : null"
+            [disabled]="saving" (click)="select(item)">
+            <span class="source-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="1"></rect><path d="M3 9h18M7 6.5h.01M10 6.5h.01M7 13h10M7 16h6"></path></svg></span>
+            <span class="source-copy"><strong>{{ item.name }}</strong><small [title]="item.endpoints[0]?.url || ''">{{ item.endpoints[0]?.url || 'Dirección sin configurar' }}</small><span class="access-status" [class.pending]="item.requiresCredentials && (!item.username || !item.hasPassword)">{{ credentialStatus(item) }}</span></span>
+          </button>
+        }
+      </nav>
+
+      @if (selected && draft) {
+        <form class="repository-editor" (ngSubmit)="save()" autocomplete="off">
+          <header class="editor-heading"><div><span class="eyebrow">Sitio seleccionado</span><h2>{{ selected.name }}</h2></div>@if (hasUnsavedChanges()) { <span class="unsaved">Cambios sin guardar</span> }</header>
+          <fieldset [disabled]="!canManage || saving">
+            <section class="editor-section">
+              <header><span class="section-number">1</span><div><h3>Direcciones de conexión</h3><p>Endpoints utilizados para consultar y abrir los estudios.</p></div></header>
+              <div class="endpoint-fields">
+                @for (endpoint of draft.endpoints; track endpoint.key) {
+                  <label class="field"><span>{{ endpoint.label }}</span><input type="url" [name]="'endpoint-' + endpoint.key" [(ngModel)]="endpoint.url" autocomplete="off" spellcheck="false" placeholder="Dirección del sitio"></label>
+                }
+              </div>
+            </section>
+
+            @if (selected.requiresCredentials) {
+              <section class="editor-section">
+                <header><span class="section-number">2</span><div><h3>Datos de acceso</h3><p>{{ selected.hasPassword ? 'Hay una contraseña guardada. Puede conservarla o cambiarla.' : 'Este sitio requiere usuario y contraseña.' }}</p></div></header>
+                <div class="credential-fields">
+                  <label class="field"><span>Usuario</span><input name="repository-username" [(ngModel)]="draft.username" autocomplete="off" spellcheck="false"></label>
+                  <label class="field"><span>Contraseña</span><select name="password-action" [ngModel]="draft.passwordAction" (ngModelChange)="changePasswordAction($event)"><option value="keep">{{ selected.hasPassword ? 'Conservar contraseña guardada' : 'Sin cambios' }}</option><option value="replace">{{ selected.hasPassword ? 'Cambiar contraseña' : 'Configurar contraseña' }}</option>@if (selected.hasPassword) { <option value="remove">Eliminar contraseña guardada</option> }</select></label>
+                  @if (draft.passwordAction === 'replace') {
+                    <label class="field new-password"><span>Nueva contraseña</span><input type="password" name="repository-new-password" [(ngModel)]="draft.password" autocomplete="new-password"><small>La contraseña guardada no se muestra.</small></label>
+                  }
+                </div>
+                @if (draft.passwordAction === 'remove') { <p class="removal-note">Al guardar se eliminará la contraseña de este sitio.</p> }
+              </section>
+            } @else {
+              <p class="no-credentials">Este sitio no requiere usuario ni contraseña.</p>
+            }
+          </fieldset>
+          <footer class="editor-actions">
+            <span>{{ canManage ? 'Los cambios se aplican a las próximas consultas.' : 'Su perfil permite consultar esta configuración.' }}</span>
+            @if (canManage) {
+              <button class="secondary" type="button" (click)="discard()" [disabled]="saving || !hasUnsavedChanges()">Descartar cambios</button>
+              <button class="primary" type="submit" [disabled]="saving || !hasUnsavedChanges()">{{ saving ? 'Guardando…' : 'Guardar cambios' }}</button>
+            }
+          </footer>
+        </form>
+      }
+    </div>
+  }
+</section>

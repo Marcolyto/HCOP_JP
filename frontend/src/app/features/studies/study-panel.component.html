@@ -7,20 +7,96 @@
     <span aria-live="polite">{{ studies().length ? studies().length + (studies().length === 1 ? ' estudio' : ' estudios') : 'Sin estudios cargados' }}</span>
   </div>
 
-  <label class="angular-study-search"><span class="visually-hidden">Buscar estudios</span><input type="search" [formControl]="term" placeholder="Buscar estudios"></label>
+  <label class="angular-study-search"><span class="visually-hidden">Filtrar estudios e imágenes</span><input type="search" [formControl]="term" placeholder="Filtrar por fecha, estudio o institución"></label>
   @if (!workspace.workspace()) {
     <div class="viewer-empty">Abra un paciente para consultar o cargar estudios.</div>
-  } @else if (!studies().length) {
-    <button class="study-empty-upload" type="button" [disabled]="!canUpload()" (click)="openUpload()"><span aria-hidden="true">⇧</span><strong>Sin estudios cargados</strong><span>{{ canEdit() ? 'Seleccione archivos, arrástrelos o pegue una imagen con Ctrl+V' : 'No tiene permiso para cargar estudios' }}</span><small>Imágenes, DICOM, PDF, Word, PowerPoint y video</small></button>
   } @else {
-    <div class="study-list pangea-study-list" tabindex="-1">
-      @for (entry of studyEntries(); track entry.key) {
-        <article class="study-card pangea-study-card" role="button" tabindex="0" [class.active]="selectedKey() === entry.key" [attr.aria-pressed]="selectedKey() === entry.key" [attr.data-study-key]="entry.key" (click)="select(entry)" (keydown.enter)="select(entry)" (keydown.space)="$event.preventDefault(); select(entry)">
-          <div class="study-row-main"><span class="study-row-file-icon" aria-hidden="true">{{ fileIcon(entry.record) }}</span><span class="study-row-date">{{ date(entry.record.date) }}</span><span class="study-title">{{ title(entry.record) }}</span><span class="study-type">{{ fileKind(entry.record) }}</span><span class="study-row-source">{{ source(entry.record) }}@if (size(entry.record)) { · {{ size(entry.record) }} }</span></div>
-          <div class="study-actions">@if (fileUrl(entry.record)) { <a class="tiny-button" [href]="fileUrl(entry.record)" target="_blank" rel="noopener" (click)="$event.stopPropagation()"><span aria-hidden="true">◉</span><span>Abrir archivo</span></a> } @if (canDelete(entry.record)) { <button class="tiny-button study-session-delete" type="button" [disabled]="busy()" title="Eliminar este archivo cargado en la sesión actual" (click)="$event.stopPropagation(); removeStudy(entry.record)"><span aria-hidden="true">×</span><span>Eliminar</span></button> }</div>
-        </article>
+    <section class="angular-study-repository" aria-labelledby="angularStudyRepositoryTitle">
+      <header class="angular-study-section-heading">
+        <div><h3 id="angularStudyRepositoryTitle">Estudios</h3><span>Consulta por DNI en todas las fuentes disponibles</span></div>
+        <button class="tool-button" type="button" [disabled]="!canSearchExternal() || externalSearch.loading()" (click)="refreshExternalStudies()">{{ externalSearch.loading() ? 'Buscando…' : externalResult() ? 'Actualizar estudios' : 'Buscar estudios' }}</button>
+      </header>
+      <div class="angular-study-search-status" role="status" aria-live="polite">
+        @if (externalSearch.loading()) { <span>Consultando las fuentes de estudios…</span> }
+        @else if (!searchDni()) { <span>La búsqueda requiere un DNI válido en la ficha del paciente.</span> }
+        @else if (externalSearch.error()) { <span class="angular-study-source-warning">{{ externalSearch.error() }}</span> }
+        @else if (externalResult(); as result) {
+          @if (result.partial) { <span class="angular-study-source-warning">Algunas fuentes no respondieron. Se muestran los resultados disponibles.</span> }
+          @else { <span>{{ result.total }} {{ result.total === 1 ? 'estudio encontrado' : 'estudios encontrados' }} en las fuentes consultadas.</span> }
+        }
+      </div>
+      @if (externalResult(); as result) {
+        @if (result.sources.length) {
+          <details class="angular-study-sources">
+            <summary>Fuentes consultadas ({{ result.sources.length }})</summary>
+            <ul>@for (source of result.sources; track $index) {
+              <li [class.angular-study-source-warning]="source.status === 'error'"><strong>{{ source.name }}</strong><span>{{ source.status === 'error' ? 'No disponible' : source.status === 'empty' ? 'Sin estudios' : source.count + (source.count === 1 ? ' estudio' : ' estudios') }}</span>@if (source.message) { <small>{{ source.message }}</small> }</li>
+            }</ul>
+          </details>
+        }
       }
-    </div>
+      <div class="angular-study-table-scroll" tabindex="-1">
+        <table class="angular-study-table">
+          <thead><tr><th scope="col">Fecha</th><th scope="col">Tipo</th><th scope="col">Descripción</th><th scope="col">Institución</th><th scope="col"><span class="visually-hidden">Acciones</span></th></tr></thead>
+          <tbody>@for (entry of listEntries(); track entry.key) {
+            <tr tabindex="0" [class.is-selected]="selectedKey() === entry.key" [attr.data-study-key]="entry.key" (click)="select(entry)" (keydown.enter)="select(entry)">
+              <td class="angular-study-date">{{ date(entry.record.date) }}</td><td>{{ fileKind(entry.record) }}</td><td class="angular-study-description"><strong>{{ title(entry.record) }}</strong>@if (entry.record.summary) { <small>{{ entry.record.summary }}</small> }</td><td>{{ source(entry.record) }}</td>
+              <td><div class="angular-study-row-actions">
+                @if (reportUrl(entry.record); as url) { <a class="tiny-button" [href]="url" target="_blank" rel="noopener noreferrer" (click)="$event.stopPropagation()">Ver informe</a> }
+                @if (studyUrl(entry.record); as url) { <a class="tiny-button" [href]="url" target="_blank" rel="noopener noreferrer" (click)="$event.stopPropagation()">Ver estudio</a> }
+                @if (!reportUrl(entry.record) && !studyUrl(entry.record) && fileUrl(entry.record)) { <a class="tiny-button" [href]="fileUrl(entry.record)" target="_blank" rel="noopener" (click)="$event.stopPropagation()">Abrir archivo</a> }
+                @if (canDelete(entry.record)) { <button class="tiny-button" type="button" [disabled]="busy()" (click)="$event.stopPropagation(); removeStudy(entry.record)">Eliminar</button> }
+              </div></td>
+            </tr>
+          } @empty { <tr><td colspan="5" class="angular-study-list-empty">{{ searchTerm() ? 'No hay estudios que coincidan con el filtro.' : externalSearch.loading() ? 'Buscando estudios en las fuentes…' : 'Sin estudios disponibles en esta lista.' }}</td></tr> }</tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="angular-study-gallery-section" aria-labelledby="angularStudyGalleryTitle">
+      <header class="angular-study-section-heading"><div><h3 id="angularStudyGalleryTitle">Archivos cargados</h3><span>Imágenes, plantillas y documentos incorporados a esta historia</span></div><span>{{ uploadedEntries().length }} {{ uploadedEntries().length === 1 ? 'archivo' : 'archivos' }}</span></header>
+      <div class="angular-study-gallery">
+        @for (item of uploadedEntries(); track item.entry.key) {
+          @let entry = item.entry;
+          <article class="angular-study-image-viewer" tabindex="-1" [class.is-selected]="selectedKey() === entry.key" [attr.data-study-key]="entry.key" [attr.aria-label]="title(entry.record)">
+            <header><div><strong>{{ title(entry.record) }}</strong><span>{{ date(entry.record.date) }} · {{ source(entry.record) }}</span></div>@if (item.images.length) { <button class="tiny-button" type="button" (click)="showImage(entry)">Mostrar</button> }</header>
+            @if (isPdfUpload(entry.record) && fileUrl(entry.record)) {
+              <app-study-pdf-viewer [url]="fileUrl(entry.record)" [title]="title(entry.record)" [patientId]="workspace.workspace()?.patientId || ''"
+                [pageVersions]="pdfPages(entry.record)" [canEdit]="canUpload() && !busy() && !!entry.record.id" [canAddToEvolution]="canAddToEvolution()"
+                (editPage)="editPdfPage(entry, $event)" (addPageToEvolution)="addPdfPageToEvolution(entry, $event)" />
+              @if (canDelete(entry.record)) { <div class="angular-study-document"><button class="tiny-button" type="button" [disabled]="busy()" (click)="removeStudy(entry.record)">Eliminar</button></div> }
+            } @else if (!item.images.length) {
+              <div class="angular-study-document">
+                <span class="angular-study-document-icon" aria-hidden="true">{{ fileIcon(entry.record) }}</span>
+                <div class="angular-study-document-details"><strong>{{ fileKind(entry.record) }}</strong>@if (size(entry.record); as fileSize) { <span>{{ fileSize }}</span> }@if (entry.record.summary) { <p>{{ entry.record.summary }}</p> }</div>
+                <div class="angular-study-image-actions">
+                  @if (fileUrl(entry.record); as url) { <a class="tiny-button" [href]="url" target="_blank" rel="noopener noreferrer">Abrir archivo</a> }
+                  @if (canDelete(entry.record)) { <button class="tiny-button" type="button" [disabled]="busy()" (click)="removeStudy(entry.record)">Eliminar</button> }
+                </div>
+              </div>
+            }
+            @if (!isPdfUpload(entry.record)) {
+             @for (image of item.images; track image.id) {
+              <figure class="angular-study-image-preview">
+                <a [href]="displayedImage(image, entry.key).url" target="_blank" rel="noopener" [attr.aria-label]="'Ampliar ' + image.title"><img [src]="displayedImage(image, entry.key).url" [alt]="image.title" loading="lazy"></a>
+                <figcaption>
+                  @if (image.versions.length > 1) {
+                    <label>Versión de imagen<select #imageVersion (change)="selectVersion(image, imageVersion.value, entry.key)">@for (version of image.versions; track version.id) { <option [value]="version.id" [selected]="version.id === displayedImage(image, entry.key).versionId">{{ version.label }}</option> }</select></label>
+                  }
+                  <div class="angular-study-image-actions">
+                    <a class="tiny-button" [href]="displayedImage(image, entry.key).url" target="_blank" rel="noopener">Ampliar imagen</a>
+                    <button class="tiny-button" type="button" [disabled]="!canUpload() || !entry.record.id || busy()" (click)="editImage(entry, image)">Editar imagen</button>
+                    <button class="tiny-button" type="button" [disabled]="!canAddToEvolution()" (click)="addImageToEvolution(entry, image)">Agregar a evolución</button>
+                    @if (canDelete(entry.record)) { <button class="tiny-button" type="button" [disabled]="busy()" (click)="removeStudy(entry.record)">Eliminar</button> }
+                  </div>
+                </figcaption>
+              </figure>
+             }
+            }
+          </article>
+        } @empty { <p class="angular-study-gallery-empty">{{ searchTerm() ? 'No hay archivos que coincidan con el filtro.' : 'Los archivos y plantillas que cargue aparecerán aquí.' }}</p> }
+      </div>
+    </section>
   }
   @if (message()) { <p class="study-upload-error" role="alert">{{ message() }}</p> }
 </section>
@@ -33,20 +109,34 @@
         <label class="study-upload-zone" [class.dragging]="dragActive()" (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)"><span aria-hidden="true">⇧</span><strong>Seleccionar archivos</strong><span>o arrastrar y soltar aquí</span><small>Imágenes, DICOM, PDF, Word, PowerPoint y video · selección, arrastre o Ctrl+V</small><input class="visually-hidden" type="file" multiple accept="image/*,.dcm,.pdf,.doc,.docx,.rtf,.odt,.ppt,.pps,.pptx,.ppsx,.odp,video/*,.mkv,.avi,.wmv,.flv" [disabled]="busy()" (change)="onFileInput($event)"></label>
         <div class="study-upload-queue" aria-live="polite">
           @if (!uploads().length) { <div class="study-upload-queue-empty"><span aria-hidden="true">▤</span><span>Los archivos seleccionados aparecerán aquí.</span></div> }
-          @for (item of uploads(); track item.id) { <article class="study-upload-item" [class.is-error]="item.status === 'error'" [class.is-uploading]="item.status === 'uploading'"><span class="study-upload-file-icon" aria-hidden="true">{{ item.status === 'uploading' ? '…' : '▱' }}</span><div class="study-upload-file-copy"><strong>{{ item.file.name }}</strong><small>{{ formatSize(item.file.size) }} · {{ queueKind(item) }}</small><em>{{ queueLabel(item) }}</em></div>@if (item.status === 'error') { <button class="icon-button" type="button" [disabled]="busy()" title="Reintentar" (click)="retryUpload(item.id)">↻</button> }@if (item.status === 'ready' || item.status === 'error') { <button class="icon-button" type="button" [disabled]="busy()" title="Quitar" (click)="removeUpload(item.id)">×</button> }</article> }
+          @for (item of uploads(); track item.id) {
+            <article class="study-upload-item" [class.has-preview]="item.previewUrl" [class.is-error]="item.status === 'error'" [class.is-uploading]="item.status === 'uploading'">
+              @if (item.previewUrl) { <img class="study-upload-preview" [src]="item.previewUrl" [alt]="'Vista previa de ' + item.file.name"> }
+              @else { <span class="study-upload-file-icon" aria-hidden="true">{{ item.status === 'uploading' ? '…' : '▱' }}</span> }
+              <div class="study-upload-file-copy"><strong>{{ item.file.name }}</strong><small>{{ formatSize(item.file.size) }} · {{ queueKind(item) }}</small><em>{{ queueLabel(item) }}</em>@if (item.editing || item.pdfEditing) { <small>Se conservarán el original y las versiones anteriores.</small> }</div>
+              @if (item.status === 'error') { <button class="icon-button" type="button" [disabled]="busy()" title="Reintentar" (click)="retryUpload(item.id)">↻</button> }
+              @if (item.status === 'ready' || item.status === 'error') { <button class="icon-button" type="button" [disabled]="busy()" title="Quitar" (click)="removeUpload(item.id)">×</button> }
+            </article>
+          }
         </div>
         @if (message()) { <p class="study-upload-error" role="alert">{{ message() }}</p> }
       </section>
-      <footer class="modal-actions"><button class="tool-button" type="button" [disabled]="busy()" (click)="closeUpload()"><span>Cerrar</span></button><button class="tool-button primary" type="button" [disabled]="busy() || !uploads().some((item) => item.status === 'ready')" (click)="upload()"><span>{{ busy() ? 'Subiendo…' : 'Subir archivos' }}</span></button></footer>
+      <footer class="modal-actions"><button class="tool-button" type="button" [disabled]="busy()" (click)="closeUpload()"><span>Cerrar</span></button><button class="tool-button primary" type="button" [disabled]="busy() || !hasPendingUploads()" (click)="upload()"><span>{{ busy() ? 'Guardando…' : evolutionAfterUpload() ? 'Guardar imagen y abrir evolución' : 'Guardar en Estudios' }}</span></button></footer>
     </section>
   </div>
 }
 
-@defer (when templateEditorOpen()) {
+@for (patientId of [workspace.workspace()?.patientId]; track patientId) {
+ @defer (when templateEditorOpen()) {
   <app-study-template-editor
     [open]="templateEditorOpen()"
-    [source]="null"
+    [source]="editorSource()"
     [canEdit]="canEdit()"
+    [canAddToEvolution]="canAddToEvolution()"
     (closed)="closeTemplateEditor()"
-    (imageReady)="acceptTemplateImage($event)" />
+    (imageReady)="acceptTemplateImage($event)"
+    (evolutionReady)="acceptTemplateEvolution($event)" />
+ }
 }
+
+<app-evolution-entry-modal [open]="evolutionOpen()" [initial]="evolutionDraft()" (closed)="evolutionOpen.set(false)" />

@@ -12,4 +12,12 @@
 .clinical-entry-discard > div:last-child { display: flex; }
 .clinical-entry-discard strong { color: #6b5120; font-size: 12px; }
 .clinical-entry-discard span { color: #7d6943; font-size: 10px; }
+.evolution-draft-attachments { display: grid; gap: 8px; margin: 12px 0; }
+.evolution-draft-attachments > p { margin: 0; color: #536978; font-size: 11px; }
+.evolution-draft-attachment { display: flex; align-items: center; gap: 12px; border: 1px solid #d9e4eb; padding: 9px; background: #f7fbfe; }
+.evolution-draft-thumbnail { display: grid; flex: 0 0 104px; height: 96px; place-items: center; background: #fff; border: 1px solid #d9e4eb; }
+.evolution-draft-thumbnail img { display: block; max-width: 100%; max-height: 94px; object-fit: contain; }
+.evolution-draft-attachment > div { display: grid; flex: 1; min-width: 0; gap: 4px; overflow-wrap: anywhere; }
+.evolution-draft-attachment strong { color: #263943; font-size: 12px; }
+.evolution-draft-attachment span, .evolution-draft-attachment small { color: #536978; font-size: 11px; }
 @media (max-width: 700px) { .clinical-entry-inline-fields { grid-template-columns: 1fr; } .clinical-entry-discard { align-items: stretch; flex-direction: column; } }

@@ -91,6 +91,7 @@
             <footer class="diagnostic-classification-footer">
               <span [class.is-ready]="validation().valid" [class.is-incomplete]="!validation().valid">{{ validation().message }}</span>
               <button class="tool-button" type="button" [disabled]="busy()" (click)="requestClose()">Cancelar</button>
+              <button class="tool-button" type="button" [disabled]="!canSave()" (click)="save(true)">Guardar y agregar a evolución</button>
               <button class="tool-button primary" type="button" [disabled]="!canSave()" (click)="save()"><span>{{ busy() ? 'Guardando…' : 'Guardar diagnóstico' }}</span></button>
             </footer>
           </div>

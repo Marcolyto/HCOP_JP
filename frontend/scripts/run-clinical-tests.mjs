@@ -7,7 +7,14 @@ import { build } from 'esbuild';
 const outputDirectory = mkdtempSync(join(tmpdir(), 'hcop-clinical-tests-'));
 const suites = [
   'src/app/core/clinical/clinical-treatment-projection.tests.ts',
+  'src/app/core/clinical/clinical-diagnosis-projection.tests.ts',
   'src/app/core/clinical/clinical-study-projection.tests.ts',
+  'src/app/core/clinical/study-image-presentation.tests.ts',
+  'src/app/core/studies/external-study-search.models.tests.ts',
+  'src/app/core/studies/external-study-search.service.tests.ts',
+  'src/app/features/studies/study-panel.models.tests.ts',
+  'src/app/features/studies/study-pdf-viewer.models.tests.ts',
+  'src/app/features/studies/study-pdf-page.models.tests.ts',
   'src/app/core/clinical/clinical-print-projection.tests.ts',
   'src/app/core/clinical/clinical-chief-complaint-edit.tests.ts',
   'src/app/core/clinical/clinical-current-illness-edit.tests.ts',
@@ -25,6 +32,7 @@ const suites = [
   'src/app/features/configuration/protocols/protocol-configuration.normalizers.tests.ts',
   'src/app/features/configuration/catalogs/configuration-catalogs.normalizers.tests.ts',
   'src/app/features/configuration/operations/configuration-operations.normalizers.tests.ts',
+  'src/app/features/configuration/repositories/study-repositories.models.tests.ts',
   'src/app/features/oncology-history-entry/oncology-history-entry.state.tests.ts',
   'src/app/features/clinical-entry/clinical-entry.normalizers.tests.ts',
   'src/app/features/treatment-workflow-actions/treatment-workflow-actions.models.tests.ts',

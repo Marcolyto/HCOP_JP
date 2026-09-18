@@ -1,9 +1,10 @@
-import { Component, ElementRef, HostListener, OnDestroy, ViewChild, computed, effect, inject, input, output, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, ViewChild, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { fitRasterSize, isDrawableShape, normalizeCanvasPoint, normalizedSearch, safePngName, shapeGeometry } from './study-template-editor.geometry';
 import { ShapeAnnotation, StrokeAnnotation, StudyAnnotation, StudyAnnotationFill, StudyAnnotationTool, StudyTemplateCatalogItem, StudyTemplateEditorSource } from './study-template-editor.models';
 import { StudyTemplateEditorService } from './study-template-editor.service';
+import { StudyTemplateImageSession } from './study-template-editor.state';
 
 @Component({
   selector: 'app-study-template-editor',
@@ -16,21 +17,38 @@ export class StudyTemplateEditorComponent implements OnDestroy {
   private baseImage: HTMLImageElement | null = null;
   private baseObjectUrl = '';
   private activePointerId: number | null = null;
-  private loadedSourceKey = '';
+  private readonly imageSession = new StudyTemplateImageSession();
+  private canvasRef?: ElementRef<HTMLCanvasElement>;
+  private destroyed = false;
+  private exportRevision = 0;
 
   readonly open = input(false);
   readonly source = input<StudyTemplateEditorSource | null>(null);
   readonly canEdit = input(true);
+  readonly canAddToEvolution = input(false);
   readonly closed = output<void>();
   readonly imageReady = output<File>();
+  readonly evolutionReady = output<File>();
 
-  @ViewChild('canvas') private canvasRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('canvas')
+  private set canvas(value: ElementRef<HTMLCanvasElement> | undefined) {
+    this.canvasRef = value;
+    this.canvasMounted.set(Boolean(value));
+    this.redraw();
+  }
 
   readonly editable = computed(() => this.canEdit() && this.auth.hasPermission('section.studies.edit'));
   readonly templates = signal<readonly StudyTemplateCatalogItem[]>([]);
   readonly query = signal('');
   readonly category = signal('');
-  readonly loading = signal(false);
+  readonly catalogLoading = signal(false);
+  readonly catalogError = signal('');
+  readonly imageLoading = signal(false);
+  readonly imageLoaded = signal(false);
+  readonly exporting = signal(false);
+  private readonly canvasMounted = signal(false);
+  readonly loading = computed(() => this.catalogLoading() || this.imageLoading());
+  readonly ready = computed(() => this.open() && this.imageLoaded() && this.canvasMounted() && !this.imageLoading() && !this.exporting());
   readonly error = signal('');
   readonly status = signal('Seleccione una plantilla anatómica para comenzar.');
   readonly selected = signal<StudyTemplateCatalogItem | null>(null);
@@ -62,34 +80,36 @@ export class StudyTemplateEditorComponent implements OnDestroy {
     effect(() => {
       const visible = this.open();
       const source = this.source();
-      if (!visible) { this.loadedSourceKey = ''; return; }
-      queueMicrotask(() => {
-        if (!this.templates().length && !this.loading()) void this.loadTemplates();
-        if (source) {
-          const key = source.file ? `file:${source.name ?? ''}:${source.file.size}:${source.file.type}` : `url:${source.url ?? ''}`;
-          if (key !== this.loadedSourceKey) { this.loadedSourceKey = key; void this.loadSource(source); }
+      untracked(() => {
+        if (!visible) { this.cancelPendingWork(); return; }
+        if (this.imageSession.setSource(source)) {
+          this.resetImage();
+          this.selected.set(null);
         }
+        if (!source && !this.templates().length && !this.catalogLoading()) void this.loadTemplates();
+        if (source && !this.baseImage && !this.imageLoading()) void this.loadSource(source);
+        else if (!source && this.selected() && !this.baseImage && !this.imageLoading()) void this.selectTemplate(this.selected()!);
       });
     });
   }
 
-  ngOnDestroy(): void { this.revokeBaseUrl(); }
+  ngOnDestroy(): void { this.destroyed = true; this.cancelPendingWork(); this.revokeBaseUrl(); }
 
   async loadTemplates(): Promise<void> {
-    this.loading.set(true); this.error.set('');
-    try { this.templates.set(await firstValueFrom(this.api.templates())); }
-    catch { this.error.set('No se pudo abrir la biblioteca anatómica.'); }
-    finally { this.loading.set(false); }
+    if (this.catalogLoading() || this.destroyed) return;
+    this.catalogLoading.set(true); this.catalogError.set('');
+    try {
+      const templates = await firstValueFrom(this.api.templates());
+      if (!this.destroyed) this.templates.set(templates);
+    } catch { if (!this.destroyed) this.catalogError.set('No se pudo abrir la biblioteca anatómica.'); }
+    finally { if (!this.destroyed) this.catalogLoading.set(false); }
   }
 
   async selectTemplate(item: StudyTemplateCatalogItem): Promise<void> {
-    if (!item.available || !item.imageUrl) return;
-    this.selected.set(item); this.loading.set(true); this.error.set('');
-    try {
-      const blob = await firstValueFrom(this.api.image(item.imageUrl));
-      await this.loadImageBlob(blob, item.title, item.title);
-    } catch { this.error.set(`No se pudo abrir ${item.title}.`); }
-    finally { this.loading.set(false); }
+    if (!this.open() || !item.available || !item.imageUrl || this.exporting()) return;
+    if (this.selected()?.id === item.id && this.baseImage) return;
+    this.selected.set(item);
+    await this.loadSource({ url: item.imageUrl, name: item.title, title: item.title });
   }
 
   setTool(tool: StudyAnnotationTool): void { if (this.editable()) this.tool.set(tool); }
@@ -98,7 +118,7 @@ export class StudyTemplateEditorComponent implements OnDestroy {
   setWidth(width: number): void { if ([3, 7, 14].includes(width)) this.width.set(width); }
 
   pointerDown(event: PointerEvent): void {
-    if (!this.editable() || !this.baseImage || event.button !== 0) return;
+    if (!this.editable() || !this.ready() || !this.baseImage || event.button !== 0) return;
     const canvas = this.canvasRef?.nativeElement;
     if (!canvas) return;
     event.preventDefault();
@@ -179,6 +199,12 @@ export class StudyTemplateEditorComponent implements OnDestroy {
     if (file) this.imageReady.emit(file);
   }
 
+  async useInEvolution(): Promise<void> {
+    if (!this.editable() || !this.canAddToEvolution()) return;
+    const file = await this.rasterFile();
+    if (file && this.canAddToEvolution()) this.evolutionReady.emit(file);
+  }
+
   async download(): Promise<void> {
     if (!this.editable()) return;
     const file = await this.rasterFile();
@@ -188,39 +214,72 @@ export class StudyTemplateEditorComponent implements OnDestroy {
     setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
-  requestClose(): void { this.closed.emit(); }
+  requestClose(): void { this.cancelPendingWork(); this.closed.emit(); }
 
   @HostListener('document:keydown', ['$event'])
   keyboard(event: KeyboardEvent): void {
-    if (!this.open() || !this.editable() || !(event.ctrlKey || event.metaKey)) return;
+    if (!this.ready() || !this.editable() || !(event.ctrlKey || event.metaKey)) return;
     if (event.key.toLocaleLowerCase('en') === 'z') { event.preventDefault(); event.shiftKey ? this.redo() : this.undo(); }
     if (event.key.toLocaleLowerCase('en') === 'y') { event.preventDefault(); this.redo(); }
   }
 
   private async loadSource(source: StudyTemplateEditorSource): Promise<void> {
-    this.loading.set(true); this.error.set('');
+    const revision = this.imageSession.beginLoad();
+    this.resetImage();
+    this.imageLoading.set(true); this.error.set('');
+    this.imageTitle.set(source.title || source.name || 'Imagen clínica');
     try {
       const blob = source.file ?? (source.url ? await firstValueFrom(this.api.image(source.url)) : null);
+      if (!this.isCurrentImage(revision)) return;
       if (!blob) throw new Error('missing source');
-      await this.loadImageBlob(blob, source.name || 'imagen-clinica', source.title || source.name || 'Imagen clínica');
-    } catch { this.error.set('No se pudo preparar la imagen seleccionada.'); }
-    finally { this.loading.set(false); }
+      await this.loadImageBlob(blob, source.name || 'imagen-clinica', source.title || source.name || 'Imagen clínica', revision);
+    } catch { if (this.isCurrentImage(revision)) this.error.set('No se pudo preparar la imagen seleccionada.'); }
+    finally { if (this.isCurrentImage(revision)) this.imageLoading.set(false); }
   }
 
-  private async loadImageBlob(blob: Blob, name: string, title: string): Promise<void> {
+  private async loadImageBlob(blob: Blob, name: string, title: string, revision: number): Promise<void> {
     if (!blob.type.startsWith('image/')) throw new Error('invalid image');
-    this.revokeBaseUrl();
-    this.baseObjectUrl = URL.createObjectURL(blob);
-    const image = new Image(); image.decoding = 'async'; image.src = this.baseObjectUrl;
-    await image.decode();
-    this.baseImage = image;
-    this.sourceName.set(name); this.imageTitle.set(title); this.commands.set([]); this.redoCommands.set([]); this.draft.set(null);
-    const size = fitRasterSize(image.naturalWidth, image.naturalHeight);
-    const canvas = this.canvasRef?.nativeElement;
-    if (!canvas) throw new Error('missing canvas');
-    canvas.width = size.x; canvas.height = size.y;
-    this.status.set('Imagen lista. Las marcas se guardan en una copia rasterizada; la plantilla original no se modifica.');
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      const image = new Image(); image.decoding = 'async'; image.src = objectUrl;
+      await image.decode();
+      if (!this.isCurrentImage(revision)) return;
+      this.revokeBaseUrl();
+      this.baseObjectUrl = objectUrl;
+      this.baseImage = image;
+      this.sourceName.set(name); this.imageTitle.set(title); this.imageLoaded.set(true);
+      this.status.set('Imagen lista. Puede marcarla y guardar una copia; el original se conserva.');
+      this.redraw();
+    } finally {
+      if (this.baseObjectUrl !== objectUrl) URL.revokeObjectURL(objectUrl);
+    }
+  }
+
+  private isCurrentImage(revision: number): boolean {
+    return !this.destroyed && this.open() && this.imageSession.isCurrent(revision);
+  }
+
+  private cancelPendingWork(): void {
+    this.imageSession.cancelLoad();
+    this.exportRevision++;
+    this.exporting.set(false); this.imageLoading.set(false);
+    const pointerId = this.activePointerId;
+    this.activePointerId = null; this.draft.set(null);
+    if (pointerId !== null) {
+      try { this.canvasRef?.nativeElement.releasePointerCapture(pointerId); } catch { /* browser already released it */ }
+    }
     this.redraw();
+  }
+
+  private resetImage(): void {
+    this.exportRevision++;
+    this.exporting.set(false); this.imageLoading.set(false);
+    this.baseImage = null; this.revokeBaseUrl();
+    this.imageLoaded.set(false); this.sourceName.set(''); this.imageTitle.set('Plantilla anatómica');
+    this.commands.set([]); this.redoCommands.set([]); this.draft.set(null); this.activePointerId = null;
+    this.error.set(''); this.status.set('Seleccione una plantilla anatómica para comenzar.');
+    const canvas = this.canvasRef?.nativeElement;
+    if (canvas) canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
   }
 
   private commit(command: StudyAnnotation): void {
@@ -230,6 +289,11 @@ export class StudyTemplateEditorComponent implements OnDestroy {
   private redraw(): void {
     const canvas = this.canvasRef?.nativeElement;
     if (!canvas || !this.baseImage) return;
+    // Angular recreates the canvas after closing the modal; restore its intrinsic
+    // dimensions before repainting the preserved image and annotation commands.
+    const size = fitRasterSize(this.baseImage.naturalWidth, this.baseImage.naturalHeight);
+    if (canvas.width !== size.x) canvas.width = size.x;
+    if (canvas.height !== size.y) canvas.height = size.y;
     const context = canvas.getContext('2d');
     if (!context) return;
     context.clearRect(0, 0, canvas.width, canvas.height);
@@ -272,10 +336,20 @@ export class StudyTemplateEditorComponent implements OnDestroy {
 
   private async rasterFile(): Promise<File | null> {
     const canvas = this.canvasRef?.nativeElement;
-    if (!canvas || !this.baseImage) { this.status.set('Seleccione primero una plantilla o imagen.'); return null; }
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
-    if (!blob) { this.status.set('No se pudo rasterizar la imagen.'); return null; }
-    return new File([blob], safePngName(this.sourceName() || this.imageTitle()), { type: 'image/png', lastModified: Date.now() });
+    if (!this.ready() || !canvas || !this.baseImage) { this.status.set('Espere a que la imagen esté lista para guardarla.'); return null; }
+    const revision = ++this.exportRevision;
+    const name = safePngName(this.sourceName() || this.imageTitle());
+    this.exporting.set(true);
+    try {
+      this.redraw();
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+      if (revision !== this.exportRevision || this.destroyed || !this.open()) return null;
+      if (!blob) throw new Error('empty raster');
+      return new File([blob], name, { type: 'image/png', lastModified: Date.now() });
+    } catch {
+      if (revision === this.exportRevision) this.error.set('No se pudo preparar la copia de la imagen. Vuelva a intentar.');
+      return null;
+    } finally { if (revision === this.exportRevision) this.exporting.set(false); }
   }
 
   private revokeBaseUrl(): void { if (this.baseObjectUrl) URL.revokeObjectURL(this.baseObjectUrl); this.baseObjectUrl = ''; }

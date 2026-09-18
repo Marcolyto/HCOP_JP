@@ -188,6 +188,7 @@ public class OpenApiConfiguration {
       permission("AdminController.updateSecurity", "admin.manage-security"),
       permission("ClinicalDocumentController.get", "section.history.view"),
       permission("ClinicalDocumentController.put", "section.history.edit + permiso específico de edición si prescriptions, studies o externalStudies cambian"),
+      permission("ExternalStudiesController.search", "section.studies.view + paciente activo"),
       permission("ConfigurationController.list", "section.configuration.view"),
       permission("ConfigurationController.create", "section.configuration.manage"),
       permission("ConfigurationController.update", "section.configuration.manage"),
@@ -396,6 +397,7 @@ public class OpenApiConfiguration {
         .displayName("Clínica y Hospital de Día")
         .pathsToMatch(
             "/api/clinical/**",
+            "/api/patients/*/external-studies",
             "/api/hc/**",
             "/api/media/**",
             "/api/diagnosis-catalogs/**",
@@ -887,7 +889,7 @@ public class OpenApiConfiguration {
     if (controller.startsWith("Infusion") || controller.startsWith("Qr")) return "Hospital de Día";
     if (controller.startsWith("TreatmentWorkflow")) return "Flujos clínicos";
     if (controller.startsWith("Configuration") || controller.startsWith("Protocol")) return "Configuración";
-    if (controller.startsWith("ClinicalFile") || controller.startsWith("StudyTemplate")) return "Archivos clínicos";
+    if (controller.startsWith("ClinicalFile") || controller.startsWith("StudyTemplate") || controller.startsWith("ExternalStudies")) return "Archivos clínicos";
     if (controller.startsWith("Admin")) return "Administración";
     if (controller.startsWith("Llm")) return "Integraciones";
     if (controller.startsWith("Status")) return "Estado";

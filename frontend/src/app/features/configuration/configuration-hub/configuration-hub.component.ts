@@ -17,12 +17,14 @@ import { ConfigurationCatalogsComponent } from '../catalogs/configuration-catalo
 import { ConfigurationOperationsComponent } from '../operations/configuration-operations.component';
 import { OperationsSection } from '../operations/configuration-operations.models';
 import { ProtocolConfigurationComponent } from '../protocols/protocol-configuration.component';
+import { StudyRepositoriesComponent } from '../repositories/study-repositories.component';
 
 export type ConfigurationHubTab =
   | 'protocols'
   | 'diagnoses'
   | 'guides'
   | 'templates'
+  | 'repository'
   | 'calculators'
   | 'research'
   | 'day-hospital'
@@ -45,6 +47,7 @@ const HUB_TABS: readonly HubTabDescriptor[] = [
   { id: 'diagnoses', label: 'Diagnósticos', shortLabel: 'Diagnósticos', description: 'SNOMED, CIE-10 y AJCC', icon: 'diagnosis' },
   { id: 'guides', label: 'Guías', shortLabel: 'Guías', description: 'Documentos clínicos', icon: 'guides' },
   { id: 'templates', label: 'Plantillas', shortLabel: 'Plantillas', description: 'Imágenes anatómicas', icon: 'templates' },
+  { id: 'repository', label: 'Repositorio', shortLabel: 'Repositorio', description: 'Sitios de estudios externos', icon: 'repository' },
   { id: 'calculators', label: 'Calculadoras y scores', shortLabel: 'Calculadoras', description: 'Herramientas configurables', icon: 'calculator' },
   { id: 'research', label: 'Investigación', shortLabel: 'Investigación', description: 'Formularios personalizados', icon: 'research' },
   { id: 'day-hospital', label: 'Hospital de día', shortLabel: 'H. de día', description: 'Sillones, jornada y turnos', icon: 'day-hospital' },
@@ -73,7 +76,8 @@ const OPERATIONS_TABS: Readonly<Partial<Record<ConfigurationHubTab, OperationsSe
     RouterLink,
     ProtocolConfigurationComponent,
     ConfigurationCatalogsComponent,
-    ConfigurationOperationsComponent
+    ConfigurationOperationsComponent,
+    StudyRepositoriesComponent
   ],
   host: { class: 'configuration-hub-host' },
   templateUrl: './configuration-hub.component.html',
@@ -89,6 +93,7 @@ export class ConfigurationHubComponent implements AfterViewInit, OnDestroy {
   @ViewChild(ProtocolConfigurationComponent) private protocols?: ProtocolConfigurationComponent;
   @ViewChild(ConfigurationCatalogsComponent) private catalogs?: ConfigurationCatalogsComponent;
   @ViewChild(ConfigurationOperationsComponent) private operations?: ConfigurationOperationsComponent;
+  @ViewChild(StudyRepositoriesComponent) private repositories?: StudyRepositoriesComponent;
 
   readonly tabs = HUB_TABS;
   readonly activeTab = signal<ConfigurationHubTab>('protocols');
@@ -134,6 +139,10 @@ export class ConfigurationHubComponent implements AfterViewInit, OnDestroy {
 
   refreshActive(): void {
     const tab = this.activeTab();
+    if (tab === 'repository') {
+      this.repositories?.reload();
+      return;
+    }
     if (tab === 'protocols') {
       this.protocols?.reload();
       return;
@@ -154,6 +163,7 @@ export class ConfigurationHubComponent implements AfterViewInit, OnDestroy {
   }
 
   panelId(tab: ConfigurationHubTab): string {
+    if (tab === 'repository') return 'configuration-panel-repository';
     if (tab === 'protocols') return 'configuration-panel-protocols';
     if (CATALOG_TABS[tab]) return 'configuration-panel-catalogs';
     return 'configuration-panel-operations';
@@ -179,6 +189,7 @@ export class ConfigurationHubComponent implements AfterViewInit, OnDestroy {
 
   private canLeaveCurrentTab(): boolean {
     const tab = this.activeTab();
+    if (tab === 'repository') return this.repositories?.confirmDiscardChanges() ?? true;
     if (tab === 'protocols') return this.protocols?.confirmDiscardAndRestore() ?? true;
     const catalog = CATALOG_TABS[tab];
     if (catalog) return this.catalogs?.confirmDiscardChanges() ?? true;
@@ -188,6 +199,7 @@ export class ConfigurationHubComponent implements AfterViewInit, OnDestroy {
 
   private hasUnsavedChangesInCurrentTab(): boolean {
     const tab = this.activeTab();
+    if (tab === 'repository') return this.repositories?.hasUnsavedChanges() ?? false;
     if (tab === 'protocols') return this.protocols?.hasUnsavedChanges() ?? false;
     const catalog = CATALOG_TABS[tab];
     if (catalog) return this.catalogs?.hasUnsavedChanges() ?? false;

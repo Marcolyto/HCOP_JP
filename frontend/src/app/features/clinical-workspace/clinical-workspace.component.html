@@ -21,19 +21,27 @@
       </header>
 
       <section class="doc-section" data-highlight-scope data-highlight-kind="section" data-highlight-section-key="diagnosticClassifications" [class.clinical-print-empty]="!printHas('diagnosis')">
-        <div class="section-heading"><h3>Diagnóstico oncológico</h3></div>
-        @if (records('diagnoses').length) {
+        <div class="section-heading"><h3>Diagnóstico oncológico</h3>@if (canAddClinicalEntry()) { <button class="ghost-button diagnosis-summary-add" type="button" [disabled]="workspaceService.hasPendingClinicalWork()" (click)="openDiagnosisEntry()">Agregar diagnóstico</button> }</div>
+        @if (diagnosisEntries().length) {
           <div class="diagnosis-record-summary-list">
-            @for (record of records('diagnoses'); track record.id ?? $index) {
-              <section class="diagnosis-record-summary" data-highlight-scope data-highlight-kind="record" data-highlight-record-type="diagnosis" [attr.data-highlight-record-id]="record.id || ''" [attr.data-clinical-date]="record.date"><header><strong>{{ recordTitle(record) }}</strong>@if (record.date) { <time>{{ date(record.date) }}</time> }</header>@if (recordBody(record)) { <p>{{ recordBody(record) }}</p> }</section>
+            @for (entry of diagnosisEntries(); track entry.key) {
+              <section class="diagnosis-record-summary" data-highlight-scope data-highlight-kind="record" data-highlight-record-type="diagnosis" [attr.data-highlight-record-id]="entry.record.id || entry.key" [attr.data-clinical-date]="entry.date">
+                <header><strong>{{ entry.title }}</strong>@if (entry.date) { <time [attr.datetime]="entry.date">{{ diagnosisDate(entry.date) }}</time> }</header>
+                @if (entry.classifications.length || entry.tnm || entry.stage) {
+                  <dl class="diagnostic-classification-summary" aria-label="Clasificación del diagnóstico">
+                    @for (classification of entry.classifications; track classification.system) {
+                      <div class="diagnostic-classification-summary-row" [attr.data-diagnosis-system]="classification.system"><dt>{{ classification.label }}</dt><dd><strong>{{ classification.display || classification.code }}</strong>@if (classification.code && classification.display) { <small>{{ classification.code }}</small> }</dd></div>
+                    }
+                    @if (entry.tnm || entry.stage) {
+                      <div class="diagnostic-classification-summary-row" data-diagnosis-system="tnm"><dt>TNM / estadio</dt><dd>@if (entry.tnm) { <strong class="diagnostic-classification-summary-tnm">{{ entry.tnm }}</strong> }@if (entry.stage) { <strong class="diagnostic-classification-summary-tnm">Estadio {{ entry.stage }}</strong> }</dd></div>
+                    }
+                  </dl>
+                }
+                @if (entry.topography || entry.histology) { <div class="inline-facts diagnosis-detail-facts">@if (entry.topography) { <span><strong>Topografía:</strong> {{ entry.topography }}</span> }@if (entry.histology) { <span><strong>Histología:</strong> {{ entry.histology }}</span> }</div> }
+                @if (entry.text) { <p class="diagnosis-detail-text">{{ entry.text }}</p> }
+                @if (canAddClinicalEntry()) { <div class="diagnosis-summary-actions"><button class="ghost-button" type="button" [disabled]="workspaceService.hasPendingClinicalWork()" [attr.aria-label]="'Agregar a evolución: ' + entry.title" (click)="addDiagnosisToEvolution(entry.record)">Agregar a evolución</button></div> }
+              </section>
             }
-          </div>
-        } @else if (oncology('diagnosis') || oncology('topography') || oncology('histology') || oncology('stage')) {
-          <div class="inline-facts diagnosis-facts">
-            @if (oncology('diagnosis')) { <span><strong>Diagnóstico:</strong> {{ oncology('diagnosis') }}</span> }
-            @if (oncology('topography')) { <span><strong>Topografía:</strong> {{ oncology('topography') }}</span> }
-            @if (oncology('histology')) { <span><strong>Histología:</strong> {{ oncology('histology') }}</span> }
-            @if (oncology('stage')) { <span><strong>Estadio:</strong> {{ oncology('stage') }}</span> }
           </div>
         } @else { <p class="section-free-text">Sin diagnóstico oncológico cargado.</p> }
       </section>
@@ -83,7 +91,28 @@
         @if (narrative('summary') || narrative('plan')) { <div class="clinical-facts-stack">@if (narrative('summary')) { <p><strong>Conclusión / resumen:</strong> {{ narrative('summary') }}</p> }@if (narrative('plan')) { <p><strong>Conducta / plan:</strong> {{ narrative('plan') }}</p> }</div> } @else { <p class="section-free-text">Sin conclusión o resumen cargado.</p> }
       </section>
       <section class="doc-section" data-highlight-scope data-highlight-kind="section" data-highlight-section-key="evolutions" [class.clinical-print-empty]="!printHas('activity')"><div class="section-heading"><h3>Actividad clínica cronológica</h3></div>
-        @if (activityRecords().length) { @for (record of activityRecords(); track record.id ?? $index) { <article class="doc-entry evolution-entry" data-highlight-scope data-highlight-kind="record" [attr.data-highlight-record-type]="activityHighlightRecordType(record)" [attr.data-highlight-record-id]="record.id || ''" [class.prescription-entry]="record.type === 'medication' || record.type === 'certificate' || record.type === 'study' || record.type === 'free' || record.type === 'systemic'" [class.evolution-entry--deleted]="record.deleted" [attr.data-clinical-date]="record.date"><p><strong>{{ activityHeading(record) }}</strong></p>@if (record.type === 'medication' || record.type === 'certificate' || record.type === 'study' || record.type === 'free' || record.type === 'systemic') { <ul class="prescription-clinical-details">@for (line of prescriptionDetails(record); track $index) { <li>{{ line }}</li> }</ul>@if (activityAudit(record)) { <p class="entry-audit">{{ activityAudit(record) }}</p> } } @else if (recordBody(record)) { <p>{{ recordBody(record) }}</p> }</article> } } @else { <p class="section-free-text">Sin actividad clínica cargada.</p> }
+        @if (activityRecords().length) {
+          @for (record of activityRecords(); track record.id ?? $index) {
+            <article class="doc-entry evolution-entry" data-highlight-scope data-highlight-kind="record" [attr.data-highlight-record-type]="activityHighlightRecordType(record)" [attr.data-highlight-record-id]="record.id || ''" [class.prescription-entry]="record.type === 'medication' || record.type === 'certificate' || record.type === 'study' || record.type === 'free' || record.type === 'systemic'" [class.evolution-entry--deleted]="record.deleted" [attr.data-clinical-date]="record.date">
+              <p><strong>{{ activityHeading(record) }}</strong></p>
+              @if (record.type === 'medication' || record.type === 'certificate' || record.type === 'study' || record.type === 'free' || record.type === 'systemic') {
+                <ul class="prescription-clinical-details">@for (line of prescriptionDetails(record); track $index) { <li>{{ line }}</li> }</ul>
+                @if (activityAudit(record)) { <p class="entry-audit">{{ activityAudit(record) }}</p> }
+              } @else if (recordBody(record)) { <p>{{ recordBody(record) }}</p> }
+              @let attachments = evolutionAttachments(record);
+              @if (attachments.length) {
+                <div class="evolution-attachments" aria-label="Imágenes adjuntas a la evolución">
+                  @for (attachment of attachments; track $index) {
+                    <figure class="evolution-attachment">
+                      <a [href]="attachment.url" target="_blank" rel="noopener" [attr.aria-label]="'Ampliar ' + attachment.title"><img [src]="attachment.thumbnailUrl || attachment.url" [alt]="attachment.title"></a>
+                      <figcaption><strong>{{ attachment.title }}</strong>@if (attachment.annotated !== false && attachment.versionId && attachment.versionId !== 'original') { <span>Anotada</span> }@if (attachment.studyDate) { <span>{{ date(attachment.studyDate) }}</span> }</figcaption>
+                    </figure>
+                  }
+                </div>
+              }
+            </article>
+          }
+        } @else { <p class="section-free-text">Sin actividad clínica cargada.</p> }
       </section>
       @if (canAddClinicalEntry()) {
         <div class="clinical-add-action-stack">
@@ -97,8 +126,8 @@
     <article class="paper-sheet clinical-document clinical-document--blank"><div class="doc-empty"><strong>No hay un paciente abierto.</strong><span>Use “Abrir paciente” para recuperar una historia clínica local.</span><button class="tool-button primary" type="button" (click)="openPicker()"><span>Abrir paciente</span></button></div></article>
   }
 
-  <app-evolution-entry-modal [open]="evolutionEntryOpen()" (saved)="clinicalEntrySaved($event)" (closed)="evolutionEntryOpen.set(false)" />
-  <app-diagnosis-entry-modal [open]="diagnosisEntryOpen()" (saved)="clinicalEntrySaved($event)" (closed)="diagnosisEntryOpen.set(false)" />
+  <app-evolution-entry-modal [open]="evolutionEntryOpen()" [initial]="evolutionEntryInitial()" (saved)="clinicalEntrySaved($event)" (closed)="closeEvolutionEntry()" />
+  <app-diagnosis-entry-modal [open]="diagnosisEntryOpen()" (saved)="clinicalEntrySaved($event)" (closed)="diagnosisEntryOpen.set(false)" (evolutionRequested)="addDiagnosisToEvolution($event)" />
 
   @if (workspaceService.pickerOpen()) {
     <div class="modal-backdrop lira-import-backdrop open" aria-hidden="false">

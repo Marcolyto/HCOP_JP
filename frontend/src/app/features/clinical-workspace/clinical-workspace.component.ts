@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, OnInit, effect, inject, input, output, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, computed, effect, inject, input, output, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
@@ -55,6 +55,7 @@ import {
   clinicalPrintSectionHasContent
 } from '../../core/clinical/clinical-print-projection';
 import { ClinicalStudyEntry, clinicalStudyEntries } from '../../core/clinical/clinical-study-projection';
+import { clinicalDiagnosisEntries, clinicalDiagnosisEntry } from '../../core/clinical/clinical-diagnosis-projection';
 import { ClinicalTreatmentKind, clinicalSectionTreatments, clinicalTreatmentBody } from '../../core/clinical/clinical-treatment-projection';
 import { ClinicalDraftHandle, ClinicalDraftRegistryService } from '../../core/patients/clinical-draft-registry.service';
 import { PatientWorkspaceService } from '../../core/patients/patient-workspace.service';
@@ -63,7 +64,7 @@ import { ClinicalHighlightHostDirective } from '../../core/highlighting/clinical
 import { ClinicalHighlightCoordinatorService } from '../../core/highlighting/clinical-highlight-coordinator.service';
 import { ClinicalHighlightMutation } from '../../core/highlighting/clinical-highlight.models';
 import { OncologyHistoryEntrySectionComponent } from '../oncology-history-entry/public-api';
-import { DiagnosisEntryModalComponent, EvolutionEntryModalComponent } from '../clinical-entry';
+import { DiagnosisEntryModalComponent, EvolutionEntryDraft, EvolutionEntryModalComponent, EvolutionImageAttachment, localIsoDate, newClinicalEntryId, normalizeEvolutionAttachments } from '../clinical-entry';
 
 type SingleNarrativeSectionKey = 'chiefComplaint' | 'currentIllness';
 type PersonalHistoryErrorTarget = 'backgroundClinical' | 'currentMedication' | 'familyOncology' | 'gynecology' | 'reason' | '';
@@ -76,7 +77,10 @@ export class ClinicalWorkspaceComponent implements OnInit, OnDestroy {
   readonly workspaceService = inject(PatientWorkspaceService);
   readonly auth = inject(AuthService);
   readonly evolutionEntryOpen = signal(false);
+  readonly evolutionEntryInitial = signal<EvolutionEntryDraft | null>(null);
   readonly diagnosisEntryOpen = signal(false);
+  readonly diagnosisEntries = computed(() => clinicalDiagnosisEntries(this.state()).sort((left, right) =>
+    (right.date || String(right.record.createdAt || '')).localeCompare(left.date || String(left.record.createdAt || ''))));
   readonly clinicalEntryMessage = signal('');
   private readonly clinicalFocus = inject(ClinicalFocusService);
   private readonly clinicalHighlightFeedback = inject(ClinicalHighlightCoordinatorService);
@@ -204,7 +208,23 @@ export class ClinicalWorkspaceComponent implements OnInit, OnDestroy {
   openEvolutionEntry(): void {
     if (!this.canAddClinicalEntry() || this.workspaceService.hasPendingClinicalWork()) return;
     this.clinicalEntryMessage.set('');
+    this.evolutionEntryInitial.set(null);
     this.evolutionEntryOpen.set(true);
+  }
+  addDiagnosisToEvolution(record: ClinicalRecord): void {
+    if (!this.canAddClinicalEntry() || this.workspaceService.hasPendingClinicalWork()) return;
+    const selected = clinicalDiagnosisEntry(record);
+    const current = this.diagnosisEntries().find(entry => entry.key === selected.key && entry.evolutionText === selected.evolutionText);
+    if (!current?.evolutionText) return;
+    this.evolutionEntryInitial.set({
+      id: newClinicalEntryId('evolution'), date: localIsoDate(), author: '', specialty: 'Oncología',
+      text: current.evolutionText
+    });
+    this.evolutionEntryOpen.set(true);
+  }
+  closeEvolutionEntry(): void {
+    this.evolutionEntryOpen.set(false);
+    this.evolutionEntryInitial.set(null);
   }
   openDiagnosisEntry(): void {
     if (!this.canAddClinicalEntry() || this.workspaceService.hasPendingClinicalWork()) return;
@@ -736,6 +756,7 @@ export class ClinicalWorkspaceComponent implements OnInit, OnDestroy {
   exam(key: string): string { return this.text(this.state().exam?.[key]); }
   text(value: unknown): string { return typeof value === 'string' || typeof value === 'number' ? String(value) : ''; }
   date(value?: string): string { if (!value) return ''; const parsed = new Date(`${value.length === 10 ? `${value}T12:00:00` : value}`); return Number.isNaN(parsed.getTime()) ? value : new Intl.DateTimeFormat('es-AR').format(parsed); }
+  diagnosisDate(value: string): string { return /^\d{4}(?:-\d{2})?$/.test(value) ? value : this.date(value); }
   patientLine(patient: ClinicalPatient): string { return [`HC ${patient.medicalRecord || '—'}`, `DNI ${patient.dni || '—'}`, patient.insurance ? `Obra social ${patient.insurance}` : '', patient.affiliateNumber ? `Afiliado ${patient.affiliateNumber}` : ''].filter(Boolean).join(' · '); }
   recordTitle(record: ClinicalRecord): string { return this.text(record.diagnosis) || this.text(record.title) || this.text(record.scheme) || this.text(record.reason) || 'Registro clínico'; }
   recordBody(record: ClinicalRecord): string { return this.text(record.text) || this.text(record.summary) || this.text(record.status); }
@@ -769,6 +790,9 @@ export class ClinicalWorkspaceComponent implements OnInit, OnDestroy {
     }).format(parsed);
   }
   evolutionHeading(record: ClinicalRecord): string { return this.join(this.date(record.date), this.text(record.author) || this.text(record.reason)); }
+  evolutionAttachments(record: ClinicalRecord): EvolutionImageAttachment[] {
+    return this.activityHighlightRecordType(record) === 'evolution' ? normalizeEvolutionAttachments(record.attachments) : [];
+  }
   activityRecords(): ClinicalRecord[] {
     return [...this.records('evolutions'), ...this.records('prescriptions'), ...this.records('researchRecords')]
       .sort((left, right) => {

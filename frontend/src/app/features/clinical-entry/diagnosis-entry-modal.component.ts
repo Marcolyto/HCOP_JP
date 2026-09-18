@@ -28,6 +28,7 @@ export class DiagnosisEntryModalComponent implements OnDestroy {
   readonly open = input(false);
   readonly closed = output<void>();
   readonly saved = output<ClinicalEntrySaveResult<DiagnosisRecord>>();
+  readonly evolutionRequested = output<DiagnosisRecord>();
 
   readonly workspace = inject(PatientWorkspaceService);
   readonly entries = inject(ClinicalEntryService);
@@ -116,6 +117,7 @@ export class DiagnosisEntryModalComponent implements OnDestroy {
   }
 
   async selectSite(siteIdValue: unknown): Promise<void> {
+    this.stageRequest += 1; this.calculating.set(false);
     const siteId = String(siteIdValue || '');
     this.selectedSiteId.set(siteId); this.detail.set(null); this.values.set({ T: '', N: '', M: '' });
     this.stage.set(''); this.stageEdited.set(false); this.sourceRow.set(null); this.stageMessage.set('Cargando criterios AJCC 8…');
@@ -149,6 +151,7 @@ export class DiagnosisEntryModalComponent implements OnDestroy {
     this.values.update((current) => ({ ...current, [key]: String(value || '') })); this.afterStagingChange();
   }
   changeStage(value: unknown): void {
+    this.stageRequest += 1; this.calculating.set(false);
     this.stage.set(String(value || '').trimStart().slice(0, 120)); this.stageEdited.set(true); this.sourceRow.set(null);
     this.stageMessage.set(this.stage() ? 'Estadio informado manualmente. Puede corregirlo antes de guardar.' : 'Ingrese el estadio para completar el diagnóstico.');
     this.error.set(''); this.markDirty();
@@ -180,7 +183,7 @@ export class DiagnosisEntryModalComponent implements OnDestroy {
   continueEditing(): void { this.discardPrompt.set(false); }
   discardAndClose(): void { if (!this.busy()) this.finishClose(); }
 
-  async save(): Promise<void> {
+  async save(addToEvolution = false): Promise<void> {
     if (this.busy()) return;
     if (!this.entries.canEdit()) { this.error.set('Su usuario no tiene permiso para editar la historia clínica.'); return; }
     if (!this.entries.canStage()) { this.error.set('Su rol no permite consultar y calcular AJCC.'); return; }
@@ -190,6 +193,7 @@ export class DiagnosisEntryModalComponent implements OnDestroy {
     try {
       const result = await firstValueFrom(this.entries.saveDiagnosis(draft));
       this.releaseDraft(); this.saved.emit(result); this.closed.emit();
+      if (addToEvolution) this.evolutionRequested.emit(result.record);
     } catch (failure: unknown) {
       this.error.set(normalizeEntryFailure(failure, 'No se pudo guardar el diagnóstico.').message);
     } finally { this.busy.set(false); }
@@ -217,6 +221,7 @@ export class DiagnosisEntryModalComponent implements OnDestroy {
   }
 
   private afterStagingChange(): void {
+    this.stageRequest += 1; this.calculating.set(false);
     this.stage.set(''); this.stageEdited.set(false); this.sourceRow.set(null); this.error.set(''); this.markDirty();
     const detail = this.detail();
     if (!detail || !['T', 'N', 'M'].every((key) => this.values()[key])) {

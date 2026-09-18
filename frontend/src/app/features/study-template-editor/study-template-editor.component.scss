@@ -13,6 +13,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .icon-button { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid transparent; background: #fff; color: #526976; }
 .icon-button:hover { border-color: #cbd8df; background: #f4f8fa; color: #243e50; }
 .editor-layout { display: grid; min-height: 0; grid-template-columns: minmax(245px, 19vw) minmax(0, 1fr); overflow: hidden; }
+.editor-layout.has-source { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
 .template-library { display: grid; min-height: 0; grid-template-rows: auto 38px 48px minmax(0, 1fr); gap: 8px; overflow: hidden; border-right: 1px solid var(--line); background: #f7fafb; padding: 11px; }
 .template-library > header { display: grid; gap: 2px; }
 .template-library > header strong { color: #2f4e61; font-size: 13px; }
@@ -39,6 +40,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 @keyframes spin { to { transform: rotate(360deg); } }
 .image-editor { display: grid; min-width: 0; min-height: 0; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; background: #eef2f4; }
 .annotation-toolbar { display: flex; min-height: 52px; align-items: center; gap: 7px; overflow-x: auto; border-bottom: 1px solid var(--line); background: #fff; padding: 7px 9px; }
+.annotation-toolbar[aria-disabled="true"] { opacity: .55; }
 .tool-group, .history-actions, .color-group { display: flex; flex: 0 0 auto; align-items: center; gap: 3px; }
 .tool-group { border: 1px solid #d6e0e5; background: #f8fafb; padding: 3px; }
 .tool-group button, .history-actions button { min-height: 30px; border: 0; background: transparent; padding: 5px 8px; color: #536c79; font-size: 9.5px; font-weight: 720; white-space: nowrap; }
@@ -72,4 +74,5 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .secondary-button:hover { background: #f2f8fb; }
 @media (max-width: 960px) { .editor-layout { grid-template-columns: 220px minmax(0, 1fr); }.annotation-toolbar { align-items: flex-start; flex-wrap: wrap; }.history-actions { margin-left: 0; }.image-editor { grid-template-rows: auto minmax(0, 1fr); } }
 @media (max-width: 720px) { .study-template-editor-modal { width: 100vw; height: 100vh; }.editor-layout { grid-template-columns: 1fr; grid-template-rows: 180px minmax(0, 1fr); }.template-library { grid-template-columns: minmax(160px, .7fr) 1fr; grid-template-rows: auto 38px minmax(0, 1fr); }.template-library > header { grid-column: 1; }.library-search { grid-column: 2; grid-row: 1; }.library-category { grid-column: 1; grid-row: 2; }.template-list { grid-column: 1 / -1; grid-row: 3; display: flex; gap: 6px; }.template-item { flex: 0 0 210px; }.editor-footer p { white-space: normal; } }
+@media (max-width: 720px) { .study-template-editor-modal { grid-template-rows: 54px minmax(0, 1fr) auto; }.editor-footer { flex-wrap: wrap; gap: 6px; }.editor-footer > div { flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-end; }.editor-footer p { flex: 1 1 100%; } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 1.8s; } }

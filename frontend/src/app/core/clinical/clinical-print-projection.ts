@@ -3,6 +3,7 @@ import { personalHistoryLegacySnapshot } from './clinical-personal-history-edit'
 import { physicalExamLegacySnapshot } from './clinical-physical-exam-edit';
 import { clinicalStudyRecords } from './clinical-study-projection';
 import { ClinicalTreatmentKind, clinicalSectionTreatments } from './clinical-treatment-projection';
+import { clinicalDiagnosisEntries } from './clinical-diagnosis-projection';
 
 export type ClinicalPrintSection =
   | 'diagnosis'
@@ -28,11 +29,9 @@ export function clinicalPrintSectionHasContent(
   relationalTreatments: readonly ClinicalRecord[] = []
 ): boolean {
   const narrative = state.narrative || {};
-  const oncology = state.oncology || {};
   const exam = state.exam || {};
   if (section === 'diagnosis') {
-    return active(state.diagnoses).length > 0
-      || hasText(oncology['diagnosis'], oncology['topography'], oncology['histology'], oncology['stage']);
+    return clinicalDiagnosisEntries(state).length > 0;
   }
   if (section === 'chiefComplaint') return hasText(narrative['chiefComplaint']);
   if (section === 'currentIllness') return hasText(narrative['currentIllness']);

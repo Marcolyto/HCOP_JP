@@ -3,7 +3,7 @@
     <section class="study-template-editor-modal" role="dialog" aria-modal="true" aria-labelledby="studyTemplateEditorTitle" aria-describedby="studyTemplateEditorStatus">
       <header class="editor-header">
         <div>
-          <span>Estudios · plantilla anatómica</span>
+          <span>{{ source() ? 'Estudios · Editor de imagen' : 'Estudios · plantilla anatómica' }}</span>
           <h2 id="studyTemplateEditorTitle">{{ imageTitle() }}</h2>
         </div>
         <button class="icon-button close-button" type="button" title="Cerrar editor" aria-label="Cerrar editor de imagen" (click)="requestClose()">
@@ -11,7 +11,8 @@
         </button>
       </header>
 
-      <div class="editor-layout">
+      <div class="editor-layout" [class.has-source]="source()">
+        @if (!source()) {
         <aside class="template-library" aria-label="Plantillas anatómicas">
           <header><strong>Plantillas</strong><small>Seleccione una base para marcar</small></header>
           <label class="library-search">
@@ -24,12 +25,12 @@
               @for (item of categories(); track item) { <option [value]="item">{{ item }}</option> }
             </select>
           </label>
-          <div class="template-list" role="list" aria-live="polite" [attr.aria-busy]="loading()">
-            @if (loading() && !templates().length) { <div class="library-state"><span class="spinner"></span><span>Cargando plantillas…</span></div> }
-            @else if (error() && !templates().length) { <div class="library-state is-error"><span>{{ error() }}</span><button type="button" (click)="loadTemplates()">Reintentar</button></div> }
+          <div class="template-list" role="list" aria-live="polite" [attr.aria-busy]="catalogLoading()">
+            @if (catalogLoading() && !templates().length) { <div class="library-state"><span class="spinner"></span><span>Cargando plantillas…</span></div> }
+            @else if (catalogError() && !templates().length) { <div class="library-state is-error"><span>{{ catalogError() }}</span><button type="button" (click)="loadTemplates()">Reintentar</button></div> }
             @else {
               @for (item of filteredTemplates(); track item.id) {
-                <button class="template-item" type="button" role="listitem" [class.active]="selected()?.id === item.id" [disabled]="!item.available || loading()" [attr.aria-pressed]="selected()?.id === item.id" (click)="selectTemplate(item)">
+                <button class="template-item" type="button" role="listitem" [class.active]="selected()?.id === item.id" [disabled]="!item.available || exporting()" [attr.aria-pressed]="selected()?.id === item.id" (click)="selectTemplate(item)">
                   <span class="template-thumb">
                     @if (item.available) { <img [src]="item.thumbnailUrl" alt="" loading="lazy"> }
                     @else { <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16"/><path d="m4 18 5-5 4 3 3-2 4 4M4 4l16 16"/></svg> }
@@ -40,9 +41,10 @@
             }
           </div>
         </aside>
+        }
 
         <main class="image-editor">
-          <nav class="annotation-toolbar" aria-label="Herramientas de anotación">
+          <nav class="annotation-toolbar" aria-label="Herramientas de anotación" [attr.aria-disabled]="!ready() || !editable()" [attr.inert]="!ready() || !editable() ? '' : null">
             <div class="tool-group" role="group" aria-label="Herramienta">
               <button type="button" [class.active]="tool() === 'draw'" [attr.aria-pressed]="tool() === 'draw'" [disabled]="!editable()" (click)="setTool('draw')" title="Trazo libre">Lápiz</button>
               <button type="button" [class.active]="tool() === 'eraser'" [attr.aria-pressed]="tool() === 'eraser'" [disabled]="!editable()" (click)="setTool('eraser')" title="Borrar solamente trazos agregados">Goma</button>
@@ -77,10 +79,10 @@
             </div>
           </nav>
 
-          <div class="canvas-stage" [class.is-loading]="loading()">
-            @if (!imageTitle() || !sourceName()) { <div class="canvas-empty">Seleccione una plantilla.</div> }
-            <canvas #canvas [class.has-image]="sourceName()" [class.eraser]="tool() === 'eraser'" [class.text]="tool() === 'text'" aria-label="Editor de imagen anatómica" (pointerdown)="pointerDown($event)" (pointermove)="pointerMove($event)" (pointerup)="pointerUp($event)" (pointercancel)="pointerCancel($event)"></canvas>
-            @if (loading()) { <div class="stage-loading"><span class="spinner"></span><span>Preparando imagen…</span></div> }
+          <div class="canvas-stage" [class.is-loading]="imageLoading()" [attr.aria-busy]="imageLoading()">
+            @if (!imageLoaded() && !imageLoading()) { <div class="canvas-empty">{{ error() || 'Seleccione una plantilla.' }}</div> }
+            <canvas #canvas [class.has-image]="imageLoaded()" [class.eraser]="tool() === 'eraser'" [class.text]="tool() === 'text'" aria-label="Editor de imagen anatómica" (pointerdown)="pointerDown($event)" (pointermove)="pointerMove($event)" (pointerup)="pointerUp($event)" (pointercancel)="pointerCancel($event)"></canvas>
+            @if (imageLoading()) { <div class="stage-loading"><span class="spinner"></span><span>Preparando imagen…</span></div> }
           </div>
         </main>
       </div>
@@ -88,8 +90,11 @@
       <footer class="editor-footer">
         <p id="studyTemplateEditorStatus" role="status" aria-live="polite" [class.is-error]="error()">{{ error() || status() }}</p>
         <div>
-          <button class="secondary-button" type="button" [disabled]="!editable() || !sourceName()" (click)="download()">Descargar PNG</button>
-          <button class="primary-button" type="button" [disabled]="!editable() || !sourceName()" (click)="useImage()">Agregar a Estudios</button>
+          <button class="secondary-button" type="button" [disabled]="!editable() || !ready()" (click)="download()">Descargar PNG</button>
+          @if (canAddToEvolution()) {
+            <button class="secondary-button" type="button" [disabled]="!editable() || !ready()" (click)="useInEvolution()">Agregar a evolución</button>
+          }
+          <button class="primary-button" type="button" [disabled]="!editable() || !ready()" (click)="useImage()">{{ exporting() ? 'Preparando imagen…' : 'Agregar a Estudios' }}</button>
         </div>
       </footer>
     </section>

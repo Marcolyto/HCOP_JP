@@ -1,0 +1,22 @@
+import { appendStudyImageVersion, safeStudyImageUrl, studyImages } from './study-image-presentation';
+import type { ClinicalRecord } from '../patients/patient-workspace.models';
+let assertions = 0;
+function equal(actual: unknown, expected: unknown, label: string): void { assertions++; if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`${label}: ${JSON.stringify(actual)}`); }
+const original = '/api/media/studies/original.png';
+const edited = '/api/media/studies/edited.png';
+const latest = '/api/media/studies/latest.png';
+const record: ClinicalRecord = { id: 's1', title: 'Plantilla', displayImageUrls: [original], imageAssets: [{ id: 'im1', originalUrl: original, activeVersionId: 'v1', versions: [{ id: 'v1', url: edited }, { id: 'v2', url: latest }] }] };
+equal(studyImages(record)[0]?.url, edited, 'resuelve la versión activa histórica');
+equal(studyImages({ ...record, imageAssets: [{ originalUrl: original, versions: [{ id: 'v2', url: latest }] }] })[0]?.url, latest, 'resuelve última versión sin selección');
+equal(studyImages({ ...record, displayImageUrls: [edited, original] }).length, 1, 'deduplica original y copia de un mismo asset');
+equal(studyImages({ previewImageUrl: original, imageUrls: [original] }).length, 1, 'deduplica URLs históricas');
+equal(studyImages({ attachments: [{ category: 'image', url: original }] })[0]?.url, original, 'muestra imágenes cargadas');
+equal(studyImages({ title: 'Laboratorio' }), [], 'no inventa imágenes para texto');
+const before = JSON.stringify(record);
+const updated = appendStudyImageVersion(record, studyImages(record)[0]!, '/api/media/studies/new.png', 'v3', { at: '2026-09-16T12:00:00Z' });
+equal(JSON.stringify(record), before, 'no modifica estudio original');
+equal(studyImages(updated)[0]?.versions.map(v => v.url), [original, edited, latest, '/api/media/studies/new.png'], 'conserva original y todas las ediciones');
+equal(studyImages(updated)[0]?.versionId, 'v3', 'selecciona la copia guardada');
+for (const url of ['javascript:alert(1)', '//other.example/image.png', 'blob:temporary', 'https://user:secret@example.com/a.png', '/\\other.example/a.png', 'data:image/svg+xml;base64,PHN2Zz4=']) equal(safeStudyImageUrl(url), '', 'rechaza URL no apta');
+equal(safeStudyImageUrl('data:image/png;base64,aGVsbG8='), 'data:image/png;base64,aGVsbG8=', 'admite bitmap histórico');
+console.log(`study-image-presentation: ${assertions} aserciones OK`);

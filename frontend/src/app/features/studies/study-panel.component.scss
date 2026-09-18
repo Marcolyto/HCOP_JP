@@ -1,7 +1,57 @@
 :host { display: block; min-height: 0; }
-.angular-study-panel { min-height: 100%; }
+.angular-study-panel { min-height: 100%; padding-inline-start: 16px; box-sizing: border-box; }
 .angular-study-search { display: block; margin: 0 0 8px; }
 .angular-study-search input { box-sizing: border-box; width: 100%; }
 .study-upload-zone input { cursor: pointer; }
 .study-upload-zone.dragging { outline: 2px solid var(--accent, #3197c8); outline-offset: -4px; }
-.study-card { cursor: pointer; }
+.angular-study-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0 8px; }
+.angular-study-section-heading > div { display: grid; gap: 3px; }
+.angular-study-section-heading h3 { margin: 0; color: var(--lira-heading, #354c48); font-size: 13px; font-weight: 750; }
+.angular-study-section-heading span { color: var(--muted, #6c7d87); font-size: 10px; }
+.angular-study-section-heading button { flex-shrink: 0; }
+.angular-study-search-status { min-height: 20px; color: #637680; font-size: 11px; line-height: 1.4; padding-bottom: 5px; }
+.angular-study-source-warning { color: #896526; }
+.angular-study-sources { margin: 0 0 8px; font-size: 10px; color: #62747e; }
+.angular-study-sources summary { cursor: pointer; width: fit-content; }
+.angular-study-sources ul { display: grid; gap: 5px; padding: 6px 0 0; margin: 0; list-style: none; }
+.angular-study-sources li { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px 10px; }
+.angular-study-sources li small { flex: 1 1 100%; overflow-wrap: anywhere; }
+.angular-study-table-scroll { overflow-x: auto; border: 1px solid var(--line, #d8e2e8); background: #fff; }
+.angular-study-table { width: 100%; min-width: 540px; border-collapse: collapse; table-layout: auto; font-size: 11px; }
+.angular-study-table th { position: sticky; top: 0; z-index: 1; background: #f1f5f5; color: #5f726f; text-align: left; font-size: 9px; font-weight: 750; text-transform: uppercase; padding: 8px 9px; border-bottom: 1px solid var(--line, #d8e2e8); }
+.angular-study-table td { vertical-align: top; padding: 9px; border-bottom: 1px solid #e7edef; color: #40555f; line-height: 1.4; }
+.angular-study-table tr:last-child td { border-bottom: 0; }
+.angular-study-table tbody tr:hover td, .angular-study-table tr.is-selected td { background: #f2f8fb; }
+.angular-study-table tbody tr:focus-visible { outline: 2px solid #479cc0; outline-offset: -2px; }
+.angular-study-date { white-space: nowrap; }
+.angular-study-description { min-width: 155px; overflow-wrap: anywhere; }
+.angular-study-description strong { display: block; font-weight: 650; }
+.angular-study-description small { display: block; color: #6c7d87; font-size: 10px; margin-top: 3px; white-space: pre-wrap; }
+.angular-study-row-actions { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+.angular-study-row-actions .tiny-button { min-height: 25px; white-space: nowrap; font-size: 10px; }
+.angular-study-table td.angular-study-list-empty { text-align: center; color: #7a8b94; padding: 20px 12px; }
+.angular-study-gallery-section { margin-top: 20px; border-top: 1px solid var(--line, #d8e2e8); }
+.angular-study-gallery { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 12px; }
+.angular-study-gallery-empty { grid-column: 1 / -1; margin: 0; padding: 24px 12px; text-align: center; border: 1px dashed var(--line, #d8e2e8); color: #7a8b94; font-size: 11px; }
+.angular-study-image-viewer { min-width: 0; border: 1px solid var(--line, #d8e2e8); border-radius: 4px; background: #fff; overflow: hidden; }
+.angular-study-image-viewer.is-selected, .angular-study-image-viewer:focus-visible { outline: 2px solid #479cc0; outline-offset: -2px; }
+.angular-study-image-viewer > header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line, #d8e2e8); }
+.angular-study-image-viewer > header > div { display: grid; gap: 3px; min-width: 0; flex: 1; }
+.angular-study-image-viewer > header strong { color: #354c48; font-size: 12px; overflow-wrap: anywhere; }
+.angular-study-image-viewer > header span { font-size: 10px; color: #6c7d87; }
+.angular-study-image-viewer > p { padding: 12px; white-space: pre-wrap; }
+.angular-study-image-preview { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 12px; }
+.angular-study-image-preview + .angular-study-image-preview { border-top: 1px solid var(--line, #d8e2e8); }
+.angular-study-image-preview img { display: block; width: 100%; height: 300px; max-height: 55vh; object-fit: contain; background: #f3f6f8; border-radius: 4px; }
+.angular-study-image-preview figcaption { display: grid; gap: 10px; }
+.angular-study-image-preview label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 10px; color: #637680; }
+.angular-study-image-preview select { max-width: 100%; min-height: 28px; border: 1px solid var(--line, #d8e2e8); font: inherit; background: #fff; }
+.angular-study-image-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.angular-study-image-actions .tiny-button { font-size: 10px; }
+.angular-study-document { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 16px 12px; }
+.angular-study-document-icon { font-size: 28px; color: #637680; }
+.angular-study-document-details { display: grid; gap: 4px; min-width: 0; flex: 1; color: #40555f; font-size: 12px; }
+.angular-study-document-details > span { color: #6c7d87; font-size: 10px; }
+.angular-study-document-details p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.study-upload-item.has-preview { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; }
+.study-upload-preview { grid-column: 1 / -1; width: 100%; max-height: 45vh; object-fit: contain; background: #f3f6f8; border: 1px solid var(--line, #d8e2e8); }

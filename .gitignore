@@ -16,3 +16,9 @@ runtime/*.log
 .vscode/
 *.iml
 *.local
+
+# Generated frontend and local deployment artifacts
+/src/main/resources/static/app/
+/runtime/study-image-build/
+/runtime/study-fix-qa/
+/STUDY_IMAGE_FIX.md

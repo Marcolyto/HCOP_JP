@@ -1,0 +1,77 @@
+<section class="study-pdf-viewer" [attr.aria-label]="title() || 'Documento PDF'">
+  <header class="study-pdf-toolbar">
+    <span>{{ pageCount() ? pageCount() + (pageCount() === 1 ? ' página' : ' páginas') : 'Documento PDF' }}</span>
+    @if (safeUrl()) {
+      <a class="tiny-button" [href]="safeUrl()" target="_blank" rel="noopener noreferrer">Abrir PDF</a>
+    }
+  </header>
+  @if (loading()) {
+    <p class="study-pdf-message" role="status">Preparando páginas del PDF…</p>
+  }
+  @if (error()) {
+    <div class="study-pdf-message study-pdf-error" role="alert">
+      <span>{{ error() }}</span>
+      @if (safeUrl()) { <button class="tiny-button" type="button" (click)="retry()">Reintentar</button> }
+    </div>
+  }
+  @if (busyPage()) {
+    <p class="study-pdf-message" role="status">Preparando página {{ busyPage() }}… <button class="tiny-button" type="button" (click)="cancelPageAction()">Cancelar</button></p>
+  }
+  @if (actionError()) { <p class="study-pdf-message study-pdf-error" role="alert">{{ actionError() }}</p> }
+  <div #pagesContainer class="study-pdf-pages">
+    @for (page of pages(); track page.number) {
+      <figure class="study-pdf-page">
+        <div class="study-pdf-page-toolbar">
+          <span>Página {{ page.number }} de {{ pageCount() }}</span>
+          <label>Versión
+            <select [value]="selectedVersion(page.number)?.id || 'original'" [disabled]="!!busyPage()" (change)="selectVersion(page.number, $any($event.target).value)">
+              <option value="original" [selected]="!selectedVersion(page.number)">Original</option>
+              @for (version of versionsFor(page.number); track version.id) { <option [value]="version.id" [selected]="selectedVersion(page.number)?.id === version.id">{{ version.label }}</option> }
+            </select>
+          </label>
+          <div class="study-pdf-page-actions">
+            <button class="tiny-button" type="button" [disabled]="!!busyPage()" (click)="enlargePage(page.number)">Ampliar página</button>
+            <button class="tiny-button" type="button" [disabled]="!!busyPage() || !canEdit()" (click)="requestEdit(page.number)">Editar página</button>
+            <button class="tiny-button" type="button" [disabled]="!!busyPage() || !canAddToEvolution()" (click)="requestEvolution(page.number)">Agregar a evolución</button>
+          </div>
+        </div>
+        <div #pageHost class="study-pdf-page-surface" [attr.data-pdf-page]="page.number" [style.aspect-ratio]="page.width + ' / ' + page.height" [attr.aria-busy]="page.status() === 'rendering'">
+          <canvas role="img" [attr.aria-label]="(title() || 'Documento PDF') + ', página ' + page.number + ' de ' + pageCount()" [class.is-ready]="!selectedVersion(page.number) && page.status() === 'ready'" [attr.aria-hidden]="selectedVersion(page.number) ? 'true' : null"></canvas>
+          @if (selectedVersion(page.number); as selected) {
+            <img class="study-pdf-saved-image" [src]="selected.url" [alt]="(title() || 'Documento PDF') + ', página ' + page.number + ', ' + selected.label" loading="lazy" (error)="imageFailed(page.number, selected.id)">
+            @if (imageErrors()[page.number] === selected.id) { <div class="study-pdf-placeholder study-pdf-error">No se pudo cargar esta versión. Puede seleccionar Original.</div> }
+          } @else if (page.status() !== 'ready') {
+            <div class="study-pdf-placeholder">
+              @if (page.status() === 'error') {
+                <span>No se pudo mostrar esta página.</span>
+                <button class="tiny-button" type="button" (click)="retryPage(page.number)">Reintentar página {{ page.number }}</button>
+              } @else {
+                <span>{{ page.status() === 'rendering' ? 'Cargando página ' : 'Página ' }}{{ page.number }}</span>
+              }
+            </div>
+          }
+        </div>
+        <figcaption>Página {{ page.number }} de {{ pageCount() }}</figcaption>
+      </figure>
+    }
+  </div>
+</section>
+@if (zoom(); as enlarged) {
+  <dialog #zoomDialog class="study-pdf-zoom" [attr.aria-label]="(title() || 'Documento PDF') + ', página ' + enlarged.pageNumber" (cancel)="closeZoom($event)" (keydown)="trapZoomFocus($event)">
+    <header class="study-pdf-zoom-toolbar">
+      <div><strong>{{ title() || 'Documento PDF' }}</strong><span>Página {{ enlarged.pageNumber }} de {{ pageCount() }}</span></div>
+      <div class="study-pdf-zoom-controls">
+        <button class="tiny-button" type="button" aria-label="Reducir página" [disabled]="enlarged.loading || zoomScale() <= 0.5" (click)="changeZoom(-0.25)">−</button>
+        <span aria-live="polite">{{ zoomScale() * 100 }}%</span>
+        <button class="tiny-button" type="button" aria-label="Aumentar página" [disabled]="enlarged.loading || zoomScale() >= 3" (click)="changeZoom(0.25)">+</button>
+        <button class="tiny-button" type="button" [disabled]="enlarged.loading" (click)="zoomScale.set(1)">Ajustar al ancho</button>
+        <button data-zoom-close class="tiny-button" type="button" (click)="closeZoom()">Cerrar</button>
+      </div>
+    </header>
+    <div class="study-pdf-zoom-content" tabindex="0" aria-label="Página ampliada">
+      @if (enlarged.loading) { <p class="study-pdf-message" role="status">Preparando página {{ enlarged.pageNumber }}…</p> }
+      @if (enlarged.error) { <p class="study-pdf-message study-pdf-error" role="alert">{{ enlarged.error }}</p> }
+      @if (enlarged.url && !enlarged.error) { <img [src]="enlarged.url" [alt]="(title() || 'Documento PDF') + ', página ' + enlarged.pageNumber" [style.width.%]="zoomScale() * 100" (error)="zoomImageFailed()"> }
+    </div>
+  </dialog>
+}

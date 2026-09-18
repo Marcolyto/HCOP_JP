@@ -48,6 +48,15 @@ test('los estudios externos comparten la misma proyección de impresión', () =>
   }, 'studies'), false);
 });
 
+test('diagnóstico estructurado sin proyección textual sigue presente en impresión', () => {
+  equal(clinicalPrintSectionHasContent({ oncology: { diagnosisRecords: [{ id: 'd1',
+    diagnosticClassifications: { snomed: { code: '39937001', display: 'Diagnóstico codificado' } },
+    tnm: { t: 'T1', n: 'N0', m: 'M0' } }] } }, 'diagnosis'), true);
+  equal(clinicalPrintSectionHasContent({ oncology: { diagnosticClassifications: { cie10: { code: 'C60' } } } }, 'diagnosis'), true);
+  equal(clinicalPrintSectionHasContent({ oncology: { tnm: { t: 'T1' } } }, 'diagnosis'), true);
+  equal(clinicalPrintSectionHasContent({ oncology: { diagnosisRecords: [{ id: 'd1', diagnosis: 'Borrado', deleted: true }] } }, 'diagnosis'), false);
+});
+
 test('imprime la ultima instantanea legacy sin revivirla en modo estructurado', () => {
   const legacy = {
     narrative: {},

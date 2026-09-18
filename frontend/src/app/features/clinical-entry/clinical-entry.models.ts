@@ -11,8 +11,26 @@ export interface ClinicalAuditStamp {
   readonly action: 'cargado'; readonly lastName: string; readonly license: string; readonly at: string;
 }
 
+export interface EvolutionImageAttachment {
+  readonly id: string;
+  readonly url: string;
+  readonly title: string;
+  readonly studyId?: string;
+  readonly imageId?: string;
+  readonly versionId?: string;
+  readonly annotated?: boolean;
+  readonly thumbnailUrl?: string;
+  readonly studyDate?: string;
+  readonly studyType?: string;
+  readonly caption?: string;
+  readonly templateSource?: Readonly<Record<string, unknown>> | null;
+  readonly audit?: Readonly<Record<string, unknown>> | ClinicalAuditStamp | null;
+  readonly createdAt?: string;
+}
+
 export interface EvolutionEntryDraft {
   readonly id: string; readonly date: string; readonly author: string; readonly specialty: string; readonly text: string;
+  readonly attachments?: readonly EvolutionImageAttachment[];
 }
 
 export interface DiagnosisClassification {

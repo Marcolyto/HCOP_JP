@@ -1,6 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { fitRasterSize, isDrawableShape, normalizeCanvasPoint, normalizeTemplateCatalog, normalizedSearch, safePngName, safeStudyImageUrl, shapeGeometry } from './study-template-editor.geometry';
 import { ShapeAnnotation } from './study-template-editor.models';
+import { StudyTemplateImageSession } from './study-template-editor.state';
 
 const rectangle: ShapeAnnotation = {
   type: 'shape', shape: 'rectangle', start: { x: 90, y: 80 }, end: { x: 20, y: 30 }, color: '#1587c9', width: 3, filled: false
@@ -37,5 +38,22 @@ assert.equal(safeStudyImageUrl('assets/study-templates/images/pelvis.webp'), '/a
 assert.equal(safeStudyImageUrl('/assets/study-templates/thumbnails/pelvis.webp'), '/assets/study-templates/thumbnails/pelvis.webp');
 assert.equal(normalizedSearch('  TÓRAX ÁP  '), 'torax ap');
 assert.equal(safePngName('Pelvis femenina.JPG'), 'Pelvis-femenina-anotada.png');
+
+// A pending decode must not overwrite a newer selection or a closed editor.
+const imageSession = new StudyTemplateImageSession();
+const firstFile = new Blob(['first'], { type: 'image/png' });
+const secondFile = new Blob(['other'], { type: 'image/png' });
+assert.equal(firstFile.size, secondFile.size);
+assert.equal(imageSession.setSource({ file: firstFile, name: 'plantilla.png' }), true);
+const firstRequest = imageSession.beginLoad();
+assert.equal(imageSession.setSource({ file: secondFile, name: 'plantilla.png' }), true);
+const secondRequest = imageSession.beginLoad();
+assert.equal(imageSession.isCurrent(firstRequest), false, 'equal-size files remain distinct image sources');
+assert.equal(imageSession.isCurrent(secondRequest), true);
+imageSession.cancelLoad();
+assert.equal(imageSession.isCurrent(secondRequest), false, 'closing invalidates an in-flight image decode');
+assert.equal(imageSession.setSource({ file: secondFile, name: 'plantilla.png' }), false, 'reopening preserves the same source and its draft');
+assert.equal(imageSession.setSource(null), true, 'returning to the library starts a separate image context');
+assert.equal(imageSession.setSource(null), false, 'reopening the library preserves its selected template');
 
 console.log('study-template-editor geometry: ok');

@@ -12,6 +12,18 @@
           <label><span>Especialidad</span><input autocomplete="off" maxlength="255" [ngModel]="specialty()" [ngModelOptions]="standalone" [disabled]="busy()" (ngModelChange)="update('specialty', $event)"></label>
         </div>
         <label class="paper-field clinical-entry-paper-field"><span>Evolución</span><textarea rows="12" maxlength="50000" placeholder="Escribir evolución clínica..." [ngModel]="text()" [ngModelOptions]="standalone" [disabled]="busy()" (ngModelChange)="update('text', $event)"></textarea></label>
+        @if (attachments().length) {
+          <section class="evolution-draft-attachments" aria-label="Imágenes adjuntas a la evolución">
+            @for (attachment of attachments(); track $index) {
+              <article class="evolution-draft-attachment">
+                <a class="evolution-draft-thumbnail" [href]="attachment.url" target="_blank" rel="noopener" [attr.aria-label]="'Ampliar ' + attachment.title"><img [src]="attachment.thumbnailUrl || attachment.url" [alt]="attachment.title"></a>
+                <div><span>Imagen adjunta{{ attachment.annotated !== false && attachment.versionId && attachment.versionId !== 'original' ? ' · Anotada' : '' }}</span><strong>{{ attachment.title }}</strong><small>{{ attachment.studyType }}@if (attachment.studyDate) { · {{ attachment.studyDate }} }</small></div>
+                <button class="icon-button" type="button" title="Quitar imagen" [attr.aria-label]="'Quitar imagen ' + attachment.title" [disabled]="busy() || !entries.canEdit()" (click)="removeAttachment($index)">×</button>
+              </article>
+            }
+            <p>La imagen se adjuntará al guardar la evolución.</p>
+          </section>
+        }
         <div class="actions-row"><button class="tool-button" type="button" [disabled]="busy()" (click)="clear()"><span aria-hidden="true">⌫</span><span>Limpiar</span></button></div>
         @if (!entries.canEdit()) { <p class="clinical-entry-message is-error">Su rol permite consultar la hoja, pero no agregar evoluciones.</p> }
         @if (error()) { <p class="clinical-entry-message is-error" role="alert">{{ error() }}</p> }

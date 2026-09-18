@@ -1,9 +1,11 @@
 import type { ClinicalRecord, ClinicalState } from '../../core/patients/patient-workspace.models';
+import { safeStudyImageUrl } from '../../core/clinical/study-image-presentation';
+import { clinicalDiagnosisEntry, legacyClinicalDiagnosisRecord } from '../../core/clinical/clinical-diagnosis-projection';
 import {
   AjccAxis, AjccCategory, AjccSiteDetail, AjccSiteGroup, AjccSiteSummary, ClinicalAuditStamp,
   DiagnosisCatalogItem, DiagnosisClassification, DiagnosisEditorCatalog, DiagnosisEntryDraft,
   DiagnosisEquivalence, DiagnosisRecord, DiagnosisSystem, DiagnosisValidation,
-  DIAGNOSIS_SYSTEM_LABELS, EvolutionEntryDraft
+  DIAGNOSIS_SYSTEM_LABELS, EvolutionEntryDraft, EvolutionImageAttachment
 } from './clinical-entry.models';
 
 type JsonRecord = Record<string, unknown>;
@@ -165,13 +167,44 @@ export function validateDiagnosisDraft(
   return issues.length ? invalid(issues) : { valid: true, issues: [], message: 'Diagnóstico completo. Puede guardarlo.' };
 }
 
+/** Keeps the selected image version as a snapshot, including attachments saved by the legacy editor. */
+export function normalizeEvolutionAttachments(value: unknown): EvolutionImageAttachment[] {
+  return array(value).flatMap((candidate, index) => {
+    const item = record(candidate);
+    const url = safeStudyImageUrl(item['url']);
+    if (!url) return [];
+    const templateSource = record(item['templateSource']);
+    const audit = record(item['audit']);
+    return [{
+      id: text(item['id']) || `evolution-image-${index + 1}`,
+      url,
+      thumbnailUrl: safeStudyImageUrl(item['thumbnailUrl']) || url,
+      title: normalizeClinicalText(item['title'], 255) || 'Imagen de estudio',
+      studyId: text(item['studyId']),
+      imageId: text(item['imageId']),
+      versionId: text(item['versionId']) || 'original',
+      annotated: typeof item['annotated'] === 'boolean' ? item['annotated'] : Boolean(text(item['versionId']) && text(item['versionId']) !== 'original'),
+      studyDate: text(item['studyDate']),
+      studyType: normalizeClinicalText(item['studyType'], 255) || 'Imagen',
+      caption: normalizeClinicalText(item['caption']),
+      templateSource: Object.keys(templateSource).length ? structuredClone(templateSource) : null,
+      audit: Object.keys(audit).length ? structuredClone(audit) : null,
+      createdAt: text(item['createdAt']) || text(audit['at'])
+    }];
+  });
+}
+
 export function buildEvolutionRecord(draft: EvolutionEntryDraft, audit: ClinicalAuditStamp): ClinicalRecord {
   const body = normalizeClinicalText(draft.text);
   if (!body) throw new Error('La evolución no puede estar vacía.');
   const specialty = normalizeClinicalText(draft.specialty, 255) || 'Oncología';
+  const attachments = normalizeEvolutionAttachments(draft.attachments)
+    .map((attachment) => ({ ...attachment, caption: attachment.caption || body }));
   return { id: draft.id, date: draft.date, datePrecision: 'day',
     author: normalizeClinicalText(draft.author, 255) || audit.lastName,
     reason: specialty, specialty, text: body, type: 'evolution', category: 'evolution',
+    attachments,
+    linkedStudyIds: [...new Set(attachments.map((attachment) => attachment.studyId).filter(Boolean))],
     highlighted: false, immutable: false, audit, createdAt: audit.at, updatedAt: audit.at };
 }
 
@@ -208,6 +241,23 @@ export function applyDiagnosisRecord(state: ClinicalState, diagnosis: DiagnosisR
   const oncology = recordObject(next.oncology);
   const source = Array.isArray(oncology['diagnosisRecords']) ? oncology['diagnosisRecords'] as unknown[] : [];
   const records = source.map(recordObject);
+  if (!source.length) {
+    const aliases = Array.isArray(oncology['diagnoses']) ? oncology['diagnoses'] as unknown[] : [];
+    for (const value of aliases) {
+      const item = recordObject(value);
+      const id = text(item['id'] || item['diagnosisEntryId']);
+      if (!id || !records.some((record) => text(record['id'] || record['diagnosisEntryId']) === id)) records.push(item);
+    }
+    const legacy = legacyClinicalDiagnosisRecord(next);
+    if (legacy) {
+      const snapshot = clinicalDiagnosisEntry(legacy);
+      const represented = records.some((item) => {
+        const existing = clinicalDiagnosisEntry(item);
+        return existing.key === snapshot.key || existing.date === snapshot.date && existing.evolutionText === snapshot.evolutionText;
+      });
+      if (!represented) records.push(legacy as JsonRecord);
+    }
+  }
   const existing = records.find((item) => text(item['id']) === diagnosis.id);
   if (existing && diagnosisFingerprint(existing) !== diagnosisFingerprint(diagnosis)) throw new Error('Ese identificador de diagnóstico ya pertenece a otro contenido.');
   if (!existing) records.push(structuredClone(diagnosis) as unknown as JsonRecord);
@@ -228,17 +278,7 @@ export function applyDiagnosisRecord(state: ClinicalState, diagnosis: DiagnosisR
 }
 
 export function diagnosisPlainText(diagnosis: DiagnosisRecord): string {
-  const classification = diagnosis.diagnosticClassifications;
-  const tnm = record(diagnosis.tnm);
-  let t = text(tnm['t']); const prefix = text(tnm['prefix']);
-  if (t && !/^(?:c|p|yc|yp|r)T/i.test(t)) t = `${prefix || 'c'}${t}`;
-  const axes = [t, text(tnm['n']), text(tnm['m'])].filter(Boolean).join(' ');
-  return [diagnosis.diagnosis && `Diagnóstico oncológico: ${diagnosis.diagnosis}.`,
-    diagnosis.topography && `Topografía: ${diagnosis.topography}.`,
-    classification.snomed.code && `SNOMED CT ${classification.snomed.code}: ${classification.snomed.display}.`,
-    classification.cie10.code && `CIE-10 ${classification.cie10.code}: ${classification.cie10.display}.`,
-    classification.ajcc.display && `AJCC: ${classification.ajcc.display}.`, axes && `TNM ${axes}.`,
-    diagnosis.stage && `Estadio ${diagnosis.stage}.`].filter(Boolean).join(' ');
+  return clinicalDiagnosisEntry(diagnosis).evolutionText;
 }
 
 export function normalizeClassification(value: unknown, system: DiagnosisSystem): DiagnosisClassification {

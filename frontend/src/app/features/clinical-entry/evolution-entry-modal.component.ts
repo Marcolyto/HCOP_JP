@@ -3,8 +3,8 @@ import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { ClinicalDraftHandle, ClinicalDraftRegistryService } from '../../core/patients/clinical-draft-registry.service';
 import { PatientWorkspaceService } from '../../core/patients/patient-workspace.service';
-import { ClinicalEntrySaveResult, EvolutionEntryDraft } from './clinical-entry.models';
-import { localIsoDate, newClinicalEntryId, normalizeClinicalText } from './clinical-entry.normalizers';
+import { ClinicalEntrySaveResult, EvolutionEntryDraft, EvolutionImageAttachment } from './clinical-entry.models';
+import { localIsoDate, newClinicalEntryId, normalizeClinicalText, normalizeEvolutionAttachments } from './clinical-entry.normalizers';
 import { ClinicalEntryService, normalizeEntryFailure } from './clinical-entry.service';
 
 @Component({
@@ -30,6 +30,7 @@ export class EvolutionEntryModalComponent implements OnDestroy {
   readonly author = signal('');
   readonly specialty = signal('Oncología');
   readonly text = signal('');
+  readonly attachments = signal<readonly EvolutionImageAttachment[]>([]);
   readonly busy = signal(false);
   readonly error = signal('');
   readonly discardPrompt = signal(false);
@@ -66,6 +67,14 @@ export class EvolutionEntryModalComponent implements OnDestroy {
     this.markDirty();
   }
 
+  removeAttachment(index: number): void {
+    if (this.busy() || !this.entries.canEdit()) return;
+    this.attachments.update((items) => items.filter((_, itemIndex) => itemIndex !== index));
+    this.error.set('');
+    this.discardPrompt.set(false);
+    this.markDirty();
+  }
+
   requestClose(): void {
     if (this.busy()) return;
     if (this.draftHandle && this.drafts.isDirty(this.draftHandle)) {
@@ -84,7 +93,8 @@ export class EvolutionEntryModalComponent implements OnDestroy {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(this.date())) { this.error.set('Complete una fecha válida.'); return; }
     if (!normalizeClinicalText(this.text())) { this.error.set('Escriba la evolución clínica antes de guardar.'); return; }
     const draft: EvolutionEntryDraft = {
-      id: this.id(), date: this.date(), author: this.author(), specialty: this.specialty(), text: this.text()
+      id: this.id(), date: this.date(), author: this.author(), specialty: this.specialty(), text: this.text(),
+      attachments: this.attachments()
     };
     this.busy.set(true); this.error.set(''); this.discardPrompt.set(false);
     try {
@@ -104,7 +114,9 @@ export class EvolutionEntryModalComponent implements OnDestroy {
     this.author.set(initial?.author || this.entries.professionalName());
     this.specialty.set(initial?.specialty || 'Oncología');
     this.text.set(initial?.text || '');
+    this.attachments.set(normalizeEvolutionAttachments(initial?.attachments));
     this.error.set(''); this.discardPrompt.set(false); this.busy.set(false);
+    if (this.attachments().length || normalizeClinicalText(this.text())) this.markDirty();
   }
 
   private markDirty(): void {

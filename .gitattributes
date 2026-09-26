@@ -25,3 +25,4 @@
 *.pptx binary
 *.mp4 binary
 *.ttf binary
+docs/actualizacion-estudios-diagnostico/*.patch -text -whitespace

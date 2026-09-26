@@ -29,6 +29,7 @@ const suites = [
   'src/app/core/highlighting/clinical-highlight.engine.tests.ts',
   'src/app/features/research/research.models.tests.ts',
   'src/app/features/clinical-inbox/clinical-inbox.models.tests.ts',
+  'src/app/features/clinical-inbox/clinical-inbox.component.tests.ts',
   'src/app/features/configuration/protocols/protocol-configuration.normalizers.tests.ts',
   'src/app/features/configuration/catalogs/configuration-catalogs.normalizers.tests.ts',
   'src/app/features/configuration/operations/configuration-operations.normalizers.tests.ts',
@@ -41,6 +42,7 @@ const suites = [
   'src/app/features/day-hospital/day-hospital-pharmacy.models.tests.ts',
   'src/app/features/day-hospital/day-hospital-treatment.models.tests.ts',
   'src/app/features/scheduler/care-scheduler.models.tests.ts',
+  'src/app/features/scheduler/care-scheduler-grid.models.tests.ts',
   'src/app/features/study-template-editor/study-template-editor.geometry.tests.ts',
   'src/app/features/agent/agent-presentation.tests.ts'
 ];

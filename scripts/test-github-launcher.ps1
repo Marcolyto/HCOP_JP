@@ -204,6 +204,183 @@ try {
   }
 }
 
+$stoppedServiceDiscovery = & {
+  . (Join-Path $projectRoot "scripts\hcop-data-common.ps1")
+  $fixtureId = "b" * 64
+  $fixtureState = "running"
+  function Invoke-HcopCompose {
+    param($Deployment, [string[]]$Arguments, [switch]$Capture)
+    if ($Arguments[0] -ne "ps" -or $Arguments -notcontains "-q" -or
+        $Arguments[-1] -ne "application" -or -not $Capture) {
+      throw "La búsqueda del contenedor debe consultar únicamente el servicio solicitado."
+    }
+    # Compose excludes stopped and newly created containers unless --all is requested.
+    if ($fixtureState -eq "missing") { return "" }
+    if ($fixtureState -eq "running" -or $Arguments -contains "--all") { return $fixtureId }
+    return ""
+  }
+  foreach ($fixtureState in @("running", "exited", "created")) {
+    $resolvedId = Get-HcopServiceContainer ([pscustomobject]@{}) "application"
+    if ($resolvedId -ne $fixtureId) {
+      throw "No se reconoció el contenedor de aplicación en estado $fixtureState."
+    }
+  }
+  $fixtureState = "missing"
+  $missingRejected = $false
+  try { Get-HcopServiceContainer ([pscustomobject]@{}) "application" | Out-Null }
+  catch { $missingRejected = $true }
+  if (-not $missingRejected) { throw "Una aplicación inexistente no debe tratarse como creada." }
+  return $true
+}
+
+$dataOperationSafety = & {
+  . (Join-Path $projectRoot "scripts\hcop-data-common.ps1")
+  $safetyRoot = Join-Path ([IO.Path]::GetTempPath()) ("hcop-data-safety-" + [guid]::NewGuid().ToString("N"))
+  $ownerLock = $null
+  $otherLock = $null
+  $reopenedLock = $null
+  $dockerCalls = [pscustomobject]@{ Count = 0 }
+  function docker { $dockerCalls.Count++; throw "La prueba aislada no permite ejecutar Docker." }
+  try {
+    New-Item -ItemType Directory -Path $safetyRoot | Out-Null
+    $otherRoot = Join-Path $safetyRoot "other-installation"
+    $fixtureBackup = Join-Path $safetyRoot "fixture-backup"
+    New-Item -ItemType Directory -Path $otherRoot,$fixtureBackup | Out-Null
+    [IO.File]::WriteAllText((Join-Path $safetyRoot "compose.yaml"), "services: {}")
+    $deploymentFixture = [pscustomobject]@{ Root = $safetyRoot }
+    $otherDeployment = [pscustomobject]@{ Root = $otherRoot }
+    $manifestFixture = @{
+      schemaVersion = 1
+      files = @{ database = @{ name = "database.dump" }; storage = @{ name = "storage.tar.gz" } }
+    }
+    Assert-HcopBackupManifest $manifestFixture
+    foreach ($part in @("database", "storage")) {
+      $originalName = $manifestFixture.files[$part].name
+      foreach ($invalidName in @("../outside", "storage.tar.gz;echo unsafe", "nested/storage.tar.gz", "DATABASE.DUMP", "")) {
+        $manifestFixture.files[$part].name = $invalidName
+        $rejected = $false
+        try { Assert-HcopBackupManifest $manifestFixture } catch { $rejected = $true }
+        if (-not $rejected) { throw "El manifiesto aceptó un nombre de archivo no previsto." }
+      }
+      $manifestFixture.files[$part].name = $originalName
+      $fixtureFile = Join-Path $fixtureBackup $originalName
+      [IO.File]::WriteAllText($fixtureFile, "synthetic-backup-fixture")
+      $manifestFixture.files[$part].sha256 = (Get-FileHash -LiteralPath $fixtureFile -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+    [IO.File]::WriteAllText((Join-Path $fixtureBackup "manifest.json"), ($manifestFixture | ConvertTo-Json -Depth 5))
+
+    $ownerLock = New-HcopDataOperationLock $deploymentFixture
+    $borrowedLock = New-HcopDataOperationLock $deploymentFixture -ExistingLock $ownerLock.Handle
+    if ($borrowedLock.Owned) { throw "El respaldo de seguridad no debe apropiarse del bloqueo de restauración." }
+    Close-HcopDataOperationLock $borrowedLock
+    if (-not $ownerLock.Handle.CanWrite) { throw "El respaldo anidado liberó el bloqueo de restauración." }
+
+    $otherLock = New-HcopDataOperationLock $otherDeployment
+    $wrongInstallationRejected = $false
+    try { New-HcopDataOperationLock $deploymentFixture -ExistingLock $otherLock.Handle | Out-Null }
+    catch { $wrongInstallationRejected = $true }
+    if (-not $wrongInstallationRejected) { throw "Se aceptó un bloqueo de otra instalación." }
+
+    foreach ($operation in @("backup", "restore")) {
+      $blocked = $false
+      try {
+        if ($operation -eq "backup") {
+          & (Join-Path $PSScriptRoot "backup-hcop.ps1") -ProjectRoot $safetyRoot -OutputDirectory (Join-Path $safetyRoot "alternate-output") | Out-Null
+        } else {
+          & (Join-Path $PSScriptRoot "restore-hcop.ps1") -ProjectRoot $safetyRoot -BackupDirectory $fixtureBackup -ConfirmRestore | Out-Null
+        }
+      } catch {
+        $blocked = $_.Exception.Message -like "Ya hay otra operación de backup o restauración*"
+      }
+      if (-not $blocked) { throw "Una segunda operación $operation no respetó el bloqueo de la instalación." }
+    }
+    if ($dockerCalls.Count -ne 0 -or
+        (Test-Path -LiteralPath (Join-Path $safetyRoot "alternate-output")) -or
+        (Test-Path -LiteralPath (Join-Path $safetyRoot "backups"))) {
+      throw "La operación bloqueada intentó modificar archivos o ejecutar Docker."
+    }
+    Close-HcopDataOperationLock $ownerLock
+    $releasedRejected = $false
+    try { New-HcopDataOperationLock $deploymentFixture -ExistingLock $ownerLock.Handle | Out-Null }
+    catch { $releasedRejected = $true }
+    if (-not $releasedRejected) { throw "Se aceptó un bloqueo que ya estaba liberado." }
+    $ownerLock = $null
+    $reopenedLock = New-HcopDataOperationLock $deploymentFixture
+    return $true
+  } finally {
+    Close-HcopDataOperationLock $reopenedLock
+    Close-HcopDataOperationLock $otherLock
+    Close-HcopDataOperationLock $ownerLock
+    Remove-HcopSafeDirectory -Path $safetyRoot -AllowedRoot ([IO.Path]::GetTempPath())
+  }
+}
+
+$managedInstallerPath = Join-Path $projectRoot "scripts\instalar-desde-github.ps1"
+$managedTokens = $null
+$managedParseErrors = $null
+$managedAst = [Management.Automation.Language.Parser]::ParseFile(
+  $managedInstallerPath,
+  [ref]$managedTokens,
+  [ref]$managedParseErrors)
+if ($managedParseErrors.Count -gt 0) {
+  throw "El instalador administrado contiene errores de sintaxis: $($managedParseErrors.Message -join '; ')"
+}
+
+foreach ($name in @("Write-DataLauncherFile")) {
+  $definition = $managedAst.Find({
+    param($node)
+    $node -is [Management.Automation.Language.FunctionDefinitionAst] -and
+      $node.Name -eq $name
+  }, $true)
+  if ($null -eq $definition) {
+    throw "No se encontró la función administrada requerida $name."
+  }
+  Invoke-Expression $definition.Extent.Text
+}
+
+$writeLaunchersDefinition = $managedAst.Find({
+  param($node)
+  $node -is [Management.Automation.Language.FunctionDefinitionAst] -and
+    $node.Name -eq "Write-Launchers"
+}, $true)
+if ($null -eq $writeLaunchersDefinition -or
+    $writeLaunchersDefinition.Extent.Text -notmatch 'Respaldar HCOP JP\.bat' -or
+    $writeLaunchersDefinition.Extent.Text -notmatch 'Restaurar HCOP JP\.bat') {
+  throw "La instalación administrada no crea los accesos de backup y restauración."
+}
+
+$dataLauncherTestRoot = Join-Path `
+  ([IO.Path]::GetTempPath()) `
+  ("hcop-data-launcher-test-" + [guid]::NewGuid().ToString("N"))
+try {
+  New-Item -ItemType Directory -Path $dataLauncherTestRoot -Force | Out-Null
+  $backupLauncherPath = Join-Path $dataLauncherTestRoot "Respaldar HCOP JP.bat"
+  $restoreLauncherPath = Join-Path $dataLauncherTestRoot "Restaurar HCOP JP.bat"
+  Write-DataLauncherFile $backupLauncherPath "Backup" "Backup completado."
+  Write-DataLauncherFile $restoreLauncherPath "Restore" "Restauración completada."
+  $backupLauncher = [IO.File]::ReadAllText($backupLauncherPath)
+  $restoreLauncher = [IO.File]::ReadAllText($restoreLauncherPath)
+  if ($backupLauncher -notmatch '-Mode Backup' -or
+      $restoreLauncher -notmatch '-Mode Restore' -or
+      $backupLauncher -notmatch '-InstallDir "%~dp0"' -or
+      $restoreLauncher -notmatch '-InstallDir "%~dp0"') {
+    throw "Los accesos de datos no delegan en el instalador y la carpeta instalados."
+  }
+  $launcherText = "$backupLauncher`n$restoreLauncher"
+  if ($launcherText -match '(?i)HCOP_(?:DB_PASSWORD|QR_SECRET|ENCRYPTION_SECRET)|\.env') {
+    throw "Un acceso de backup o restauración expone secretos o referencia .env."
+  }
+} finally {
+  if (Test-Path -LiteralPath $dataLauncherTestRoot) {
+    Remove-Item -LiteralPath $dataLauncherTestRoot -Recurse -Force
+  }
+}
+
+$managedValidation = & $managedInstallerPath -Mode ValidateOnly | ConvertFrom-Json
+if ($managedValidation.ok -ne $true) {
+  throw "La validación estática del instalador administrado no fue satisfactoria."
+}
+
 $validation = & $launcherPath -Mode ValidateOnly | ConvertFrom-Json
 if ($validation.ok -ne $true) {
   throw "La validación estática del lanzador no fue satisfactoria."
@@ -241,4 +418,9 @@ if ([int]$migrationValidation.defaultPort -ne 5181 -or
   staticValidation = $validation.ok
   migrationStaticValidation = $migrationValidation.ok
   migrationIsolation = $true
+  managedInstallerValidation = $managedValidation.ok
+  stoppedAndCreatedServiceDiscovery = $stoppedServiceDiscovery
+  fixedBackupNamesAndSharedOperationLock = $dataOperationSafety
+  managedBackupRestoreLaunchers = $true
+  dataLaunchersDoNotExposeEnvironment = $true
 } | ConvertTo-Json -Depth 5

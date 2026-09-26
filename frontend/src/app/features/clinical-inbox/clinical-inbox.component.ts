@@ -10,7 +10,8 @@ import {
   inject,
   input,
   output,
-  signal
+  signal,
+  untracked
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -27,7 +28,8 @@ import {
 import {
   ClinicalInboxService,
   clinicalInboxApiMessage,
-  clinicalInboxIsUnauthorized
+  clinicalInboxIsUnauthorized,
+  clinicalInboxRefreshMessage
 } from './clinical-inbox.service';
 
 @Component({
@@ -64,6 +66,17 @@ export class ClinicalInboxComponent implements OnDestroy {
     this.items().find((item) => item.id === this.activeId()) ?? null
   );
   readonly pendingCount = computed(() => this.items().length);
+  readonly buttonLabel = computed(() => {
+    const count = this.pendingCount();
+    if (this.refreshError()) return count
+      ? `Solicitudes clínicas: ${count} pendientes; actualización pendiente. Abrir y reintentar.`
+      : 'Solicitudes clínicas: actualización pendiente. Reintentar.';
+    if (this.loading() && !count) return 'Consultando solicitudes clínicas';
+    return count
+      ? `Abrir ${count} ${count === 1 ? 'solicitud clínica pendiente' : 'solicitudes clínicas pendientes'}`
+      : 'Sin solicitudes clínicas pendientes';
+  });
+  private readonly sessionUserId = computed(() => this.auth.session()?.user?.id ?? '');
   readonly unseenCount = computed(() => this.items().filter((item) => !item.seen).length);
   readonly canReceiveTasks = computed(() => {
     const session = this.auth.session();
@@ -98,17 +111,20 @@ export class ClinicalInboxComponent implements OnDestroy {
     effect(() => {
       const allowed = this.canReceiveTasks();
       const interval = Math.max(5_000, this.pollIntervalMs());
-      this.stopPolling();
-      if (!allowed) {
+      const autoOpen = this.autoOpen();
+      this.sessionUserId();
+      // Loading and inbox contents must not become dependencies of the polling setup.
+      untracked(() => {
+        this.stopPolling();
         this.resetForClosedSession();
-        return;
-      }
-      this.autoOpenPending = this.autoOpen();
-      void this.refresh({ openFirst: this.autoOpen() });
-      this.pollTimer = window.setInterval(
-        () => void this.refresh({ openFirst: this.autoOpen() }),
-        interval
-      );
+        if (!allowed) return;
+        this.autoOpenPending = autoOpen;
+        void this.refresh({ openFirst: autoOpen });
+        this.pollTimer = window.setInterval(
+          () => void this.refresh({ openFirst: autoOpen }),
+          interval
+        );
+      });
     });
 
     effect(() => this.pendingCountChanged.emit(this.pendingCount()));
@@ -129,9 +145,17 @@ export class ClinicalInboxComponent implements OnDestroy {
   }
 
   async openInbox(explicit = true, itemId = ''): Promise<void> {
-    if (!this.canReceiveTasks() || this.resolving()) return;
+    if (!this.canReceiveTasks() || this.resolving() || this.modalBlocked()) return;
+    if (this.loading() && !this.items().length) return;
     if (explicit) this.autoOpenPending = false;
-    if (!this.items().length && explicit) await this.refresh({ openFirst: false });
+    if (explicit && (!this.items().length || this.refreshError())) {
+      const updated = await this.refresh({ openFirst: false });
+      if (!this.canReceiveTasks() || this.modalBlocked()) return;
+      if (!updated && !this.items().length) {
+        if (this.refreshError()) this.notification.emit(this.refreshError());
+        return;
+      }
+    }
     const item = this.items().find((entry) => entry.id === itemId) ?? this.items()[0];
     if (!item) {
       if (explicit) this.notification.emit('No hay solicitudes clínicas pendientes');
@@ -144,6 +168,10 @@ export class ClinicalInboxComponent implements OnDestroy {
     this.autoOpenPending = false;
     window.setTimeout(() => this.resolutionSelect?.nativeElement.focus(), 0);
     if (!item.seen) this.markActiveSeen(item);
+  }
+
+  async retryRefresh(): Promise<void> {
+    await this.refresh({ openFirst: false });
   }
 
   close(): void {
@@ -203,7 +231,7 @@ export class ClinicalInboxComponent implements OnDestroy {
         }, 250);
       }
     } catch (error) {
-      if (clinicalInboxIsUnauthorized(error)) this.sessionExpired.emit();
+      if (clinicalInboxIsUnauthorized(error)) this.expireSession();
       this.error.set(clinicalInboxApiMessage(error, 'No se pudo registrar la decisión.'));
     } finally {
       this.resolving.set(false);
@@ -258,13 +286,13 @@ export class ClinicalInboxComponent implements OnDestroy {
     }).format(date)}`;
   }
 
-  private async refresh({ openFirst }: { openFirst: boolean }): Promise<void> {
-    if (!this.canReceiveTasks() || this.loading() || this.resolving()) return;
+  private async refresh({ openFirst }: { openFirst: boolean }): Promise<boolean> {
+    if (!this.canReceiveTasks() || this.loading() || this.resolving()) return false;
     const version = ++this.loadVersion;
     this.loading.set(true);
     try {
       const page = await firstValueFrom(this.inbox.load());
-      if (version !== this.loadVersion) return;
+      if (version !== this.loadVersion) return false;
       this.refreshError.set('');
       const items = page.items.filter((item) =>
         item.status === 'pending' && this.auth.hasPermission(clinicalInboxPermission(item.type))
@@ -273,17 +301,15 @@ export class ClinicalInboxComponent implements OnDestroy {
       if (this.open() && !items.some((item) => item.id === this.activeId())) this.close();
       this.autoOpenPending ||= openFirst;
       this.tryAutoOpen();
+      return true;
     } catch (error) {
-      if (version !== this.loadVersion) return;
+      if (version !== this.loadVersion) return false;
       if (clinicalInboxIsUnauthorized(error)) {
-        this.resetForClosedSession();
-        this.sessionExpired.emit();
+        this.expireSession();
       } else {
-        this.refreshError.set(clinicalInboxApiMessage(
-          error,
-          'No se pudieron actualizar las solicitudes clínicas. Se conservan los datos visibles.'
-        ));
+        this.refreshError.set(clinicalInboxRefreshMessage(error));
       }
+      return false;
     } finally {
       if (version === this.loadVersion) this.loading.set(false);
     }
@@ -308,7 +334,7 @@ export class ClinicalInboxComponent implements OnDestroy {
     ));
     this.inbox.markSeen(item.id).subscribe({
       error: (error) => {
-        if (clinicalInboxIsUnauthorized(error)) this.sessionExpired.emit();
+        if (clinicalInboxIsUnauthorized(error)) this.expireSession();
       }
     });
   }
@@ -329,12 +355,20 @@ export class ClinicalInboxComponent implements OnDestroy {
 
   private resetForClosedSession(): void {
     this.loadVersion += 1;
+    this.loading.set(false);
     this.items.set([]);
     this.open.set(false);
     this.activeId.set('');
     this.autoOpenPending = false;
     this.refreshError.set('');
     this.resetDecision();
+  }
+
+  private expireSession(): void {
+    this.stopPolling();
+    this.resetForClosedSession();
+    this.auth.expireSession();
+    this.sessionExpired.emit();
   }
 
   private stopPolling(): void {

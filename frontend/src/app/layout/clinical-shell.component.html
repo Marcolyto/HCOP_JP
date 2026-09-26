@@ -136,7 +136,7 @@
           <div class="paper-clinical-search" [class.open]="searchExpanded()" [class.has-query]="!!historySearchQuery().trim()"><button class="icon-button clinical-search-toggle" type="button" title="Buscar en la historia" aria-label="Buscar palabras en la historia clínica" [attr.aria-expanded]="searchExpanded()" [attr.data-match-count]="historySearchMatches()" (click)="toggleHistorySearch()">⌕</button>@if (searchExpanded()) { <input #clinicalSearchInput type="search" [value]="historySearchQuery()" placeholder="Buscar en la historia..." autocomplete="off" aria-label="Buscar en la historia clínica" (input)="updateHistorySearch($any($event.target).value)"> }</div>
           <button class="icon-button clinical-highlighter-button" type="button" title="Resaltar texto" [disabled]="hasPendingConflict()" hcopClinicalHighlightAction="highlight">▰</button>
           <button class="icon-button clinical-unhighlight-button" type="button" title="Quitar resaltado" [disabled]="hasPendingConflict()" hcopClinicalHighlightAction="remove">⌫</button>
-          <button class="icon-button clinical-close-patient-button" type="button" title="Cerrar paciente" [disabled]="!patientWorkspace.workspace() || hasPendingConflict()" (click)="closePatient()">×</button>
+          <button class="icon-button clinical-close-patient-button" type="button" title="Cerrar paciente" aria-label="Cerrar paciente" [disabled]="!patientWorkspace.workspace() || hasPendingConflict()" (click)="closePatient()">×</button>
         </div>
       </div>
       <div class="panel-scroll paper-area"><app-clinical-workspace [printTimestamp]="printTimestamp()" (studiesRequested)="openStudies($event)" /></div>

@@ -19,3 +19,7 @@ compose*.yaml
 *.md
 *.log
 .env
+/config/study-repositories.env
+/external-studies.env
+/backups/
+/.hcop-data.lock

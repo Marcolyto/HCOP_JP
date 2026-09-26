@@ -21,15 +21,21 @@
   }
   &:disabled { cursor: not-allowed; opacity: .55; }
   &.has-pending { border-color: #86c9ec; background: #edf8fe; color: #087fc4; }
-  &.has-error { border-color: #d2767f; background: #fff4f5; color: #b63d49; }
+  &.has-error { border-color: #cdb779; background: #fffcf3; color: #846b2c; }
   > svg { width: 16px; height: 16px; }
 }
 
-.clinical-inbox-refresh-error {
-  max-width: 260px;
-  color: #a33b46;
-  font-size: 9px;
-  line-height: 1.25;
+.clinical-inbox-refresh-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #e2d4ad;
+  background: #fffcf3;
+  padding: 9px 11px;
+  color: #786230;
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .clinical-inbox-count {

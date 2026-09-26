@@ -321,8 +321,12 @@ Todos viven en `scripts/`:
 | `guide-contract-test.ps1` | Contrato real del módulo Guías y descarga binaria |
 | `generate-api-docs.ps1` | Genera o compara Markdown y HTML de endpoints |
 | `verify-documentation.ps1` | Enlaces, páginas públicas y calidad OpenAPI |
-| `test-github-launcher.ps1` | Compatibilidad PowerShell y aislamiento de canales |
+| `test-github-launcher.ps1` | Compatibilidad PowerShell, aislamiento de canales y accesos administrados de backup/restauración |
 | `instalar-desde-github.ps1` | Instalación administrada, preflight y recuperación |
+| `hcop-data-common.ps1` | Resolución segura del despliegue y operaciones Docker compartidas |
+| `backup-hcop.ps1` | Copia consistente de PostgreSQL, storage y manifiesto SHA-256 |
+| `restore-hcop.ps1` | Restauración confirmada con backup previo y comprobación de salud |
+| `test-backup-restore.ps1` | Ensayo destructivo aislado de copia y recuperación completa |
 
 ## Índice de todos los Markdown
 

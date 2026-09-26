@@ -4,19 +4,19 @@
     [class.has-pending]="pendingCount() > 0"
     [class.has-error]="!!refreshError()"
     type="button"
-    [title]="pendingCount() ? pendingCount() + (pendingCount() === 1 ? ' solicitud clínica pendiente' : ' solicitudes clínicas pendientes') : 'Sin solicitudes clínicas pendientes'"
-    [attr.aria-label]="pendingCount() ? 'Abrir ' + pendingCount() + (pendingCount() === 1 ? ' solicitud clínica pendiente' : ' solicitudes clínicas pendientes') : 'Sin solicitudes clínicas pendientes'"
+    [title]="buttonLabel()"
+    [attr.aria-label]="buttonLabel()"
+    [attr.aria-busy]="loading()"
     aria-haspopup="dialog"
     aria-controls="angularClinicalInboxModal"
     [attr.data-unseen-count]="unseenCount()"
-    [disabled]="modalBlocked() || resolving()"
+    [disabled]="modalBlocked() || resolving() || (loading() && !pendingCount())"
     (click)="openInbox(true)">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12H7l-3 3V4Zm4 4h8M8 12h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     @if (pendingCount()) {
       <span class="clinical-inbox-count" [attr.aria-label]="pendingCount() + (pendingCount() === 1 ? ' solicitud pendiente' : ' solicitudes pendientes')">{{ pendingCount() > 99 ? '99+' : pendingCount() }}</span>
     }
   </button>
-  @if (refreshError()) { <span class="clinical-inbox-refresh-error" role="alert">{{ refreshError() }}</span> }
 }
 
 @if (open() && activeItem(); as item) {
@@ -41,6 +41,12 @@
         </header>
 
         <div class="clinical-inbox-body">
+          @if (refreshError()) {
+            <div class="clinical-inbox-refresh-status is-wide" role="status">
+              <span>{{ refreshError() }}</span>
+              <button class="tool-button" type="button" [disabled]="loading() || resolving()" (click)="retryRefresh()">{{ loading() ? 'Actualizando…' : 'Reintentar' }}</button>
+            </div>
+          }
           <section class="clinical-inbox-summary" aria-label="Resumen de la solicitud">
             <div>
               <span>Paciente</span>

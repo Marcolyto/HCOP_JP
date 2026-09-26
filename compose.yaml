@@ -1,5 +1,11 @@
 name: hcop-jp
 
+x-logging: &hcop-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   database:
     image: ${HCOP_POSTGRES_IMAGE:-postgres:18.4-alpine}
@@ -19,8 +25,11 @@ services:
       start_period: 10s
     networks:
       - hcop_internal
+    logging: *hcop-logging
 
   application:
+    env_file:
+      - ${HCOP_STUDY_REPOSITORIES_ENV_FILE:-./config/study-repositories.env}
     build:
       context: .
       dockerfile: Dockerfile
@@ -57,6 +66,7 @@ services:
     networks:
       - hcop_internal
       - hcop_egress
+    logging: *hcop-logging
 
 volumes:
   hcop_postgres:

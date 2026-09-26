@@ -65,3 +65,13 @@ export function clinicalInboxApiMessage(
 export function clinicalInboxIsUnauthorized(error: unknown): boolean {
   return error instanceof HttpErrorResponse && error.status === 401;
 }
+
+export function clinicalInboxRefreshMessage(error: unknown): string {
+  if (error instanceof HttpErrorResponse) {
+    if ([0, 502, 503, 504].includes(error.status)) {
+      return 'No se pudo conectar con el servidor. Volvé a intentar.';
+    }
+    if (error.status === 403) return 'No tenés permiso para consultar las solicitudes clínicas.';
+  }
+  return 'No se pudieron cargar las solicitudes. Volvé a intentar.';
+}

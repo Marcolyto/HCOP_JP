@@ -1,6 +1,4 @@
 import { CanDeactivateFn, Routes } from '@angular/router';
-import { ClinicalShellComponent } from './layout/clinical-shell.component';
-import { LoginPageComponent } from './features/auth/login-page.component';
 import { pendingClinicalDraftGuard } from './core/patients/pending-clinical-draft.guard';
 import { authenticatedGuard } from './core/auth/authenticated.guard';
 
@@ -8,7 +6,11 @@ const pendingConfigurationChangesGuard: CanDeactivateFn<{ canDeactivate: () => b
   component.canDeactivate();
 
 export const routes: Routes = [
-  { path: 'login', component: LoginPageComponent, title: 'Ingresar · HCOP Centro Oncologico' },
+  {
+    path: 'login',
+    loadComponent: () => import('./features/auth/login-page.component').then((module) => module.LoginPageComponent),
+    title: 'Ingresar · HCOP Centro Oncologico'
+  },
   {
     path: 'configuration',
     canActivate: [authenticatedGuard],
@@ -24,12 +26,18 @@ export const routes: Routes = [
   },
   {
     path: 'herramientas',
-    component: ClinicalShellComponent,
+    loadComponent: () => import('./layout/clinical-shell.component').then((module) => module.ClinicalShellComponent),
     canActivate: [authenticatedGuard],
     canDeactivate: [pendingClinicalDraftGuard],
     data: { initialPane: 'tools' },
     title: 'Herramientas · HCOP Centro Oncologico'
   },
-  { path: '', component: ClinicalShellComponent, canActivate: [authenticatedGuard], canDeactivate: [pendingClinicalDraftGuard], title: 'HCOP Centro Oncologico' },
+  {
+    path: '',
+    loadComponent: () => import('./layout/clinical-shell.component').then((module) => module.ClinicalShellComponent),
+    canActivate: [authenticatedGuard],
+    canDeactivate: [pendingClinicalDraftGuard],
+    title: 'HCOP Centro Oncologico'
+  },
   { path: '**', redirectTo: '' }
 ];
